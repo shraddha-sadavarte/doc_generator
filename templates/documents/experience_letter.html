@@ -1,0 +1,116 @@
+<div class="experience-letter" style="font-family: 'Arial', sans-serif; max-width: 800px; margin: 0 auto; padding: 30px; position: relative;">
+
+    <!-- Watermark -->
+    <div style="position: absolute; opacity: 0.08; font-size: 120px; transform: rotate(-30deg); top: 30%; left: 10%; z-index: -1; font-weight: bold; color: #0d6efd;">
+        {{ company.name }}
+    </div>
+
+    <!-- Letterhead -->
+    <div class="letter-header mb-4" style="border-bottom: 2px solid #0d6efd; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; gap: 3rem;">
+        
+        <!-- Logo -->
+        <div>
+            <img src="{{ url_for('static', filename='images/' + company.logo) }}" 
+                 alt="{{ company.name }} Logo" 
+                 style="height: 140px; max-width: 350px; object-fit: contain;">
+        </div>
+
+        <!-- Company Info -->
+        <div style="text-align: left; font-size: 14px; color: #555;">
+            <strong>Office:</strong> {{ company.address }}<br>
+            <strong>Phone:</strong> {{ company.phone }}<br>
+            <strong>Email:</strong> {{ company.email }}<br>
+            <strong>Website:</strong> {{ company.website }}
+        </div>
+    </div>
+
+    <!-- Date -->
+    <div style="text-align: right; margin-bottom: 30px;">
+        <strong>Date:</strong> {{ now.strftime('%d %B %Y') }}
+    </div>
+
+    <!-- Title -->
+    <h2 style="text-align: center; color: #0d6efd; margin-bottom: 30px;">
+        EXPERIENCE CERTIFICATE
+    </h2>
+
+    <!-- Employee Info -->
+    <div style="margin-bottom: 20px;">
+        <p style="font-weight: bold; margin-bottom: 5px;">{{ data.full_name }}</p>
+        <p style="margin-top: 0;">Employee ID: {{ "%04d"|format(employee.id) if employee else data.employee_id }}</p>
+    </div>
+
+    <!-- Content -->
+    <div style="text-align: justify; line-height: 1.8; font-size: 15px;">
+
+        <p>
+            This is to certify that <strong>{{ data.full_name }}</strong> was employed with 
+            <strong>{{ company.name }}</strong> as a 
+            <strong>{{ data.designation }}</strong>.
+        </p>
+
+        <p>
+            The employee worked with us from 
+            <strong>
+                {% if data.joining_date %}
+                    {{ data.joining_date.strftime('%d %B %Y') }}
+                {% else %}
+                    [Joining Date Not Available]
+                {% endif %}
+            </strong>
+            to 
+            <strong>
+                {% if data.resignation_date %}
+                    {{ data.resignation_date.strftime('%d %B %Y') }}
+                {% else %}
+                    Present
+                {% endif %}
+            </strong>.
+        </p>
+
+        <p>
+            During the tenure of employment, {{ data.full_name.split()[0] }} demonstrated
+            professionalism, dedication, and commitment towards assigned responsibilities.
+            The employee efficiently handled duties related to the role and maintained
+            good conduct and teamwork within the organization.
+        </p>
+
+        <p>
+            We found {{ data.full_name.split()[0] }} to be sincere, hardworking,
+            and a valuable contributor to the company. The services rendered
+            were satisfactory during the period of employment.
+        </p>
+
+        <p>
+            We wish {{ data.full_name.split()[0] }} all the very best for future
+            professional endeavors.
+        </p>
+
+    </div>
+
+    <!-- Signature -->
+    <div class="row mt-5" style="margin-top: 60px;">
+        <div class="col-md-6">
+
+            <div style="height: 80px; margin-bottom: 10px;">
+                {% if company.signature %}
+                    <img src="{{ url_for('static', filename='images/signatures/' + company.signature) }}" 
+                         alt="Authorized Signature" 
+                         style="height: 100px; max-width: 200px; object-fit: contain;">
+                {% endif %}
+            </div>
+
+            <p style="margin-bottom: 0;">
+                <strong>{{ company.hr_name }}</strong><br>
+                {{ company.hr_designation }}<br>
+                <strong>{{ company.name }}</strong>
+            </p>
+        </div>
+    </div>
+
+    <!-- Footer Note -->
+    <div style="margin-top: 40px; border-top: 1px solid #e0e0e0; padding-top: 10px; font-size: 12px; color: #777; text-align: center;">
+        *This is a system-generated document and does not require physical signature if digitally generated.
+    </div>
+
+</div>

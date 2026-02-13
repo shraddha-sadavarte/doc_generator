@@ -1,0 +1,91 @@
+<div class="relieving-letter" style="font-family: 'Arial', sans-serif; max-width: 800px; margin: 0 auto; padding: 30px; position: relative; background-color: white;">
+
+    <!-- Watermark -->
+    <div style="position: absolute; opacity: 0.05; font-size: 120px; transform: rotate(-25deg); top: 35%; left: 15%; z-index: 0; font-weight: bold; color: #0d6efd;">
+        {{ company.name }}
+    </div>
+
+    <!-- Letterhead -->
+    <div class="letter-header mb-4" style="border-bottom: 2px solid #0d6efd; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; gap: 3rem; position: relative; z-index: 1;">
+        
+        <div style="flex: 0 0 auto;">
+            <img src="{{ url_for('static', filename='images/' + company.logo) }}" 
+                 alt="{{ company.name }} Logo" 
+                 style="height: 120px; max-width: 400px; object-fit: contain;">
+        </div>
+        
+        <div style="flex: 1; text-align: left;">
+            <p style="color: #555; font-size: 14px; line-height: 1.6;">
+                <strong>Office:</strong> {{ company.address }}<br>
+                <strong>Phone:</strong> {{ company.phone }}<br>
+                <strong>Email:</strong> {{ company.email }}<br>
+                <strong>Website:</strong> {{ company.website }}<br>
+            </p>
+        </div>
+    </div>
+
+    <!-- Date -->
+    <p style="text-align: right; position: relative; z-index: 1;">
+        Date: {{ data.resignation_date.strftime('%d %B %Y') if data.resignation_date else '' }}
+    </p>
+
+    <!-- Title -->
+    <h2 style="text-align: center; color: #0d6efd; margin-bottom: 30px; position: relative; z-index: 1;">
+        RELIEVING LETTER
+    </h2>
+
+    <!-- Employee Info -->
+    <div style="margin-bottom: 20px; position: relative; z-index: 1;">
+        <p><strong>Employee Name:</strong> {{ data.full_name }}</p>
+        <p><strong>Employee ID:</strong> {{ data.employee_id }}</p>
+        <p><strong>Designation:</strong> {{ data.designation }}</p>
+    </div>
+
+    <!-- Letter Body -->
+    <div style="text-align: justify; line-height: 1.8; font-size: 15px; position: relative; z-index: 1;">
+        <p>
+            This is to formally acknowledge that <strong>{{ data.full_name }}</strong> 
+            has resigned from the position of <strong>{{ data.designation }}</strong> 
+            at <strong>{{ company.name }}</strong>.
+        </p>
+
+        <p>
+            The resignation has been accepted and the employee has been relieved 
+            from duties effective 
+            <strong>
+                {{ data.resignation_date.strftime('%d %B %Y') if data.resignation_date else '' }}
+            </strong>.
+        </p>
+
+        <p>
+            We confirm that all responsibilities have been handed over satisfactorily 
+            and there are no outstanding obligations pending with the organization.
+        </p>
+
+        <p>
+            We appreciate the services rendered during the tenure and wish 
+            {{ data.full_name.split(' ')[0] }} success in future professional endeavors.
+        </p>
+    </div>
+
+    <!-- Signature -->
+    <div style="margin-top: 60px; position: relative; z-index: 1;">
+        {% if company.signature %}
+        <img src="{{ url_for('static', filename='images/signatures/' + company.signature) }}" 
+             alt="Authorized Signature" 
+             style="height: 90px;">
+        {% endif %}
+
+        <p style="margin-top: 10px;">
+            <strong>{{ company.hr_name }}</strong><br>
+            {{ company.hr_designation }}<br>
+            {{ company.name }}
+        </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="margin-top: 50px; border-top: 1px solid #e0e0e0; padding-top: 10px; font-size: 12px; color: #777; text-align: center;">
+        This is a system generated document and does not require a physical signature.
+    </div>
+
+</div>
