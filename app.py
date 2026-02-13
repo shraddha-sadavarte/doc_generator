@@ -6,6 +6,7 @@ from config import COMPANIES
 from humanize import intword
 from inflect import engine as inflect_engine
 from xhtml2pdf import pisa
+from flask_sqlalchemy import SQLAlchemy
 import io
 import zipfile
 
@@ -13,8 +14,19 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'generated_docs'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 app.secret_key = 'your-secret-key-here'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///documents.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db= SQLAlchemy(app)
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+class Employee(db.Model):
+    id = db.Column(db.Integer, primary_key=True)  # Auto Increment
+    full_name = db.Column(db.String(100))
+    aadhar_no = db.Column(db.String(20))
+    designation = db.Column(db.String(100))
+    ctc = db.Column(db.Float)
 
 class PDF(FPDF, HTMLMixin):
     pass
@@ -78,7 +90,32 @@ def generate_pdf_file(form_data, company, doc_type):
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
+
+        full_name = request.form.get('full_name')
+        aadhar_no = request.form.get('aadhar_no')
+
+        #check if employee already exists in DB based on full name and aadhar number
+        existing_employee = Employee.query.filter_by(full_name=full_name, aadhar_no=aadhar_no).first()
+        if existing_employee:
+            #use existing employee ID for document generation
+            employee = existing_employee
+        else:
+            #create new employee record in DB
+            employee = Employee(
+                full_name=full_name,
+                aadhar_no=aadhar_no,
+                designation=request.form.get('designation'),
+                ctc=float(request.form.get('ctc', '0'))
+            )
+            db.session.add(employee)
+            db.session.commit()
+
+        # Generate employee ID from DB auto increment ID
+        employee_id = f"EMP{employee.id:04d}"
+
+        # Prepare form data
         form_data = {
+            'employee_id': employee_id,
             'company': request.form.get('company'),
             'document_type': request.form.get('document_type'),
             'full_name': request.form.get('full_name'),
@@ -110,9 +147,9 @@ def index():
 
         selected_months = request.form.getlist('months')
         selected_year = request.form.get('year')
+
         session['selected_months'] = selected_months
         session['selected_year'] = selected_year
-
         session['form_data'] = form_data
         session['documents_to_process'] = [form_data['document_type']]
 
@@ -128,6 +165,7 @@ def index():
 @app.route('/preview')
 def preview():
     form_data = session.get('form_data', {})
+    form_data['employee_id'] = session.get('employee_id')
     selected_months = session.get('selected_months', [])
     if not form_data:
         return redirect(url_for('index'))
@@ -200,6 +238,7 @@ def preview():
 @app.route('/preview_document/<doc_type>')
 def preview_document(doc_type):
     form_data = session.get('form_data', {})
+    form_data['employee_id'] = session.get('employee_id')
     selected_months = session.get('selected_months', [])
     if not form_data:
         return redirect(url_for('index'))

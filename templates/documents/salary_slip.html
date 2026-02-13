@@ -47,7 +47,12 @@
 
 {% set auto_emp_num = (range(100000, 999999) | random) %}
 <p style="margin: 5px 0;">
-    <strong>Employee ID:</strong> 
+    {% if data.document_type != 'offer_letter' %}
+        <p style="margin: 5px 0;">
+            <strong>Employee ID:</strong> {{ data.employee_id }}
+        </p>
+    {% endif %}
+
         <!-- <strong>Employee ID:</strong> EMP{{ auto_emp_num }} -->
 
 </p>
