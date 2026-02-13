@@ -1,23 +1,22 @@
-from flask import Flask, render_template, request, send_from_directory, redirect, url_for, jsonify, session, send_file
-from fpdf import FPDF, HTMLMixin
-import os
-from datetime import datetime, timedelta
-from config import COMPANIES
-from humanize import intword
-from inflect import engine as inflect_engine
-from xhtml2pdf import pisa
+from flask import Flask, render_template, request, redirect, url_for, session, send_file, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
+from xhtml2pdf import pisa
+from werkzeug.utils import secure_filename
+from datetime import datetime, timedelta
+import os
 import io
 import zipfile
 
+from config import COMPANIES
+
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'generated_docs'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
-app.secret_key = 'your-secret-key-here'
+app.secret_key = "super-secret-key"
+
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///documents.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = "generated_docs"
 
-db= SQLAlchemy(app)
+db = SQLAlchemy(app)
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -28,8 +27,10 @@ class Employee(db.Model):
     designation = db.Column(db.String(100))
     ctc = db.Column(db.Float)
 
-class PDF(FPDF, HTMLMixin):
-    pass
+def html_to_pdf(html_content, output_path):
+    with open(output_path, "w+b") as pdf_file:
+        result = pisa.CreatePDF(html_content, dest=pdf_file)
+    return not result.err
 
 @app.template_filter('humanize')
 def humanize_filter(value):
@@ -60,20 +61,6 @@ def convert_dates(form_data):
             except (ValueError, TypeError):
                 form_data[field] = None
     return form_data
-
-def html_to_pdf(html_content, output_filename):
-    try:
-        os.makedirs(os.path.dirname(output_filename), exist_ok=True)
-        with open(output_filename, "w+b") as output_file:
-            pisa_status = pisa.CreatePDF(
-                html_content,
-                dest=output_file,
-                encoding='utf-8'
-            )
-        return not pisa_status.err
-    except Exception as e:
-        print(f"Error creating PDF: {e}")
-        return False
 
 def generate_pdf_file(form_data, company, doc_type):
     template = f"templates/documents/{doc_type}.html"
@@ -165,7 +152,7 @@ def index():
 @app.route('/preview')
 def preview():
     form_data = session.get('form_data', {})
-    form_data['employee_id'] = session.get('employee_id')
+    
     selected_months = session.get('selected_months', [])
     if not form_data:
         return redirect(url_for('index'))
@@ -189,7 +176,7 @@ def preview():
     telephone = round(ctc * 0.02 / 12)
     monthly_ctc = round(ctc / 12)
     special_allowance = monthly_ctc - (basic + hra + conveyance + medical + telephone)
-    professional_tax = 2500
+    professional_tax = 200
     gross_salary = basic + hra + conveyance + medical + telephone + special_allowance
     total_deductions = professional_tax
     net_salary = gross_salary - total_deductions
@@ -238,7 +225,7 @@ def preview():
 @app.route('/preview_document/<doc_type>')
 def preview_document(doc_type):
     form_data = session.get('form_data', {})
-    form_data['employee_id'] = session.get('employee_id')
+    
     selected_months = session.get('selected_months', [])
     if not form_data:
         return redirect(url_for('index'))
@@ -308,123 +295,83 @@ def preview_document(doc_type):
     )
 
 @app.route('/generate', methods=['POST'])
-def generate_pdf():
-    form_data = session.get('form_data', {})
-    
-    if not form_data:
-        return redirect(url_for('index'))
+def generate():
 
-    form_data = convert_dates(form_data)
-    
-
-    if form_data.get('joining_date'):
-        date_before = get_previous_workday(form_data['joining_date'], 8)
-        form_data['date_before'] = date_before
-
-    company = next((c for c in COMPANIES if c['id'] == form_data['company']), None)
-    if not company:
-        return "Company not found", 404
-
-    if 'documents_to_process' in session:
-        filenames = []
-        for doc_type in session['documents_to_process']:
-            filename = generate_pdf_file(form_data, company, doc_type)
-            filenames.append(filename)
-        return send_from_directory(app.config['UPLOAD_FOLDER'], filenames[0], as_attachment=True)
-    else:
-        filename = generate_pdf_file(form_data, company, form_data['document_type'])
-        return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=True)
-
-@app.route('/generate_salary_slips', methods=['POST'])
-def generate_salary_slips():
-    form_data = session.get('form_data', {})
+    form_data = session.get('form_data')
     selected_months = session.get('selected_months', [])
+
     if not form_data:
         return redirect(url_for('index'))
 
-    document_type = request.form.get('document_type')
-    if document_type not in ['salary_slip', 'offer_and_salary'] or not selected_months:
-        return "Please select Salary Slip and at least one month."
+    employee_id = secure_filename(form_data['employee_id'])
+    base_folder = os.path.join(app.config['UPLOAD_FOLDER'], "employee_documents")
+    employee_folder = os.path.join(base_folder, employee_id)
 
-    form_data = convert_dates(form_data)
-    company = next((c for c in COMPANIES if c['id'] == form_data['company']), None)
-    if not company:
-        return "Company not found", 404
+    os.makedirs(employee_folder, exist_ok=True)
+    doc_type = form_data['document_type']
 
-    # Compute monthly breakdown once
-    ctc = float(form_data.get('ctc', 0))
-    basic = round(ctc * 0.5 / 12)
-    hra = round(basic * 0.5)
-    conveyance = round(ctc * 0.05 / 12)
-    medical = round(ctc * 0.014 / 12)
-    telephone = round(ctc * 0.02 / 12)
-    monthly_ctc = round(ctc / 12)
-    special_allowance = monthly_ctc - (basic + hra + conveyance + medical + telephone)
-    professional_tax = 2500
-    gross_salary = basic + hra + conveyance + medical + telephone + special_allowance
-    total_deductions = professional_tax
-    net_salary = gross_salary - total_deductions
+    # 🔹 SALARY SLIP (MULTIPLE MONTHS)
+    if doc_type == "salary_slip" and selected_months:
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+            for month in selected_months:
+                form_data_copy = form_data.copy()
+                form_data_copy['month'] = month
+                html = render_template(
+                    "documents/salary_slip.html",
+                    data=form_data_copy
+                )
 
-    zip_buffer = io.BytesIO()
-    current_year = datetime.now().year
+                filename = f"Salary_Slip_{month}.pdf"
+                filepath = os.path.join(employee_folder, filename)
+                html_to_pdf(html, filepath)
+                zip_file.write(filepath, filename)
 
-    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
-        for month in selected_months:
-            m = month.strip()
-            m = m[:1].upper() + m[1:].lower()
-            month_label = f"{m} {current_year}"
+        zip_buffer.seek(0)
+        return send_file(
+            zip_buffer,
+            as_attachment=True,
+            download_name=f"{employee_id}_Salary_Slips.zip",
+            mimetype="application/zip"
+        )
+    # 🔹 OTHER DOCUMENTS
+    else:
+        company = next((c for c in COMPANIES if c['id'] == form_data['company']), None) 
+        html = render_template(
+            f"documents/{doc_type}.html",
+            data=form_data
+        )
 
-            form_data_with_month = form_data.copy()
-            form_data_with_month['month'] = month_label
+        filename = f"{doc_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        filepath = os.path.join(employee_folder, filename)
 
-            form_data_with_month['salary_breakdown'] = {
-                'basic': basic,
-                'hra': hra,
-                'conveyance': conveyance,
-                'medical': medical,
-                'telephone': telephone,
-                'special_allowance': special_allowance,
-                'professional_tax': professional_tax,
-                'gross_salary': gross_salary,
-                'net_salary': net_salary
-            }
+        html_to_pdf(html, filepath)
 
-            html_content = render_template(
-                "documents/salary_slip.html",
-                data=form_data_with_month,
-                company=company,
-                month=month_label,
-                lc_logo="your_watermark_logo.png"
-            )
-
-            pdf_buffer = io.BytesIO()
-            success = pisa.CreatePDF(html_content, dest=pdf_buffer)
-
-            if not success.err:
-                pdf_buffer.seek(0)
-                safe_month = month_label.replace(" ", "_")
-                filename = f"Salary_Slip_{form_data['full_name']}_{safe_month}.pdf"
-                zip_file.writestr(filename, pdf_buffer.getvalue())
-
-    zip_buffer.seek(0)
-    return send_file(
-        zip_buffer,
-        mimetype='application/zip',
-        as_attachment=True,
-        download_name=f"Salary_Slips_{form_data['full_name']}.zip"
-    )
-
-employee_counter = 1000
-
-@app.route('/generate_employee_id', methods=['POST'])
-def generate_employee_id():
-    global employee_counter
-    employee_counter += 1
-    return jsonify({'employee_id': f"LC{employee_counter}"})
+        return send_from_directory(employee_folder, filename, as_attachment=True)
 
 @app.route('/generated_docs/<filename>')
 def serve_generated_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+@app.route('/admin/documents')
+def admin_documents():
+
+    if not session.get('is_admin'):
+        return "Unauthorized", 403
+
+    base_folder = os.path.join(app.config['UPLOAD_FOLDER'], "employee_documents")
+
+    if not os.path.exists(base_folder):
+        os.makedirs(base_folder)
+
+    data = {}
+
+    for emp in os.listdir(base_folder):
+        emp_path = os.path.join(base_folder, emp)
+        if os.path.isdir(emp_path):
+            data[emp] = os.listdir(emp_path)
+
+    return render_template("admin_documents.html", data=data)
 
 if __name__ == '__main__':
     app.run(debug=True)

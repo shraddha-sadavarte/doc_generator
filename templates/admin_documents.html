@@ -1,0 +1,10 @@
+<h2>Employee Documents</h2>
+
+{% for emp, files in data.items() %}
+    <h4>{{ emp }}</h4>
+    <ul>
+        {% for file in files %}
+            <li>{{ file }}</li>
+        {% endfor %}
+    </ul>
+{% endfor %}
