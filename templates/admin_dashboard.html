@@ -2,12 +2,172 @@
 
 {% block content %}
 <style>
+    /* Main Layout */
+    .admin-container {
+        display: flex;
+        min-height: 100vh;
+        background: #f8f9fa;
+    }
+
+    /* Sidebar */
+    .admin-sidebar {
+        width: 280px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px 0;
+        position: fixed;
+        height: 100vh;
+        overflow-y: auto;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    }
+
+    .sidebar-header {
+        padding: 0 20px 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+        margin-bottom: 20px;
+    }
+
+    .sidebar-header h3 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 600;
+    }
+
+    .sidebar-header p {
+        margin: 5px 0 0;
+        opacity: 0.8;
+        font-size: 14px;
+    }
+
+    .sidebar-menu {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .sidebar-menu li {
+        margin-bottom: 5px;
+    }
+
+    .sidebar-menu li a {
+        display: flex;
+        align-items: center;
+        padding: 12px 20px;
+        color: rgba(255,255,255,0.8);
+        text-decoration: none;
+        transition: all 0.3s;
+        border-left: 4px solid transparent;
+    }
+
+    .sidebar-menu li a:hover {
+        background: rgba(255,255,255,0.1);
+        color: white;
+        border-left-color: white;
+    }
+
+    .sidebar-menu li.active a {
+        background: rgba(255,255,255,0.15);
+        color: white;
+        border-left-color: white;
+    }
+
+    .sidebar-menu li a i {
+        width: 24px;
+        margin-right: 10px;
+        font-size: 18px;
+    }
+
+    .badge-count {
+        margin-left: auto;
+        background: rgba(255,255,255,0.2);
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+    }
+
+    /* Main Content */
+    .admin-content {
+        flex: 1;
+        margin-left: 280px;
+        padding: 30px;
+    }
+
+    /* Header */
+    .content-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .content-header h2 {
+        margin: 0;
+        color: #333;
+        font-size: 24px;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    /* Cards */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .stat-info h3 {
+        margin: 0;
+        font-size: 14px;
+        color: #6c757d;
+    }
+
+    .stat-info .number {
+        font-size: 28px;
+        font-weight: bold;
+        color: #333;
+        margin-top: 5px;
+    }
+
+    .stat-icon {
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 24px;
+    }
+
+    /* Employee Cards */
     .employee-card {
         transition: transform 0.2s, box-shadow 0.2s;
         border: none;
         border-radius: 15px;
         overflow: hidden;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
     }
     
     .employee-card:hover {
@@ -23,8 +183,8 @@
     }
     
     .employee-avatar {
-        width: 80px;
-        height: 80px;
+        width: 60px;
+        height: 60px;
         border-radius: 50%;
         border: 3px solid white;
         object-fit: cover;
@@ -36,9 +196,9 @@
         position: absolute;
         top: 10px;
         right: 10px;
-        padding: 5px 10px;
+        padding: 4px 8px;
         border-radius: 20px;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: bold;
         text-transform: uppercase;
     }
@@ -61,64 +221,271 @@
     .info-row {
         display: flex;
         justify-content: space-between;
-        padding: 8px 0;
+        padding: 6px 0;
         border-bottom: 1px solid #f0f0f0;
     }
     
     .info-label {
         color: #6c757d;
         font-weight: 500;
+        font-size: 13px;
     }
     
     .info-value {
         font-weight: 600;
         color: #333;
+        font-size: 13px;
     }
-    
-    .document-badge {
-        background-color: #e9ecef;
-        border-radius: 20px;
-        padding: 2px 10px;
-        font-size: 12px;
-        color: #495057;
+
+    .payment-status {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .payment-paid {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .payment-pending {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeeba;
+    }
+
+    .payment-overdue {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
     }
     
     .action-btn {
         width: 100%;
-        margin: 5px 0;
-        border-radius: 8px;
+        margin: 3px 0;
+        border-radius: 6px;
         transition: all 0.2s;
+        font-size: 12px;
+        padding: 6px 12px;
     }
     
     .action-btn:hover {
         transform: scale(1.02);
     }
     
-    .btn-offer {
-        background-color: #4e73df;
-        color: white;
+    .btn-offer { background-color: #4e73df; color: white; }
+    .btn-salary { background-color: #1cc88a; color: white; }
+    .btn-experience { background-color: #36b9cc; color: white; }
+    .btn-increment { background-color: #f6c23e; color: white; }
+    .btn-relieving { background-color: #e74a3b; color: white; }
+    .btn-danger { background-color: #dc3545; color: white; }
+    .btn-danger:hover { background-color: #c82333; }
+
+    /* Forms */
+    .form-container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        max-width: 800px;
+        margin: 0 auto;
     }
-    
-    .btn-salary {
-        background-color: #1cc88a;
-        color: white;
+
+    .form-title {
+        margin-bottom: 30px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #667eea;
     }
-    
-    .btn-experience {
-        background-color: #36b9cc;
-        color: white;
+
+    .form-title h3 {
+        margin: 0;
+        color: #333;
     }
-    
-    .btn-increment {
-        background-color: #f6c23e;
-        color: white;
+
+    .form-group {
+        margin-bottom: 20px;
     }
-    
-    .btn-relieving {
-        background-color: #e74a3b;
-        color: white;
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #495057;
     }
-    
+
+    .form-control {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ced4da;
+        border-radius: 5px;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    .form-control:focus {
+        border-color: #667eea;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+    }
+
+    .btn-submit {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 5px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    /* Employee Selection for Document Generation */
+    .employee-selector {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+    }
+
+    .employee-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+    }
+
+    .employee-select-item {
+        background: #f8f9fa;
+        border: 2px solid transparent;
+        border-radius: 8px;
+        padding: 15px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .employee-select-item:hover {
+        border-color: #667eea;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    .employee-select-item.selected {
+        border-color: #28a745;
+        background: #f0fff4;
+    }
+
+    .employee-select-item h5 {
+        margin: 0 0 5px;
+        color: #333;
+    }
+
+    .employee-select-item p {
+        margin: 0;
+        color: #6c757d;
+        font-size: 13px;
+    }
+
+    .document-type-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+    }
+
+    .document-type-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .document-type-card:hover {
+        background: #667eea;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+    }
+
+    .document-type-card i {
+        font-size: 32px;
+        margin-bottom: 10px;
+        display: block;
+    }
+
+    .document-type-card h6 {
+        margin: 0;
+        font-size: 14px;
+    }
+
+    /* Payment Section */
+    .payment-table {
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .payment-table table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .payment-table th {
+        background: #f8f9fa;
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #495057;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .payment-table td {
+        padding: 12px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .payment-table tr:hover {
+        background: #f8f9fa;
+    }
+
+    .pay-btn {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.3s;
+    }
+
+    .pay-btn:hover {
+        background: #218838;
+        transform: translateY(-1px);
+    }
+
+    .pay-btn:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+    }
+
+    /* Filter Bar */
     .filter-bar {
         background: white;
         padding: 20px;
@@ -126,260 +493,607 @@
         margin-bottom: 30px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    
-    .stats-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 10px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    
-    .stats-number {
-        font-size: 32px;
-        font-weight: bold;
-    }
-    
-    .stats-label {
-        font-size: 14px;
-        opacity: 0.9;
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .admin-sidebar {
+            width: 100%;
+            height: auto;
+            position: relative;
+        }
+        .admin-content {
+            margin-left: 0;
+        }
+        .admin-container {
+            flex-direction: column;
+        }
     }
 </style>
 
-<div class="container-fluid py-4">
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>👥 Employee Dashboard</h2>
-        <div>
-            <a href="{{ url_for('add_employee') }}" class="btn btn-primary">
-                <i class="fas fa-plus"></i> Add New Employee
-            </a>
-            <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger">
-                <i class="fas fa-sign-out-alt"></i> Logout
-            </a>
+<div class="admin-container">
+    <!-- Sidebar -->
+    <div class="admin-sidebar">
+        <div class="sidebar-header">
+            <h3>Admin Panel</h3>
+            <p>{{ session.admin_username }}</p>
         </div>
+        <ul class="sidebar-menu">
+            <li class="{{ 'active' if active_tab == 'dashboard' else '' }}">
+                <a href="{{ url_for('admin_dashboard', tab='dashboard') }}">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard Overview</span>
+                </a>
+            </li>
+            <li class="{{ 'active' if active_tab == 'add_employee' else '' }}">
+                <a href="{{ url_for('admin_dashboard', tab='add_employee') }}">
+                    <i class="fas fa-user-plus"></i>
+                    <span>Add Employee</span>
+                </a>
+            </li>
+            <li class="{{ 'active' if active_tab == 'employees' else '' }}">
+                <a href="{{ url_for('admin_dashboard', tab='employees') }}">
+                    <i class="fas fa-users"></i>
+                    <span>Employee Dashboard</span>
+                    <span class="badge-count">{{ employees|length }}</span>
+                </a>
+            </li>
+            <li class="{{ 'active' if active_tab == 'document_generator' else '' }}">
+                <a href="{{ url_for('admin_dashboard', tab='document_generator') }}">
+                    <i class="fas fa-file-pdf"></i>
+                    <span>Document Generator</span>
+                </a>
+            </li>
+            <li class="{{ 'active' if active_tab == 'payments' else '' }}">
+                <a href="{{ url_for('admin_dashboard', tab='payments') }}">
+                    <i class="fas fa-credit-card"></i>
+                    <span>Payments</span>
+                    <span class="badge-count">{{ pending_payments }}</span>
+                </a>
+            </li>
+            <li style="margin-top: 30px;">
+                <a href="{{ url_for('admin_logout') }}">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </li>
+        </ul>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="stats-card">
-                <div class="stats-number">{{ employees|length }}</div>
-                <div class="stats-label">Total Employees</div>
+    <!-- Main Content -->
+    <div class="admin-content">
+        <!-- Header -->
+        <div class="content-header">
+            <h2>
+                {% if active_tab == 'dashboard' %}
+                    Dashboard Overview
+                {% elif active_tab == 'add_employee' %}
+                    Add New Employee
+                {% elif active_tab == 'employees' %}
+                    Employee Dashboard
+                {% elif active_tab == 'document_generator' %}
+                    Document Generator
+                {% elif active_tab == 'payments' %}
+                    Payment Management
+                {% endif %}
+            </h2>
+            <div class="header-actions">
+                <span class="text-muted">{{ now.strftime('%d %B %Y') }}</span>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="stats-card" style="background: linear-gradient(135deg, #1cc88a 0%, #13855c 100%);">
-                <div class="stats-number">
-                    {{ employees|selectattr('employee.status', 'equalto', 'active')|list|length }}
-                </div>
-                <div class="stats-label">Active Employees</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card" style="background: linear-gradient(135deg, #36b9cc 0%, #258391 100%);">
-                <div class="stats-number">
-                    {{ employees|sum(attribute='document_count') }}
-                </div>
-                <div class="stats-label">Total Documents</div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="stats-card" style="background: linear-gradient(135deg, #f6c23e 0%, #dda20a 100%);">
-                <div class="stats-number">
-                    {{ employees|selectattr('employee.joining_date', 'ge', now.replace(day=1, month=1).date())|list|length }}
-                </div>
-                <div class="stats-label">Joined This Year</div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Filter Bar -->
-    <div class="filter-bar">
+        <!-- Dashboard Overview Tab -->
+        {% if active_tab == 'dashboard' %}
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-info">
+                    <h3>Total Employees</h3>
+                    <div class="number">{{ employees|length }}</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-info">
+                    <h3>Active Employees</h3>
+                    <div class="number">{{ employees|selectattr('employee.status', 'equalto', 'active')|list|length }}</div>
+                </div>
+                <div class="stat-icon" style="background: linear-gradient(135deg, #1cc88a 0%, #13855c 100%);">
+                    <i class="fas fa-user-check"></i>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-info">
+                    <h3>Total Documents</h3>
+                    <div class="number">{{ employees|sum(attribute='document_count') }}</div>
+                </div>
+                <div class="stat-icon" style="background: linear-gradient(135deg, #36b9cc 0%, #258391 100%);">
+                    <i class="fas fa-file-pdf"></i>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-info">
+                    <h3>Pending Payments</h3>
+                    <div class="number">{{ pending_payments }}</div>
+                </div>
+                <div class="stat-icon" style="background: linear-gradient(135deg, #f6c23e 0%, #dda20a 100%);">
+                    <i class="fas fa-clock"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
         <div class="row">
-            <div class="col-md-4">
-                <input type="text" class="form-control" id="searchInput" 
-                       placeholder="🔍 Search by name, ID, or designation...">
+            <div class="col-md-6">
+                <div class="form-container">
+                    <div class="form-title">
+                        <h3>Recent Employees</h3>
+                    </div>
+                    <div class="employee-list" style="max-height: 400px; overflow-y: auto;">
+                        {% for item in employees[:5] %}
+                        <div class="employee-select-item">
+                            <h5>{{ item.employee.full_name }}</h5>
+                            <p>{{ item.employee.designation }} | {{ item.employee.employee_id }}</p>
+                            <small class="text-muted">Joined: {{ item.employee.joining_date.strftime('%d %b %Y') if item.employee.joining_date else 'N/A' }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
-            <div class="col-md-3">
-                <select class="form-select" id="statusFilter">
-                    <option value="all">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="resigned">Resigned</option>
-                    <option value="terminated">Terminated</option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <select class="form-select" id="departmentFilter">
-                    <option value="all">All Departments</option>
-                    {% set departments = [] %}
-                    {% for item in employees %}
-                        {% if item.employee.department and item.employee.department not in departments %}
-                            {% set departments = departments.append(item.employee.department) %}
-                            <option value="{{ item.employee.department }}">{{ item.employee.department }}</option>
-                        {% endif %}
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="col-md-2">
-                <button class="btn btn-secondary w-100" onclick="resetFilters()">
-                    <i class="fas fa-undo"></i> Reset
-                </button>
+            <div class="col-md-6">
+                <div class="form-container">
+                    <div class="form-title">
+                        <h3>Payment Summary</h3>
+                    </div>
+                    <div class="payment-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Count</th>
+                                    <th>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="payment-status payment-paid">Paid</span></td>
+                                    <td>{{ paid_count }}</td>
+                                    <td>₹{{ "{:,.0f}".format(paid_amount) }}</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="payment-status payment-pending">Pending</span></td>
+                                    <td>{{ pending_count }}</td>
+                                    <td>₹{{ "{:,.0f}".format(pending_amount) }}</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="payment-status payment-overdue">Overdue</span></td>
+                                    <td>{{ overdue_count }}</td>
+                                    <td>₹{{ "{:,.0f}".format(overdue_amount) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
+        {% endif %}
 
-    <!-- Employee Cards Grid -->
-    <div class="row" id="employeeGrid">
-        {% for item in employees %}
-        <div class="col-xl-4 col-lg-6 col-md-6 mb-4 employee-card-wrapper" 
-             data-name="{{ item.employee.full_name|lower }}"
-             data-id="{{ item.employee.employee_id|lower }}"
-             data-designation="{{ item.employee.designation|lower }}"
-             data-status="{{ item.employee.status }}"
-             data-department="{{ item.employee.department|lower }}">
-            <div class="card employee-card h-100">
-                <!-- Card Header with Avatar -->
-                <div class="card-header text-center">
-                    <span class="status-badge status-{{ item.employee.status }}">
-                        {{ item.employee.status|upper }}
-                    </span>
-                    
-                    {% if item.employee.profile_image %}
-                        <img src="{{ url_for('serve_profile_image', filename=item.employee.profile_image) }}" 
-                             class="employee-avatar" alt="{{ item.employee.full_name }}">
-                    {% else %}
-                        <div class="employee-avatar" style="background: #6c757d; display: flex; align-items: center; justify-content: center; font-size: 32px; color: white;">
-                            {{ item.employee.full_name[:1] }}
-                        </div>
-                    {% endif %}
-                    
-                    <h5 class="mt-2 mb-0 text-white">{{ item.employee.full_name }}</h5>
-                    <p class="text-white-50 mb-0">{{ item.employee.employee_id }}</p>
+        <!-- Add Employee Tab -->
+        {% if active_tab == 'add_employee' %}
+        <div class="form-container">
+            <div class="form-title">
+                <h3>Add New Employee</h3>
+            </div>
+            <form method="POST" action="{{ url_for('add_employee') }}" enctype="multipart/form-data">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Full Name *</label>
+                        <input type="text" name="full_name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" name="email" class="form-control">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="text" name="phone" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Designation *</label>
+                        <input type="text" name="designation" class="form-control" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Department</label>
+                        <input type="text" name="department" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>CTC (Annual)</label>
+                        <input type="number" name="ctc" class="form-control" step="0.01">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Aadhar Number</label>
+                        <input type="text" name="aadhar_no" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>PAN Number</label>
+                        <input type="text" name="pan_no" class="form-control">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Joining Date</label>
+                        <input type="date" name="joining_date" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select name="status" class="form-control">
+                            <option value="active">Active</option>
+                            <option value="resigned">Resigned</option>
+                            <option value="terminated">Terminated</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <textarea name="address" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Profile Photo</label>
+                    <input type="file" name="profile_image" class="form-control" accept="image/*">
                 </div>
                 
-                <!-- Card Body -->
-                <div class="card-body">
-                    <!-- Employee Info -->
-                    <div class="info-row">
-                        <span class="info-label">📧 Email</span>
-                        <span class="info-value">{{ item.employee.email or 'N/A' }}</span>
+                <h5 style="margin: 20px 0 15px;">Bank Details</h5>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Account Holder</label>
+                        <input type="text" name="account_holder" class="form-control">
                     </div>
-                    <div class="info-row">
-                        <span class="info-label">📱 Phone</span>
-                        <span class="info-value">{{ item.employee.phone or 'N/A' }}</span>
+                    <div class="form-group">
+                        <label>Account Number</label>
+                        <input type="text" name="account_number" class="form-control">
                     </div>
-                    <div class="info-row">
-                        <span class="info-label">💼 Designation</span>
-                        <span class="info-value">{{ item.employee.designation }}</span>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Bank Name</label>
+                        <input type="text" name="bank_name" class="form-control">
                     </div>
-                    <div class="info-row">
-                        <span class="info-label">🏢 Department</span>
-                        <span class="info-value">{{ item.employee.department or 'N/A' }}</span>
+                    <div class="form-group">
+                        <label>IFSC Code</label>
+                        <input type="text" name="ifsc_code" class="form-control">
                     </div>
-                    <div class="info-row">
-                        <span class="info-label">💰 CTC</span>
-                        <span class="info-value">₹{{ "{:,.0f}".format(item.employee.ctc) }}</span>
-                    </div>
-                    
-                    <div class="info-row">
-                        <span class="info-label">📈 Current Increment</span>
-                        <span class="info-value text-success">
-                            {% if item.employee.increment_per_month and item.employee.increment_per_month > 0 %}
-                                +₹{{ "{:,.0f}".format(item.employee.increment_per_month) }}/month
-                            {% else %}
-                                <span class="text-muted">No increment</span>
-                            {% endif %}
-                        </span>
-                    </div>
+                </div>
+                
+                <button type="submit" class="btn-submit">Add Employee</button>
+            </form>
+        </div>
+        {% endif %}
 
-                    <!-- Also show projected new CTC if there's an increment -->
-                    {% if item.employee.increment_per_month and item.employee.increment_per_month > 0 %}
-                    <div class="info-row">
-                        <span class="info-label">📊 Projected New CTC</span>
-                        <span class="info-value text-primary">
-                            ₹{{ "{:,.0f}".format(item.employee.ctc + (item.employee.increment_per_month * 12)) }}
-                        </span>
-                    </div>
-                    {% endif %}
-                    <div class="info-row">
-                        <span class="info-label">📅 Joining Date</span>
-                        <span class="info-value">
-                            {% if item.employee.joining_date %}
-                                {{ item.employee.joining_date.strftime('%d %b %Y') }}
-                            {% else %}
-                                N/A
+        <!-- Employee Dashboard Tab -->
+        {% if active_tab == 'employees' %}
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <div class="row">
+                <div class="col-md-4">
+                    <input type="text" class="form-control" id="searchInput" 
+                           placeholder="🔍 Search by name, ID, or designation...">
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="statusFilter">
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="resigned">Resigned</option>
+                        <option value="terminated">Terminated</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="departmentFilter">
+                        <option value="all">All Departments</option>
+                        {% set departments = [] %}
+                        {% for item in employees %}
+                            {% if item.employee.department and item.employee.department not in departments %}
+                                {% set departments = departments.append(item.employee.department) %}
+                                <option value="{{ item.employee.department }}">{{ item.employee.department }}</option>
                             {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-secondary w-100" onclick="resetFilters()">
+                        <i class="fas fa-undo"></i> Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Employee Cards Grid -->
+        <div class="row" id="employeeGrid">
+            {% for item in employees %}
+            <div class="col-xl-4 col-lg-6 col-md-6 mb-4 employee-card-wrapper" 
+                 data-name="{{ item.employee.full_name|lower }}"
+                 data-id="{{ item.employee.employee_id|lower }}"
+                 data-designation="{{ item.employee.designation|lower }}"
+                 data-status="{{ item.employee.status }}"
+                 data-department="{{ item.employee.department|lower }}">
+                <div class="card employee-card">
+                    <!-- Card Header with Avatar -->
+                    <div class="card-header text-center">
+                        <span class="status-badge status-{{ item.employee.status }}">
+                            {{ item.employee.status|upper }}
                         </span>
+                        
+                        {% if item.employee.profile_image %}
+                            <img src="{{ url_for('serve_profile_image', filename=item.employee.profile_image) }}" 
+                                 class="employee-avatar" alt="{{ item.employee.full_name }}">
+                        {% else %}
+                            <div class="employee-avatar" style="background: #6c757d; display: flex; align-items: center; justify-content: center; font-size: 24px; color: white;">
+                                {{ item.employee.full_name[:1] }}
+                            </div>
+                        {% endif %}
+                        
+                        <h5 class="mt-2 mb-0 text-white" style="font-size: 16px;">{{ item.employee.full_name }}</h5>
+                        <p class="text-white-50 mb-0" style="font-size: 12px;">{{ item.employee.employee_id }}</p>
                     </div>
                     
-                    <!-- Document Count -->
-                    <div class="text-center mt-3">
-                        <span class="document-badge">
-                            📄 {{ item.document_count }} Documents Generated
-                        </span>
-                    </div>
-                    
-                    <!-- Document Generation Buttons -->
-                    <div class="mt-3">
-                        <small class="text-muted d-block mb-2">Generate Documents:</small>
-                        <div class="row g-2">
-                            <div class="col-6">
-                                <form action="{{ url_for('admin_generate_document', emp_id=item.employee.id, doc_type='offer_letter') }}" method="POST" target="_blank">
-                                    <button type="submit" class="btn action-btn btn-offer btn-sm w-100">
-                                        📄 Offer Letter
-                                    </button>
-                                </form>
-                            </div>
-                            <div class="col-6">
-                                <form action="{{ url_for('admin_generate_document', emp_id=item.employee.id, doc_type='salary_slip') }}" method="GET">
-                                    <button type="submit" class="btn action-btn btn-salary btn-sm w-100">
-                                        💰 Salary Slip
-                                    </button>
-                                </form>
-                            </div>
-                            <div class="col-6">
-                                <form action="{{ url_for('admin_generate_document', emp_id=item.employee.id, doc_type='experience_letter') }}" method="POST">
-                                    <button type="submit" class="btn action-btn btn-experience btn-sm w-100">
-                                        🎓 Experience
-                                    </button>
-                                </form>
-                            </div>
-                            <div class="col-6">
-                                <form action="{{ url_for('admin_generate_document', emp_id=item.employee.id, doc_type='increment_letter') }}" method="POST">
-                                    <button type="submit" class="btn action-btn btn-increment btn-sm w-100">
-                                        📈 Increment
-                                    </button>
-                                </form>
-                            </div>
-                            <div class="col-6">
-                                <form action="{{ url_for('admin_generate_document', emp_id=item.employee.id, doc_type='relieving_letter') }}" method="POST">
-                                    <button type="submit" class="btn action-btn btn-relieving btn-sm w-100">
-                                        🚪 Relieving
-                                    </button>
-                                </form>
-                            </div>
-                            <div class="col-6">
-                                <a href="{{ url_for('view_employee', emp_id=item.employee.id) }}" class="btn action-btn btn-secondary btn-sm w-100">
-                                    👁️ View Details
-                                </a>
+                    <!-- Card Body - Essential Info Only -->
+                    <div class="card-body">
+                        <div class="info-row">
+                            <span class="info-label">💼 Designation</span>
+                            <span class="info-value">{{ item.employee.designation }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">💰 CTC</span>
+                            <span class="info-value">₹{{ "{:,.0f}".format(item.employee.ctc) }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">📈 Increment</span>
+                            <span class="info-value">
+                                {% if item.employee.increment_per_month and item.employee.increment_per_month > 0 %}
+                                    +₹{{ "{:,.0f}".format(item.employee.increment_per_month) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">📅 Joined</span>
+                            <span class="info-value">
+                                {{ item.employee.joining_date.strftime('%d %b %Y') if item.employee.joining_date else 'N/A' }}
+                            </span>
+                        </div>
+                        
+                        <!-- Document Count -->
+                        <div class="text-center mt-3">
+                            <span class="document-badge">
+                                📄 {{ item.document_count }} Documents
+                            </span>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="mt-3">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <a href="{{ url_for('admin_dashboard', tab='document_generator', emp_id=item.employee.id) }}" 
+                                       class="btn action-btn btn-offer btn-sm w-100">
+                                        📄 Generate Docs
+                                    </a>
+                                </div>
+                                <div class="col-6">
+                                    <a href="{{ url_for('view_employee', emp_id=item.employee.id) }}" 
+                                       class="btn action-btn btn-secondary btn-sm w-100">
+                                        👁️ View
+                                    </a>
+                                </div>
+                                <div class="col-12">
+                                    <form action="{{ url_for('delete_employee', emp_id=item.employee.id) }}" 
+                                          method="POST" 
+                                          onsubmit="return confirm('Are you sure you want to delete this employee?');">
+                                        <button type="submit" class="btn action-btn btn-danger btn-sm w-100">
+                                            🗑️ Delete Employee
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+            {% endfor %}
         </div>
-        {% endfor %}
-    </div>
-</div>
+        {% endif %}
 
-<!-- JavaScript for Filtering -->
+        <!-- Document Generator Tab -->
+        {% if active_tab == 'document_generator' %}
+        <div class="employee-selector">
+            <h4 style="margin-bottom: 20px;">Step 1: Select Employee</h4>
+            <div class="employee-list" id="employeeSelectList">
+                {% for item in employees %}
+                <div class="employee-select-item {% if selected_emp_id == item.employee.id %}selected{% endif %}" 
+                     onclick="selectEmployee('{{ item.employee.id }}')"
+                     data-id="{{ item.employee.id }}">
+                    <h5>{{ item.employee.full_name }}</h5>
+                    <p>{{ item.employee.designation }} | {{ item.employee.employee_id }}</p>
+                    <small class="text-muted">CTC: ₹{{ "{:,.0f}".format(item.employee.ctc) }}</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if selected_emp_id %}
+        <div class="employee-selector">
+            <h4 style="margin-bottom: 20px;">Step 2: Select Document Type</h4>
+            <div class="document-type-grid">
+                <div class="document-type-card" data-emp-id="{{ selected_emp_id }}" onclick="generateDocument(this.dataset.empId, 'offer_letter')">
+                    <i class="fas fa-file-alt"></i>
+                    <h6>Offer Letter</h6>
+                </div>
+                <div class="document-type-card" data-emp-id="{{ selected_emp_id }}" onclick="generateDocument(this.dataset.empId, 'salary_slip')">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <h6>Salary Slip</h6>
+                </div>
+                <div class="document-type-card" data-emp-id="{{ selected_emp_id }}" onclick="generateDocument(this.dataset.empId, 'experience_letter')">
+                    <i class="fas fa-graduation-cap"></i>
+                    <h6>Experience Letter</h6>
+                </div>
+                <div class="document-type-card" data-emp-id="{{ selected_emp_id }}" onclick="generateDocument(this.dataset.empId, 'increment_letter')">
+                    <i class="fas fa-chart-line"></i>
+                    <h6>Increment Letter</h6>
+                </div>
+                <div class="document-type-card" data-emp-id="{{ selected_emp_id }}" onclick="generateDocument(this.dataset.empId, 'relieving_letter')">
+                    <i class="fas fa-door-open"></i>
+                    <h6>Relieving Letter</h6>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function selectEmployee(empId) {
+                window.location.href = "{{ url_for('admin_dashboard', tab='document_generator') }}" + "&emp_id=" + empId;
+            }
+
+            function generateDocument(empId, docType) {
+                if (docType === 'salary_slip') {
+                    window.location.href = "{{ url_for('admin_generate_document', emp_id=0, doc_type='salary_slip') }}".replace('0', empId);
+                } else {
+                    // For other documents, create and submit a form
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = "{{ url_for('admin_generate_document', emp_id=0, doc_type='') }}".replace('0', empId) + docType;
+                    form.target = '_blank';
+                    
+                    // Add company selection (you might want to show a modal for this)
+                    const companyInput = document.createElement('input');
+                    companyInput.type = 'hidden';
+                    companyInput.name = 'company';
+                    companyInput.value = 'company1'; // Default company
+                    form.appendChild(companyInput);
+                    
+                    document.body.appendChild(form);
+                    form.submit();
+                    document.body.removeChild(form);
+                }
+            }
+        </script>
+        {% endif %}
+        {% endif %}
+
+<!-- Payments Tab -->
+{% if active_tab == 'payments' %}
+<div class="payment-table">
+    <table>
+        <thead>
+            <tr>
+                <th>Employee</th>
+                <th>Document Type</th>
+                <th>Generated Date</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Due Date</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for payment in payments %}
+            <tr>
+                <td>
+                    <strong>{{ payment.employee_name }}</strong><br>
+                    <small>{{ payment.employee_id }}</small>
+                </td>
+                <td>{{ payment.document_type }}</td>
+                <td>{{ payment.generated_date }}</td>
+                <td>₹{{ "{:,.0f}".format(payment.amount) }}</td>
+                <td>
+                    <span class="payment-status payment-{{ payment.status_class }}">
+                        {{ payment.status }}
+                    </span>
+                </td>
+                <td>{{ payment.due_date }}</td>
+                <td>
+                    {% if payment.status != 'Paid' %}
+                    <button class="pay-btn" onclick="processPayment('{{ payment.id }}')">
+                        Mark as Paid
+                    </button>
+                    {% else %}
+                    <button class="pay-btn" disabled>Paid</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" class="text-center">No payment records found</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- JavaScript for Filtering (Employee Dashboard) -->
 <script>
+
+        // ============= DOCUMENT GENERATOR FUNCTIONS =============
+    function selectEmployee(empId) {
+        window.location.href = "{{ url_for('admin_dashboard', tab='document_generator') }}" + "&emp_id=" + empId;
+    }
+
+    function generateDocument(empId, docType) {
+        if (docType === 'salary_slip') {
+            // For salary slip, go to month selection page
+            window.location.href = "{{ url_for('admin_generate_document', emp_id=0, doc_type='salary_slip') }}".replace('0', empId);
+        } else {
+            // For other documents, create and submit a form (POST request)
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = "{{ url_for('admin_generate_document', emp_id=0, doc_type='') }}".replace('0', empId) + docType;
+            form.target = '_blank';
+            
+            // Add company selection (default to company1)
+            const companyInput = document.createElement('input');
+            companyInput.type = 'hidden';
+            companyInput.name = 'company';
+            companyInput.value = 'company1';
+            form.appendChild(companyInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+        }
+    }
+    
+    // Payment processing function
+    function processPayment(paymentId) {
+        if (confirm('Mark this payment as paid?')) {
+            fetch('/admin/process-payment/' + paymentId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Error processing payment');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error processing payment');
+            });
+        }
+    }
+
+    // Filter functions
     function filterEmployees() {
-        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-        const statusFilter = document.getElementById('statusFilter').value;
-        const departmentFilter = document.getElementById('departmentFilter').value.toLowerCase();
+        const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
+        const statusFilter = document.getElementById('statusFilter')?.value || 'all';
+        const departmentFilter = document.getElementById('departmentFilter')?.value.toLowerCase() || 'all';
         
         const cards = document.querySelectorAll('.employee-card-wrapper');
         
@@ -398,24 +1112,31 @@
             const matchesStatus = statusFilter === 'all' || status === statusFilter;
             const matchesDepartment = departmentFilter === 'all' || department === departmentFilter;
             
-            if (matchesSearch && matchesStatus && matchesDepartment) {
-                card.style.display = 'block';
-            } else {
-                card.style.display = 'none';
-            }
+            card.style.display = (matchesSearch && matchesStatus && matchesDepartment) ? 'block' : 'none';
         });
     }
     
     function resetFilters() {
-        document.getElementById('searchInput').value = '';
-        document.getElementById('statusFilter').value = 'all';
-        document.getElementById('departmentFilter').value = 'all';
+        const searchInput = document.getElementById('searchInput');
+        const statusFilter = document.getElementById('statusFilter');
+        const departmentFilter = document.getElementById('departmentFilter');
+        
+        if (searchInput) searchInput.value = '';
+        if (statusFilter) statusFilter.value = 'all';
+        if (departmentFilter) departmentFilter.value = 'all';
+        
         filterEmployees();
     }
     
-    // Add event listeners
-    document.getElementById('searchInput').addEventListener('keyup', filterEmployees);
-    document.getElementById('statusFilter').addEventListener('change', filterEmployees);
-    document.getElementById('departmentFilter').addEventListener('change', filterEmployees);
+    // Add event listeners when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('searchInput');
+        const statusFilter = document.getElementById('statusFilter');
+        const departmentFilter = document.getElementById('departmentFilter');
+        
+        if (searchInput) searchInput.addEventListener('keyup', filterEmployees);
+        if (statusFilter) statusFilter.addEventListener('change', filterEmployees);
+        if (departmentFilter) departmentFilter.addEventListener('change', filterEmployees);
+    });
 </script>
 {% endblock %}

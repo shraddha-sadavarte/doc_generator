@@ -10,6 +10,7 @@ import zipfile
 
 from config import COMPANIES
 from werkzeug.security import generate_password_hash, check_password_hash
+from humanize import intword
 
 app = Flask(__name__)
 app.secret_key = "super-secret-key"
@@ -93,6 +94,22 @@ class Document(db.Model):
     generated_at = db.Column(db.DateTime, default=datetime.now)
     generated_by = db.Column(db.String(80))
 
+class Payment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
+    document_id = db.Column(db.Integer, db.ForeignKey('document.id'), nullable=True)
+    amount = db.Column(db.Float, default=0)
+    status = db.Column(db.String(20), default='pending')  # pending, paid, overdue
+    due_date = db.Column(db.Date, nullable=True)
+    paid_date = db.Column(db.Date, nullable=True)
+    payment_method = db.Column(db.String(50), nullable=True)
+    transaction_id = db.Column(db.String(100), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    
+    employee = db.relationship('Employee', backref='payments')
+    document = db.relationship('Document', backref='payment')
+    
 def html_to_pdf(html_content, output_path):
     """
     Safe HTML to PDF converter
@@ -830,21 +847,84 @@ def admin_dashboard():
     if not session.get('is_admin'):
         return redirect(url_for('admin_login'))
     
+    # Get tab from query parameters
+    active_tab = request.args.get('tab', 'dashboard')
+    selected_emp_id = request.args.get('emp_id', type=int)
+    
     # Get all employees with their document counts
     employees = Employee.query.order_by(Employee.created_at.desc()).all()
     
     # Get document counts for each employee
     employee_data = []
+    total_documents = 0
     for emp in employees:
         doc_count = Document.query.filter_by(employee_id=emp.id).count()
+        total_documents += doc_count
         employee_data.append({
             'employee': emp,
             'document_count': doc_count
         })
     
+    # Calculate statistics
+    total_employees = len(employees)
+    active_employees = sum(1 for emp in employees if emp.status == 'active')
+    
+    # 🔴 FIXED: Payment calculations using actual database queries
+    pending_payments = Payment.query.filter_by(status='pending').count()
+    paid_count = Payment.query.filter_by(status='paid').count()
+    pending_count = Payment.query.filter_by(status='pending').count()
+    overdue_count = Payment.query.filter_by(status='overdue').count()
+
+    paid_amount = db.session.query(db.func.sum(Payment.amount)).filter_by(status='paid').scalar() or 0
+    pending_amount = db.session.query(db.func.sum(Payment.amount)).filter_by(status='pending').scalar() or 0
+    overdue_amount = db.session.query(db.func.sum(Payment.amount)).filter_by(status='overdue').scalar() or 0
+
+    # 🔴 FIXED: Get all payments for the table - Fixed the join ambiguity
+    payments_result = db.session.query(
+        Payment.id,
+        Employee.full_name.label('employee_name'),
+        Employee.employee_id,
+        Document.document_type,
+        Payment.amount,
+        Payment.status,
+        Payment.due_date,
+        Payment.paid_date
+    ).select_from(Payment).join(Employee).outerjoin(
+        Document, Payment.document_id == Document.id
+    ).all()
+    
+    # Format payments for template
+    payments = []
+    for p in payments_result:
+        status_class = 'paid' if p.status == 'paid' else 'pending' if p.status == 'pending' else 'overdue'
+        payments.append({
+            'id': p.id,
+            'employee_name': p.employee_name,
+            'employee_id': p.employee_id,
+            'document_type': p.document_type or 'N/A',
+            'amount': p.amount,
+            'status': p.status.title() if p.status else 'Pending',
+            'status_class': status_class,
+            'due_date': p.due_date.strftime('%d %b %Y') if p.due_date else 'N/A',
+            'paid_date': p.paid_date.strftime('%d %b %Y') if p.paid_date else 'N/A'
+        })
+    
     return render_template('admin_dashboard.html', 
                          employees=employee_data,
-                         now=datetime.now())
+                         active_tab=active_tab,
+                         selected_emp_id=selected_emp_id,
+                         now=datetime.now(),
+                         total_employees=total_employees,
+                         active_employees=active_employees,
+                         total_documents=total_documents,
+                         pending_payments=pending_payments,
+                         paid_count=paid_count,
+                         pending_count=pending_count,
+                         overdue_count=overdue_count,
+                         paid_amount=paid_amount,
+                         pending_amount=pending_amount,
+                         overdue_amount=overdue_amount,
+                         payments=payments)
 
 # Setup first admin (run once)
 @app.route('/admin/setup')
@@ -857,6 +937,28 @@ def setup_admin():
         db.session.commit()
         return "Admin created! Username: admin, Password: admin123"
     return "Admin already exists"
+
+@app.route('/admin/employee/<int:emp_id>/delete', methods=['POST'])
+def delete_employee(emp_id):
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+    
+    employee = Employee.query.get_or_404(emp_id)
+    
+    try:
+        # Delete related documents first
+        Document.query.filter_by(employee_id=emp_id).delete()
+        
+        # Delete the employee
+        db.session.delete(employee)
+        db.session.commit()
+        
+        flash(f'Employee {employee.full_name} deleted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting employee: {str(e)}', 'danger')
+    
+    return redirect(url_for('admin_dashboard', tab='employees'))
 
 #generate document for specific employee
 @app.route('/admin/employee/<int:emp_id>/generate/<doc_type>', methods=['GET', 'POST'])
@@ -1080,6 +1182,24 @@ def serve_profile_image(filename):
     
     profiles_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'profiles')
     return send_from_directory(profiles_dir, filename)
+
+# Add route to process payment
+@app.route('/admin/process-payment/<int:payment_id>', methods=['POST'])
+def process_payment(payment_id):
+    if not session.get('is_admin'):
+        return "Unauthorized", 403
+    
+    payment = Payment.query.get_or_404(payment_id)
+    
+    try:
+        payment.status = 'paid'
+        payment.paid_date = datetime.now().date()
+        db.session.commit()
+        
+        return {'success': True, 'message': 'Payment marked as paid'}
+    except Exception as e:
+        db.session.rollback()
+        return {'success': False, 'message': str(e)}, 500
 
 if __name__ == '__main__':
     with app.app_context():
