@@ -280,10 +280,10 @@
     }
 </style>
 
-<div class="increment-letter" style="font-family: 'Arial', sans-serif; max-width: 800px; margin: 0 auto; padding: 30px; position: relative; background-color: white;">
-    <!-- Watermarks logo background -->
-    {% include '_watermark.html' %}
+<!-- Watermark placed OUTSIDE the main container – appears on every page in PDF -->
+{% include '_watermark.html' %}
 
+<div class="increment-letter" style="font-family: 'Arial', sans-serif; max-width: 800px; margin: 0 auto; padding: 30px; position: relative; background-color: white;">
     <!-- Letterhead with decorative border -->
     <div class="letter-header mb-4" style="border-bottom: 2px solid #0d6efd; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; gap: 3rem;">
         <!-- Logo on the left -->

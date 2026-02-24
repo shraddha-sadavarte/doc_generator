@@ -140,12 +140,12 @@
     }
 </style>
 
+<!-- Watermark placed OUTSIDE the main container – appears on every page in PDF -->
+{% include '_watermark.html' %}
+
 <!-- Loop over each month -->
 {% for month in months %}
 <div class="offer-letter">
-    <!-- Watermark -->
-    {% include '_watermark.html' %}
-
     <!-- Letterhead -->
     <div class="letter-header">
         <div style="flex: 0 0 auto;">

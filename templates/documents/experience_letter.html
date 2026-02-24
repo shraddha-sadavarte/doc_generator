@@ -158,12 +158,10 @@
     }
 </style>
 
-<div class="experience-letter">
-    <!-- Watermark (text, vector‑safe) -->
-    <div class="watermark-container">
-        {{ company.name }}
-    </div>
+<!-- Watermark placed OUTSIDE the main container – appears on every page in PDF -->
+{% include '_watermark.html' %}
 
+<div class="experience-letter">
     <!-- Letterhead -->
     <div class="letter-header">
         <div>

@@ -1,3 +1,4 @@
+import html
 import os
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
@@ -23,6 +24,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 import pickle
 import uuid
+from flask import send_file
 
 app = Flask(__name__)
 app.secret_key = "super-secret-key"
@@ -143,34 +145,23 @@ class Payment(db.Model):
     document = db.relationship('Document', backref='payment')
 
 def html_to_pdf(html_content, output_path):
-    """
-    Convert HTML to PDF using the WeasyPrint standalone executable.
-    """
-    # Full path to the weasyprint.exe file
     weasyprint_path = os.path.join(app.root_path, 'weasyprint', 'weasyprint.exe')
-    
-    # Write HTML to a temporary file
     with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
         f.write(html_content)
-        temp_html = f.name
+        temp_html_path = f.name
 
     try:
         result = subprocess.run(
-            [weasyprint_path, temp_html, output_path],
-            capture_output=True,
-            text=True,
-            timeout=30
+            [weasyprint_path, temp_html_path, output_path],
+            capture_output=True, text=True, timeout=30
         )
-        if result.returncode != 0:
-            print("WeasyPrint error:", result.stderr)
-            return False
-        return True
+        return result.returncode == 0
     except Exception as e:
-        print("Exception during WeasyPrint call:", e)
+        print("WeasyPrint error:", e)
         return False
     finally:
-        if os.path.exists(temp_html):
-            os.unlink(temp_html)
+        if os.path.exists(temp_html_path):
+            os.unlink(temp_html_path)
 
 @app.template_filter('humanize')
 def humanize_filter(value):
@@ -823,7 +814,12 @@ def generate():
 
     flash(f'{doc_type.replace("_", " ").title()} generated successfully!', 'success')
 
-    return send_from_directory(employee_folder, filename, as_attachment=True)
+    # Use send_file with absolute path
+    if os.path.exists(filepath):
+        return send_file(filepath, as_attachment=True, download_name=filename, mimetype='application/pdf')
+    else:
+        flash('File not found!', 'danger')
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/generated_docs/<filename>')
 def serve_generated_file(filename):

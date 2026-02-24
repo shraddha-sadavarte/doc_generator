@@ -1,0 +1,5 @@
+# Google Drive Secrets
+credentials.json
+token.pickle
+tokens/
+*.pickle
