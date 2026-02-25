@@ -3,3 +3,11 @@ credentials.json
 token.pickle
 tokens/
 *.pickle
+
+*.db
+*.db-journal
+
+# Ignore generated PDFs and documents
+generated_docs/
+*.pdf
+employee_documents/
