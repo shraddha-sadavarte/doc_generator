@@ -852,26 +852,23 @@ def admin_logout():
     flash('Logged out successfully', 'success')
     return redirect(url_for('admin_login'))
 
-# Admin Dashboard with Employee Cards
 @app.route('/admin/dashboard')
 def admin_dashboard():
     if not session.get('is_admin'):
         return redirect(url_for('admin_login'))
-    
+
     # Get tab from query parameters
     active_tab = request.args.get('tab', 'dashboard')
     selected_emp_id = request.args.get('emp_id', type=int)
-    
+
     # Get all employees with their document counts
     employees = Employee.query.order_by(Employee.created_at.desc()).all()
-    
-    # Get document counts for each employee
+
     employee_data = []
     total_documents = 0
     for emp in employees:
         doc_count = Document.query.filter_by(employee_id=emp.id).count()
         total_documents += doc_count
-        # Get latest increment amount for display (optional)
         latest_inc = IncrementHistory.query.filter_by(employee_id=emp.id).order_by(IncrementHistory.generated_at.desc()).first()
         increment_amount = latest_inc.increment_amount if latest_inc else 0
         employee_data.append({
@@ -879,52 +876,60 @@ def admin_dashboard():
             'document_count': doc_count,
             'increment_amount': increment_amount
         })
-    
-    # Calculate statistics
+
     total_employees = len(employees)
     active_employees = sum(1 for emp in employees if emp.status == 'active')
-    
-    # 🔴 FIXED: Payment calculations using actual database queries
-    pending_payments = Payment.query.filter_by(status='pending').count()
-    paid_count = Payment.query.filter_by(status='paid').count()
-    pending_count = Payment.query.filter_by(status='pending').count()
-    overdue_count = Payment.query.filter_by(status='overdue').count()
 
-    paid_amount = db.session.query(db.func.sum(Payment.amount)).filter_by(status='paid').scalar() or 0
-    pending_amount = db.session.query(db.func.sum(Payment.amount)).filter_by(status='pending').scalar() or 0
-    overdue_amount = db.session.query(db.func.sum(Payment.amount)).filter_by(status='overdue').scalar() or 0
+    # ---------- Payment calculations using simplified model ----------
+    # All payments
+    all_payments = Payment.query.all()
 
-    # 🔴 FIXED: Get all payments for the table - Fixed the join ambiguity
+    paid_payments = [p for p in all_payments if p.paid_amt >= p.amount]
+    pending_payments = [p for p in all_payments if p.paid_amt < p.amount]
+
+    paid_count = len(paid_payments)
+    pending_count = len(pending_payments)
+    overdue_count = 0  # define your overdue logic if needed
+
+    paid_amount = sum(p.amount for p in paid_payments)
+    pending_amount = sum(p.amount - p.paid_amt for p in pending_payments)
+    overdue_amount = 0  # define your logic
+
+    # Get all payments for the table
     payments_result = db.session.query(
         Payment.id,
         Employee.full_name.label('employee_name'),
         Employee.employee_id,
         Document.document_type,
         Payment.amount,
-        Payment.status,
-        Payment.due_date,
+        Payment.paid_amt,
         Payment.paid_date
     ).select_from(Payment).join(Employee).outerjoin(
         Document, Payment.document_id == Document.id
     ).all()
-    
-    # Format payments for template
+
     payments = []
     for p in payments_result:
-        status_class = 'paid' if p.status == 'paid' else 'pending' if p.status == 'pending' else 'overdue'
+        if p.paid_amt >= p.amount:
+            status = 'Paid'
+            status_class = 'paid'
+        else:
+            status = 'Pending'
+            status_class = 'pending'
         payments.append({
             'id': p.id,
             'employee_name': p.employee_name,
             'employee_id': p.employee_id,
             'document_type': p.document_type or 'N/A',
             'amount': p.amount,
-            'status': p.status.title() if p.status else 'Pending',
+            'paid_amt': p.paid_amt,
+            'due_amount': p.amount - p.paid_amt,
+            'status': status,
             'status_class': status_class,
-            'due_date': p.due_date.strftime('%d %b %Y') if p.due_date else 'N/A',
-            'paid_date': p.paid_date.strftime('%d %b %Y') if p.paid_date else 'N/A'
+            'paid_date': p.paid_date.strftime('%d %b %Y') if p.paid_date else 'N/A',
         })
-    
-    return render_template('admin_dashboard.html', 
+
+    return render_template('admin_dashboard.html',
                          employees=employee_data,
                          active_tab=active_tab,
                          selected_emp_id=selected_emp_id,
@@ -932,7 +937,7 @@ def admin_dashboard():
                          total_employees=total_employees,
                          active_employees=active_employees,
                          total_documents=total_documents,
-                         pending_payments=pending_payments,
+                         pending_payments=pending_count,
                          paid_count=paid_count,
                          pending_count=pending_count,
                          overdue_count=overdue_count,
@@ -1400,19 +1405,20 @@ def serve_profile_image(filename):
     profiles_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'profiles')
     return send_from_directory(profiles_dir, filename)
 
-# Add route to process payment
 @app.route('/admin/process-payment/<int:payment_id>', methods=['POST'])
 def process_payment(payment_id):
     if not session.get('is_admin'):
         return "Unauthorized", 403
-    
+
     payment = Payment.query.get_or_404(payment_id)
-    
+    data = request.get_json()
+
     try:
-        payment.status = 'paid'
+        # In a real scenario, you might receive the paid amount from the form.
+        # For now, we'll mark the full amount as paid.
+        payment.paid_amt = payment.amount
         payment.paid_date = datetime.now().date()
         db.session.commit()
-        
         return {'success': True, 'message': 'Payment marked as paid'}
     except Exception as e:
         db.session.rollback()
@@ -1506,6 +1512,22 @@ def save_resignation_details(emp_id):
         # 4️⃣ Mark status
         employee.status = 'resigned'
         employee.resignation_datetime = datetime.now()
+
+        # Generate resignation email content
+        employee.resignation_email_content = f"""
+        Dear HR,
+
+        I am writing to formally resign from my position as {employee.designation} at {COMPANIES[0]['name']}, effective from {resignation_date.strftime('%d %B %Y')}. 
+
+        I have decided to pursue other opportunities and would like to thank you for the support and opportunities provided during my tenure.
+
+        I will ensure a smooth handover of my responsibilities before my departure. Please let me know the next steps regarding the notice period and exit formalities.
+
+        Thank you for the guidance and support.
+
+        Thanks and Regards,
+        {employee.full_name}
+        """.strip()
 
         db.session.commit()
 

@@ -857,21 +857,39 @@
         <div class="payment-table">
             <table>
                 <thead>
-                    <tr><th>Employee</th><th>Document Type</th><th>Generated Date</th><th>Amount</th><th>Status</th><th>Due Date</th><th>Action</th></tr>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Document Type</th>
+                        <th>Amount</th>
+                        <th>Paid</th>
+                        <th>Due</th>
+                        <th>Status</th>
+                        <th>Paid Date</th>
+                        <th>Action</th>
+                    </tr>
                 </thead>
                 <tbody>
                     {% for payment in payments %}
                     <tr>
                         <td><strong>{{ payment.employee_name }}</strong><br><small>{{ payment.employee_id }}</small></td>
                         <td>{{ payment.document_type }}</td>
-                        <td>{{ payment.generated_date }}</td>
                         <td>₹{{ "{:,.0f}".format(payment.amount) }}</td>
+                        <td>₹{{ "{:,.0f}".format(payment.paid_amt) }}</td>
+                        <td>₹{{ "{:,.0f}".format(payment.due_amount) }}</td>
                         <td><span class="payment-status payment-{{ payment.status_class }}">{{ payment.status }}</span></td>
-                        <td>{{ payment.due_date }}</td>
-                        <td>{% if payment.status != 'Paid' %}<button class="pay-btn" onclick="processPayment('{{ payment.id }}')">Mark as Paid</button>{% else %}<button class="pay-btn" disabled>Paid</button>{% endif %}</td>
+                        <td>{{ payment.paid_date }}</td>
+                        <td>
+                            {% if payment.status != 'Paid' %}
+                            <button class="pay-btn" onclick="processPayment('{{ payment.id }}')">
+                                Mark as Paid
+                            </button>
+                            {% else %}
+                            <button class="pay-btn" disabled>Paid</button>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="7" class="text-center">No payment records found</td></tr>
+                    <tr><td colspan="8" class="text-center">No payment records found</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
