@@ -1,209 +1,388 @@
-<!-- templates/documents/resignation_acceptance.html -->
-<!-- Action Bar (hidden in PDF) -->
+<!-- ACTION BAR (VISIBLE ON SCREEN ONLY) -->
 <div class="action-bar">
     <div class="action-bar-container">
+
         <!-- Download Button -->
         <form action="{{ url_for('generate') }}" method="POST" class="action-form">
             <input type="hidden" name="upload_to_drive" value="false">
             <button type="submit" class="btn btn-primary">
-                <span class="btn-icon">📥</span>
-                <span class="btn-text">Download</span>
+                📥 Download
             </button>
         </form>
 
-        <!-- Download & Save to Drive -->
+        <!-- Download + Drive -->
         <form action="{{ url_for('generate') }}" method="POST" class="action-form">
             <input type="hidden" name="upload_to_drive" value="true">
             <button type="submit" class="btn btn-success">
-                <span class="btn-icon">☁️</span>
-                <span class="btn-text">Download & Save to Drive</span>
+                ☁️ Save to Drive
             </button>
         </form>
 
-        <!-- Print Button -->
-        <button type="button" class="btn btn-secondary" onclick="window.print()">
-            <span class="btn-icon">🖨️</span>
-            <span class="btn-text">Print</span>
+        <!-- Print -->
+        <button onclick="window.print()" class="btn btn-secondary">
+            🖨 Print
         </button>
 
-        <!-- Cancel Button -->
+        <!-- Cancel -->
         <a href="{{ url_for('admin_dashboard') }}" class="btn btn-danger">
-            <span class="btn-icon">✕</span>
-            <span class="btn-text">Cancel</span>
+            ✕ Cancel
         </a>
+
     </div>
 </div>
 
 <style>
-    /* Action bar styling – hidden in print */
-    .action-bar {
-        background: white;
-        border-bottom: 1px solid #e9ecef;
-        padding: 15px 0;
-        position: sticky;
-        top: 0;
-        z-index: 1000;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    }
-    .action-bar-container {
-        max-width: 900px;
-        margin: 0 auto;
-        display: flex;
-        gap: 12px;
-        justify-content: flex-end;
-        align-items: center;
-        padding: 0 20px;
-    }
-    .btn {
-        padding: 12px 24px;
-        border: none;
-        border-radius: 8px;
-        font-size: 15px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    .btn-primary { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; }
-    .btn-success { background: linear-gradient(135deg, #1e7e34 0%, #28a745 100%); color: white; }
-    .btn-secondary { background: linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%); color: white; }
-    .btn-danger { background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%); color: white; }
-    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
-    .btn-icon { font-size: 18px; }
-    @media print { .action-bar { display: none !important; } }
 
-    /* PDF page settings */
-    @page {
-        size: A4;
-        margin: 2cm;
-    }
+    /* ACTION BAR */
 
-    /* Email-style document */
-    body {
-        font-family: 'Century Gothic', 'Arial', sans-serif;
-        line-height: 1.5;
-        color: #000;
-    }
-    .email-container {
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 20px;
-        background: white;
-    }
+.action-bar {
+background:white;
+border-bottom:1px solid #ddd;
+padding:15px;
+position:sticky;
+top:0;
+z-index:1000;
+}
 
-    /* Email headers */
-    .email-subject {
-        font-size: 16px;
-        font-weight: bold;
-        margin-bottom: 10px;
-        color: #000;
-    }
-    .email-header-row {
-        margin-bottom: 5px;
-        font-size: 14px;
-    }
-    .email-header-label {
-        font-weight: bold;
-        color: #333;
-        display: inline-block;
-        width: 50px;
-    }
-    .email-header-value {
-        color: #000;
-    }
-    .email-separator {
-        border: none;
-        border-top: 1px solid #ccc;
-        margin: 15px 0;
-    }
+.action-bar-container{
+max-width:900px;
+margin:auto;
+display:flex;
+gap:10px;
+justify-content:flex-end;
+}
 
-    /* Reply body */
-    .reply-body {
-        margin-bottom: 20px;
-    }
-    .salutation {
-        margin-bottom: 15px;
-        font-weight: bold;
-    }
-    .message {
-        margin-bottom: 20px;
-        text-align: justify;
-    }
-    .signature {
-        margin-top: 20px;
-        white-space: pre-line;
-    }
+.btn{
+padding:10px 18px;
+border-radius:6px;
+border:none;
+cursor:pointer;
+font-weight:600;
+text-decoration:none;
+color:white;
+display:inline-block;
+}
 
-    /* Quoted email */
-    .quote-header {
-        margin-top: 25px;
-        font-size: 13px;
-        color: #555;
-    }
-    .quoted-email {
-        margin-top: 5px;
-        padding-left: 15px;
-        border-left: 4px solid #0d6efd;
-        font-style: italic;
-        white-space: pre-line;
-        color: #333;
-        font-size: 13px;
-    }
+.btn-primary{ background:#28a745; }
 
-    @media print {
-        body { margin: 0; padding: 0; }
-        .email-container { padding: 0; }
-    }
+.btn-success{ background:#198754; }
+
+.btn-secondary{ background:#0d6efd; }
+
+.btn-danger{ background:#dc3545; }
+
+
+/* HIDE IN PDF */
+
+@media print{
+
+.action-bar{
+display:none !important;
+}
+
+}
+
+/* PAGE SETTINGS */
+
+@page {
+    size: A4;
+    margin: 20mm;
+}
+
+
+/* BODY */
+
+body{
+    font-family: "Courier New", Courier, monospace;
+    font-size:14px;
+    color:#222;
+    margin:0;
+    background:#e9e9e9;
+    line-height:1.4;
+}
+
+
+/* PAGE STYLE */
+
+.page{
+
+width:794px;
+
+margin:20px auto;
+
+background:white;
+
+padding:50px;
+
+box-shadow:0px 0px 10px rgba(0,0,0,0.15);
+
+box-sizing:border-box;
+
+}
+
+
+/* EMAIL WRAPPER */
+
+.email-wrapper{
+max-width:750px;
+margin:0 auto;
+}
+
+
+/* TOP ROW */
+
+.top-row{
+display:flex;
+align-items:flex-start;
+gap:15px;
+}
+
+
+/* PROFILE ICON */
+
+.profile-icon{
+
+width:48px;
+height:48px;
+
+display:flex;
+align-items:center;
+justify-content:center;
+
+}
+
+
+.profile-icon img{
+
+width:48px;
+height:48px;
+
+object-fit:contain;
+
+}
+
+
+/* SUBJECT */
+
+.subject{
+font-weight:bold;
+font-size:16px;
+margin-bottom:6px;
+}
+
+
+/* HEADER */
+
+.header{
+margin-bottom:25px;
+}
+
+.header-row{
+font-size:13px;
+margin-bottom:3px;
+}
+
+.label{
+font-weight:bold;
+display:inline-block;
+width:50px;
+}
+
+.company{
+color:#000;
+font-weight:bold;
+}
+
+.email{
+color:#1a73e8;
+}
+
+.date{
+font-weight:bold;
+}
+
+
+/* BODY */
+
+.message{
+margin-top:5px;
+white-space:pre-line;
+}
+
+
+/* SIGNATURE */
+
+.signature{
+margin-top:10px;
+white-space:pre-line;
+}
+
+
+/* QUOTE HEADER */
+
+.quote-header{
+margin-top:35px;
+font-size:13px;
+
+page-break-before:auto;
+
+}
+
+
+/* QUOTED TEXT */
+
+.quote{
+margin-top:10px;
+white-space:pre-line;
+color:#1a4fa3;
+}
+
+
+/* PRINT */
+
+@media print{
+
+body{
+background:white;
+}
+
+.page{
+
+margin:0;
+padding:40px;
+
+box-shadow:none;
+
+}
+
+}
+
 </style>
 
-<div class="email-container">
-    <!-- Subject Line -->
-    <div class="email-subject">
-        Re: Letter of Resignation - {{ data.full_name }}
-    </div>
 
-    <!-- From, To, Date headers -->
-    <div class="email-header-row">
-        <span class="email-header-label">From</span>
-        <span class="email-header-value">HR | {{ company.name }} &lt;{{ data.hr_email }}&gt;</span>
-    </div>
-    <div class="email-header-row">
-        <span class="email-header-label">To</span>
-        <span class="email-header-value">{{ data.employee_email }}</span>
-    </div>
-    <div class="email-header-row">
-        <span class="email-header-label">Date</span>
-        <span class="email-header-value">{{ data.timestamp }}</span>
-    </div>
 
-    <hr class="email-separator">
+<div class="page">
 
-    <!-- Reply Body -->
-    <div class="reply-body">
-        <div class="salutation">Dear {{ data.full_name.split()[0] }},</div>
-        <div class="message">
-            <p>Let me inform you that your letter of resignation is accepted and as per your request you will be relieved from the services of the organization on <strong>{{ data.relieving_date }}</strong></p>
-            <p>It has been a pleasure to work with you, and on behalf of our entire organization, I would like to wish you the best in future endeavors.</p>
-        </div>
-        <div class="signature">
-            Thanks and Regards,<br>
-            <strong>{{ data.hr_name }}</strong><br>
-            {{ data.hr_designation }}<br>
-            {{ company.name }}
-        </div>
-    </div>
 
-    <!-- Quoted original email -->
-    {% if data.resignation_email %}
-    <div class="quote-header">
-        On {{ data.resignation_email_datetime or '' }}, {{ data.employee_email or data.full_name }} wrote:
-    </div>
-    <div class="quoted-email">
-        {{ data.resignation_email }}
-    </div>
-    {% endif %}
+<div class="email-wrapper">
+
+
+<!-- PROFILE + SUBJECT -->
+
+<div class="top-row">
+
+
+<div class="profile-icon">
+
+<img src="{{ url_for('static', filename='profile_icon.png') }}">
+
+</div>
+
+
+
+<div>
+
+
+<div class="subject">
+Re: Letter of Resignation - {{ data.full_name }}
+</div>
+
+
+<div class="header">
+
+
+<div class="header-row">
+
+<span class="label">From</span>
+
+<span class="company">
+HR | {{ company.name }}
+</span>
+
+<br>
+
+<span class="email">
+hr.{{ data.hr_name.split()[0]|lower }}@ilitecode.com
+</span>
+
+</div>
+
+
+
+<div class="header-row">
+
+<span class="label">To</span>
+
+<span class="email">
+{{ data.full_name.split()[0]|lower }}.{{ data.full_name.split()[-1]|lower }}.ilitecode@gmail.com
+</span>
+
+</div>
+
+
+
+<div class="header-row">
+
+<span class="label">Date</span>
+
+<span class="date">
+{{ data.timestamp }}
+</span>
+
+</div>
+
+
+
+</div>
+
+</div>
+
+</div>
+
+
+
+<div class="message">
+
+Dear {{ data.full_name.split()[0] }},
+
+Let me inform you that your letter of resignation is accepted and
+as per your request you will be relieved from the services of the
+organization on ({{ data.relieving_date }}). It has been a pleasure to work with
+you, and on behalf of our entire organization, I would like to
+wish you the best in future endeavors.
+</div>
+
+<div class="signature">
+
+Thanks and Regards
+{{ data.hr_name }}
+{{ data.hr_designation }}
+
+</div>
+
+
+
+
+{% if data.resignation_email %}
+
+<div class="quote-header">
+
+On {{ data.resignation_email_datetime }},
+<span class="email">{{ data.full_name.split()[0]|lower }}.{{ data.full_name.split()[-1]|lower }}.ilitecode@gmail.com</span> wrote:
+
+</div>
+
+
+<div class="quote">
+
+{{ data.resignation_email }}
+
+</div>
+
+{% endif %}
+
+
+
+</div>
+
 </div>

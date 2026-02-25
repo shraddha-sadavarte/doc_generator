@@ -8,9 +8,9 @@ COMPANIES = [
         "website": "https://ilitecode.com/",
         "logo": "company1_logo.png",
         "signature": "company1_signature.png",
-        "hr_name": "Suyash Yelpale",
+        "hr_name": "Manisha Gidde",
         "hr_designation": "HR Manager",
-        "hr_email": "suyash@ilitecode.com"
+        "hr_email": "manisha@ilitecode.com"
     },
     {
         "id": "company2",
