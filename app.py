@@ -28,7 +28,7 @@ import uuid
 app = Flask(__name__)
 app.secret_key = "super-secret-key"
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///documents.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://LiteCode:LiteCode%400804@localhost/lc_lms'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, "generated_docs")
 # Google Drive Configuration
@@ -81,6 +81,7 @@ class Employee(db.Model):
     full_name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=True)
     phone = db.Column(db.String(20), nullable=True)
+    gender = db.Column(db.String(20), nullable=True)
     address = db.Column(db.Text, nullable=True)
     aadhar_no = db.Column(db.String(20), unique=True)
     pan_no = db.Column(db.String(20), unique=True)
@@ -134,14 +135,10 @@ class Payment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
     document_id = db.Column(db.Integer, db.ForeignKey('document.id'), nullable=True)
-    amount = db.Column(db.Float, default=0)
-    status = db.Column(db.String(20), default='pending')  # pending, paid, overdue
-    due_date = db.Column(db.Date, nullable=True)
-    paid_date = db.Column(db.Date, nullable=True)
-    payment_method = db.Column(db.String(50), nullable=True)
-    transaction_id = db.Column(db.String(100), nullable=True)
-    notes = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    amount = db.Column(db.Float, default=0)          # total amount due
+    paid_amt = db.Column(db.Float, default=0)        # amount actually paid
+    overdue_amount = db.Column(db.Float, default=0)  # amount overdue (if any)
+    paid_date = db.Column(db.Date, nullable=True)    # when payment was made
     
     employee = db.relationship('Employee', backref='payments')
     document = db.relationship('Document', backref='payment')
@@ -615,7 +612,7 @@ def generate():
     else:
         form_data['formatted_resignation_date'] = None
         form_data['relieving_date'] = None
-        
+
     company = next(
         (c for c in COMPANIES if c['id'] == form_data.get('company')),
         None
@@ -1124,50 +1121,39 @@ def admin_generate_document(emp_id, doc_type):
         session['form_data'] = form_data
         return redirect(url_for('preview'))
 
-    # Handle POST requests for other document types (offer, experience, etc.)
-    if request.method == 'POST':
+    # Handle months selection for salary slip
+    if doc_type == 'salary_slip' and request.method == 'POST':
         company_id = request.form.get('company', 'company1')
+        selected_months = request.form.getlist('months')
+        worked_days = int(request.form.get('worked_days', 30))
+        lop = int(request.form.get('lop', 0))
+        paid_days = int(request.form.get('paid_days', 30))
 
-        # Handle months selection for salary slip
-        if doc_type == 'salary_slip':
-            selected_months = request.form.getlist('months')
-            if not selected_months:
-                flash('Please select at least one month.', 'danger')
-                return render_template('select_months.html', employee=employee, companies=COMPANIES)
-            session['selected_months'] = selected_months
-            session['selected_year'] = request.form.get('year', datetime.now().year)
+        if not selected_months:
+            flash('Please select at least one month.', 'danger')
+            return render_template('select_months.html', employee=employee, companies=COMPANIES)
 
-        # Salary breakdown for other documents (no increment)
+        session['selected_months'] = selected_months
+        session['selected_year'] = request.form.get('year', datetime.now().year)
+        session['worked_days'] = worked_days
+        session['lop'] = lop
+        session['paid_days'] = paid_days
+
+        # Salary calculations
         ctc = float(employee.ctc)
         monthly_ctc = round(ctc / 12)
-        monthly_ctc_after_increment = monthly_ctc  # no increment
 
-        basic = round(monthly_ctc_after_increment * 0.5)
+        basic = round(monthly_ctc * 0.5)
         hra = round(basic * 0.5)
-        conveyance = round(monthly_ctc_after_increment * 0.05)
-        medical = round(monthly_ctc_after_increment * 0.014)
-        telephone = round(monthly_ctc_after_increment * 0.02)
-        special_allowance = monthly_ctc_after_increment - (
-            basic + hra + conveyance + medical + telephone
-        )
+        conveyance = round(monthly_ctc * 0.05)
+        medical = round(monthly_ctc * 0.014)
+        telephone = round(monthly_ctc * 0.02)
+        special_allowance = monthly_ctc - (basic + hra + conveyance + medical + telephone)
         professional_tax = 200
         gross_salary = basic + hra + conveyance + medical + telephone + special_allowance
         net_salary = gross_salary - professional_tax
 
-        salary_breakdown = {
-            'basic': basic,
-            'hra': hra,
-            'conveyance': conveyance,
-            'medical': medical,
-            'telephone': telephone,
-            'special_allowance': special_allowance,
-            'professional_tax': professional_tax,
-            'gross_salary': gross_salary,
-            'net_salary': net_salary,
-            'increment_per_month': 0
-        }
-
-        # Prepare form data from employee records
+        # Build form_data with all required top-level keys
         form_data = {
             'employee_id': employee.employee_id,
             'company': company_id,
@@ -1177,10 +1163,24 @@ def admin_generate_document(emp_id, doc_type):
             'aadhar_no': employee.aadhar_no,
             'pan_no': employee.pan_no,
             'designation': employee.designation,
+            'gender': employee.gender,                    # <-- from employee
+            'department': employee.department,            # <-- from employee
             'base_ctc': employee.base_ctc,
             'ctc': employee.ctc,
             'increment_per_month': 0,
-            'salary_breakdown': salary_breakdown,
+            'basic': basic,
+            'hra': hra,
+            'conveyance': conveyance,
+            'medical': medical,
+            'telephone': telephone,
+            'special_allowance': special_allowance,
+            'professional_tax': professional_tax,
+            'gross_earnings': gross_salary,
+            'gross_deductions': professional_tax,
+            'net_salary': net_salary,
+            'worked_days': worked_days,
+            'lop': lop,
+            'paid_days': paid_days,
             'joining_date': employee.joining_date.strftime('%Y-%m-%d') if employee.joining_date else None,
             'resignation_date': employee.resignation_date.strftime('%Y-%m-%d') if employee.resignation_date else None,
             'bank_details': {
@@ -1193,7 +1193,6 @@ def admin_generate_document(emp_id, doc_type):
         }
         session['form_data'] = form_data
         return redirect(url_for('preview'))
-
     # ------------------------------------------------------------------
     # GET request - show options for salary slip
     # ------------------------------------------------------------------
@@ -1362,6 +1361,7 @@ def add_employee():
             full_name=request.form['full_name'],
             email=request.form.get('email'),
             phone=request.form.get('phone'),
+            gender=request.form.get('gender'),
             address=request.form.get('address'),
             aadhar_no=request.form.get('aadhar_no'),
             pan_no=request.form.get('pan_no'),

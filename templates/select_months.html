@@ -29,6 +29,22 @@
                             </select>
                         </div>
                         
+                        <!-- get workrd days, lop etc from admin -->
+                        <div class="row mt-4">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Worked Days</label>
+                                <input type="number" class="form-control" name="worked_days" value="30" min="0" max="31" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">LOP (Loss of Pay)</label>
+                                <input type="number" class="form-control" name="lop" value="0" min="0" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Paid Days</label>
+                                <input type="number" class="form-control" name="paid_days" value="30" min="0" max="31" required>
+                            </div>
+                        </div>
+
                         <!-- Year Selection -->
                         <div class="mb-4">
                             <label class="form-label fw-bold">Select Year</label>

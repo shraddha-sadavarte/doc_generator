@@ -1,3 +1,4 @@
+<!-- templates/documents/salary_slip.html -->
 <!-- Action Bar (hidden in PDF) -->
 <div class="action-bar">
     <div class="action-bar-container">
@@ -74,162 +75,225 @@
     .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
     .btn-icon { font-size: 18px; }
     @media print { .action-bar { display: none !important; } }
+
+    /* PDF page settings */
     @page {
         size: A4;
-        margin: 2cm;          /* Adjust as needed: top, bottom, left, right */
+        margin: 2cm;
     }
 
-
-    /* PDF-friendly styles */
-    .offer-letter {
+    /* Salary slip styles */
+    .salary-slip {
         font-family: 'Arial', sans-serif;
         max-width: 800px;
         margin: 0 auto;
-        border: 1px solid #e0e0e0;
-        box-shadow: 0 0 20px rgba(0,0,0,0.1);
         padding: 30px;
+        background: white;
         position: relative;
-        page-break-after: avoid;
-        page-break-inside: avoid;
-        background-color: white;
     }
-    .letter-header {
-        border-bottom: 2px solid #0d6efd;
-        padding-bottom: 20px;
+    .header {
         margin-bottom: 20px;
+    }
+    .header-row {
         display: flex;
         justify-content: space-between;
-        align-items: center;
-        gap: 3rem;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
     }
-    table {
+    .header-item {
+        font-size: 13px;
+    }
+    .header-item strong {
+        display: inline-block;
+        width: 100px;
+    }
+    .employee-details {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        border: 1px solid #e0e0e0;
+    }
+    .employee-details table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+    .employee-details td {
+        padding: 5px;
+    }
+    .salary-table {
         width: 100%;
         border-collapse: collapse;
         margin-bottom: 20px;
-        font-size: 12px;
+        font-size: 13px;
     }
-    th {
-        background-color: #0d6efd;
+    .salary-table th {
+        background: #0d6efd;
         color: white;
-        padding: 10px;
+        padding: 8px;
         text-align: left;
-        border-bottom: 2px solid #0a58ca;
     }
-    td {
+    .salary-table td {
         padding: 8px;
         border-bottom: 1px solid #dee2e6;
     }
+    .salary-table .amount {
+        text-align: right;
+    }
     .total-row {
-        background-color: #e9ecef;
         font-weight: bold;
+        background-color: #e9ecef;
+    }
+    .totals {
+        display: flex;
+        justify-content: space-between;
+        margin: 20px 0;
+    }
+    .totals-box {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 5px;
+        border: 1px solid #e0e0e0;
+        width: 45%;
+    }
+    .totals-box .label {
+        font-size: 14px;
+        color: #555;
+    }
+    .totals-box .value {
+        font-size: 20px;
+        font-weight: bold;
+        color: #0d6efd;
+    }
+    .additional-details {
+        margin-top: 20px;
+        font-size: 12px;
+        color: #555;
+    }
+    .additional-details table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .additional-details td {
+        padding: 5px;
+    }
+    .words {
+        margin-top: 20px;
+        font-size: 14px;
+        font-style: italic;
+        text-align: center;
     }
     @media print {
-        body { margin: 0; padding: 0; }
-        .offer-letter {
-            border: none !important;
-            box-shadow: none !important;
-            padding: 15mm !important;
-        }
-    }
-    @page {
-        size: A4 portrait;
-        margin-top: 15mm;
-        margin-bottom: 15mm;
-        margin-left: 15mm;
-        margin-right: 15mm;
+        .salary-slip { padding: 0; }
     }
 </style>
 
-<!-- Watermark placed OUTSIDE the main container – appears on every page in PDF -->
+<!-- Watermark placed OUTSIDE the main container -->
 {% include '_watermark.html' %}
 
 <!-- Loop over each month -->
 {% for month in months %}
-<div class="offer-letter">
-    <!-- Letterhead -->
-    <div class="letter-header">
-        <div style="flex: 0 0 auto;">
-            <img src="{{ request.url_root }}static/images/{{ company.logo }}"
-                 alt="{{ company.name }} Logo"
-                 style="height: 90px; max-width: 450px; object-fit: contain;">
-        </div>
-        <div style="flex: 1; text-align: left;">
-            <p style="color: #555; font-size: 12px; margin: 5px 0; line-height: 1.4;">
-                <strong>Office:</strong> {{ company.address }}<br>
-                <strong>Phone:</strong> {{ company.phone }}<br>
-                <strong>Email:</strong> {{ company.email }}<br>
-                <strong>Website:</strong> {{ company.website }}
-            </p>
-        </div>
+<div class="salary-slip">
+    <!-- Letterhead (optional, you can include company logo if desired) -->
+    <div style="margin-bottom: 20px; border-bottom: 2px solid #0d6efd; padding-bottom: 10px;">
+        <img src="{{ request.url_root }}static/images/{{ company.logo }}"
+             alt="{{ company.name }} Logo"
+             style="height: 80px; max-width: 300px; object-fit: contain;">
     </div>
 
-    <!-- Employee Details -->
-    <div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px solid #e0e0e0;">
-        <div style="display: flex; justify-content: space-between; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 250px;">
-                <p style="margin: 5px 0;"><strong>Employee Name:</strong> {{ data.full_name | default('', true) }}</p>
-                <p style="margin: 5px 0;"><strong>Designation:</strong> {{ data.designation | default('', true) }}</p>
-                <p style="margin: 5px 0;"><strong>Bank Name:</strong> {{ data.bank_details.bank_name | default('', true) }}</p>
-                <p style="margin: 5px 0;"><strong>Account No.:</strong> {{ data.bank_details.account_number | default('', true) }}</p>
-            </div>
-            <div style="flex: 1; min-width: 250px;">
-                <p style="margin: 5px 0;"><strong>Month:</strong> {{ month }} </p>
-                <p style="margin: 5px 0;"><strong>Employee ID:</strong> {{ data.employee_id }} </p>
-                <p style="margin: 5px 0;"><strong>CTC (Annual):</strong> ₹{{ "{:,.2f}".format(data.ctc|float) }}</p>
-            </div>
-        </div>
+    <!-- Month title -->
+    <h3 style="text-align: center; color: #0d6efd; margin-bottom: 20px;">Salary Slip – {{ month }} {{ session.get('selected_year', now.year) }}</h3>
+
+    <!-- Employee Information -->
+    <div class="employee-details">
+        <table>
+            <tr>
+                <td><strong>Emp. Code:</strong> {{ data.employee_id }}</td>
+                <td><strong>Name:</strong> {{ data.full_name }}</td>
+                <td><strong>Designation:</strong> {{ data.designation }}</td>
+            </tr>
+            <tr>
+                <td><strong>Date of Joining:</strong> {{ data.joining_date.strftime('%d/%m/%Y') if data.joining_date else '' }}</td>
+                <td><strong>Gender:</strong> {{ data.gender or 'Male' }}</td>
+                <td><strong>Department:</strong> {{ data.department or 'Information Technology (IT) Department' }}</td>
+            </tr>
+            <tr>
+                <td><strong>PAN Card:</strong> {{ data.pan_no or 'N/A' }}</td>
+                <td><strong>Worked Days:</strong> {{ data.worked_days or 30 }}</td>
+                <td><strong>LOP:</strong> {{ data.lop or 0 }}</td>
+            </tr>
+            <tr>
+                <td><strong>Paid Days:</strong> {{ data.paid_days or 30 }}</td>
+                <td colspan="2"></td>
+            </tr>
+        </table>
     </div>
 
-    <!-- Salary calculations -->
-    {% set basic = ((data.ctc|float) * 0.5 / 12) | round(0) %}
-    {% set hra = (basic * 0.5) | round(0) %}
-    {% set conveyance = (data.ctc|float * 0.05 / 12) | round(0) %}
-    {% set medical = (data.ctc|float * 0.014 / 12) | round(0) %}
-    {% set telephone = (data.ctc|float * 0.02 / 12) | round(0) %}
-    {% set special_allowance = ((data.ctc|float /12) - (basic + hra + conveyance + medical + telephone)) | round(0) %}
-    {% set professional_tax = 200 %}
-    {% set gross_salary = basic + hra + conveyance + medical + telephone + special_allowance %}
-    {% set total_deductions = professional_tax %}
-    {% set net_salary = (gross_salary - total_deductions) | round(0) %}
-
-    <!-- Salary table -->
-    <table>
+    <!-- Earnings & Deductions Table -->
+    <table class="salary-table">
         <thead>
-            <tr style="background-color: #0d6efd; color: white;">
-                <th>HEAD</th>
-                <th style="text-align: right;">EARNINGS (₹)</th>
-                <th style="text-align: right;">DEDUCTIONS (₹)</th>
+            <tr>
+                <th>Earnings</th>
+                <th class="amount">Current Month</th>
+                <th>Deductions</th>
+                <th class="amount">Current Month</th>
             </tr>
         </thead>
         <tbody>
-            <tr><td><strong>1. MONTHLY COMPONENTS</strong></td><td></td><td></td></tr>
-            <tr><td>Basic Salary</td><td style="text-align: right;">₹{{ "{:,.2f}".format(basic) }}</td><td style="text-align: right;">-</td></tr>
-            <tr><td>House Rent Allowance (HRA)</td><td style="text-align: right;">₹{{ "{:,.2f}".format(hra) }}</td><td style="text-align: right;">-</td></tr>
-            <tr><td><strong>2. REIMBURSEMENTS</strong></td><td></td><td></td></tr>
-            <tr><td>Conveyance Allowance</td><td style="text-align: right;">₹{{ "{:,.2f}".format(conveyance) }}</td><td style="text-align: right;">-</td></tr>
-            <tr><td>Medical Allowance</td><td style="text-align: right;">₹{{ "{:,.2f}".format(medical) }}</td><td style="text-align: right;">-</td></tr>
-            <tr><td>Telephone/Mobile</td><td style="text-align: right;">₹{{ "{:,.2f}".format(telephone) }}</td><td style="text-align: right;">-</td></tr>
-            <tr><td><strong>3. SPECIAL ALLOWANCE</strong></td><td style="text-align: right;">₹{{ "{:,.2f}".format(special_allowance) }}</td><td style="text-align: right;">-</td></tr>
-            <tr><td><strong>4. DEDUCTIONS</strong></td><td></td><td></td></tr>
-            <tr><td>Professional Tax</td><td style="text-align: right;">-</td><td style="text-align: right;">₹{{ "{:,.2f}".format(professional_tax) }}</td></tr>
-            <tr style="background-color: #e9ecef; font-weight: bold;">
-                <td>TOTAL</td>
-                <td style="text-align: right;">₹{{ "{:,.2f}".format(gross_salary) }}</td>
-                <td style="text-align: right;">₹{{ "{:,.2f}".format(total_deductions) }}</td>
+            <!-- Row 1: Basic vs Professional Tax -->
+            <tr>
+                <td>Basic</td>
+                <td class="amount">{{ "{:,.0f}".format(data.basic|default(0)) }}</td>
+                <td>Professional Tax</td>
+                <td class="amount">{{ "{:,.0f}".format(data.professional_tax|default(200)) }}</td>
+            </tr>
+            <!-- Row 2: HRA vs Income Tax -->
+            <tr>
+                <td>HRA</td>
+                <td class="amount">{{ "{:,.0f}".format(data.hra|default(0)) }}</td>
+                <td>Income Tax</td>
+                <td class="amount">{{ "{:,.0f}".format(data.income_tax|default(0)) }}</td>
+            </tr>
+            <!-- Row 3: Medical vs Other -->
+            <tr>
+                <td>Medical</td>
+                <td class="amount">{{ "{:,.0f}".format(data.medical|default(0)) }}</td>
+                <td>Other</td>
+                <td class="amount">{{ "{:,.0f}".format(data.other_deductions|default(0)) }}</td>
+            </tr>
+            <!-- Row 4: Internet/Mobile vs Provident Fund -->
+            <tr>
+                <td>Internet/Mobile</td>
+                <td class="amount">{{ "{:,.0f}".format(data.internet|default(0)) }}</td>
+                <td>Provident Fund</td>
+                <td class="amount">{{ "{:,.0f}".format(data.provident_fund|default(0)) }}</td>
+            </tr>
+            <!-- Row 5: Other Allowances vs Paid Leave -->
+            <tr>
+                <td>Other Allowances</td>
+                <td class="amount">{{ "{:,.0f}".format(data.other_allowances|default(0)) }}</td>
+                <td>Paid Leave</td>
+                <td class="amount">{{ "{:,.0f}".format(data.paid_leave|default(0)) }}</td>
+            </tr>
+            <!-- Total row -->
+            <tr class="total-row">
+                <td>GROSS EARNINGS</td>
+                <td class="amount">{{ "{:,.2f}".format(data.gross_earnings|default(0)) }}</td>
+                <td>GROSS DEDUCTIONS</td>
+                <td class="amount">{{ "{:,.2f}".format(data.gross_deductions|default(0)) }}</td>
             </tr>
         </tbody>
     </table>
 
-    <!-- Net Salary -->
-    <div style="text-align: center; margin-top: 20px;">
-        <div style="display: inline-block; background-color: #f8f9fa; padding: 15px 30px; border-radius: 5px; border: 1px solid #e0e0e0;">
-            <h3 style="color: #0d6efd; margin-bottom: 5px; font-size: 16px; text-transform: uppercase;">
-                Net Salary Payable per Month: ₹{{ "{:,.0f}".format(net_salary) }}
-            </h3>
-            <p style="font-style: italic; font-size: 13px; margin: 0; color: #555;">
-                (₹{{ "{:,}".format(net_salary|int) }})
-            </p>
-        </div>
+    <!-- Net Salary and Words -->
+    <div style="text-align: right; margin-top: 10px;">
+        <strong>NET Salary:</strong> Rs. {{ "{:,.0f}".format(data.net_salary|default(0)) }}/-
+    </div>
+
+    <!-- Amount in Words -->
+    <div class="words">
+        <strong>Net Payable in Words:</strong> {{ data.words or 'Twenty Three Thousands Nine Hundred And Sixty Eight Rupees' }}
     </div>
 </div>
 
