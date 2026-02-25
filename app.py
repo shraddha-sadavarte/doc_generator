@@ -24,7 +24,6 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 import pickle
 import uuid
-from flask import send_file
 
 app = Flask(__name__)
 app.secret_key = "super-secret-key"
@@ -96,6 +95,9 @@ class Employee(db.Model):
     profile_image = db.Column(db.String(200), nullable=True)  # For employee photo
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    resignation_email_content = db.Column(db.Text, nullable=True)  # To store resignation email content for resignation acceptance letter
+    resignation_datetime = db.Column(db.DateTime, nullable=True)  # To store resignation email date and time for resignation acceptance letter
+    relieving_date = db.Column(db.Date, nullable=True)  # To store calculated relieving date for resignation acceptance letter
     
     # Bank Details
     account_holder = db.Column(db.String(100))
@@ -316,11 +318,7 @@ def index():
 def preview():
     form_data = session.get('form_data', {})
 
-     # Debug print
-    print("=" * 50)
-    print("PREVIEW ROUTE - form_data keys:", form_data.keys())
-    print("document_type:", form_data.get('document_type'))
-    print("=" * 50)
+    print("relieving_date in form_data:", form_data.get('relieving_date')) 
     
     # Set defaults if missing
     if 'document_type' not in form_data:
@@ -386,15 +384,10 @@ def preview():
     # Format dates for display using the safe format_date function
     form_data['formatted_joining_date'] = format_date(form_data.get('joining_date'))
     
-    resignation_date = form_data.get('resignation_date')
-    if resignation_date:
-        form_data['formatted_resignation_date'] = format_date(resignation_date)
-        # Calculate relieving date (30 days after resignation)
-        if isinstance(resignation_date, str):
-            relieving_date = datetime.strptime(resignation_date, "%Y-%m-%d").date() + timedelta(days=30)
-        else:
-            relieving_date = resignation_date + timedelta(days=30)
-        form_data['relieving_date'] = format_date(relieving_date)
+    employee = Employee.query.filter_by(employee_id=form_data.get('employee_id')).first()
+    if employee:
+        form_data['formatted_resignation_date'] = format_date(employee.resignation_date)
+        form_data['relieving_date'] = format_date(employee.relieving_date)
     else:
         form_data['formatted_resignation_date'] = None
         form_data['relieving_date'] = None
@@ -615,23 +608,14 @@ def generate():
         form_data.get('joining_date')
     )
 
-    resignation_date = form_data.get('resignation_date')
-
-    if resignation_date:
-        form_data['formatted_resignation_date'] = format_date(resignation_date)
-
-        if isinstance(resignation_date, str):
-            relieving_date = datetime.strptime(
-                resignation_date, "%Y-%m-%d"
-            ).date() + timedelta(days=30)
-        else:
-            relieving_date = resignation_date + timedelta(days=30)
-
-        form_data['relieving_date'] = format_date(relieving_date)
+    employee = Employee.query.filter_by(employee_id=form_data.get('employee_id')).first()
+    if employee:
+        form_data['formatted_resignation_date'] = format_date(employee.resignation_date)
+        form_data['relieving_date'] = format_date(employee.relieving_date)
     else:
         form_data['formatted_resignation_date'] = None
         form_data['relieving_date'] = None
-
+        
     company = next(
         (c for c in COMPANIES if c['id'] == form_data.get('company')),
         None
@@ -1016,7 +1000,8 @@ def delete_employee(emp_id):
         flash(f'Error deleting employee: {str(e)}', 'danger')
 
     return redirect(url_for('admin_dashboard', tab='employees'))
-#generate document for specific employee
+
+# generate document for specific employee
 @app.route('/admin/employee/<int:emp_id>/generate/<doc_type>', methods=['GET', 'POST'])
 def admin_generate_document(emp_id, doc_type):
     if not session.get('is_admin'):
@@ -1041,10 +1026,10 @@ def admin_generate_document(emp_id, doc_type):
                 'amount': increment_amount,
                 'effective_date': effective_date,
                 'employee_id': employee.id,
-                'old_ctc': employee.ctc   # store old CTC instead of old increment
+                'old_ctc': employee.ctc   # store old CTC
             }
 
-            # 🔴 ADD SALARY BREAKDOWN CALCULATIONS HERE
+            # Salary breakdown calculations
             ctc = float(employee.ctc)
             monthly_ctc = round(ctc / 12)
             monthly_ctc_after_increment = monthly_ctc + increment_amount
@@ -1054,11 +1039,9 @@ def admin_generate_document(emp_id, doc_type):
             conveyance = round(monthly_ctc_after_increment * 0.05)
             medical = round(monthly_ctc_after_increment * 0.014)
             telephone = round(monthly_ctc_after_increment * 0.02)
-
             special_allowance = monthly_ctc_after_increment - (
                 basic + hra + conveyance + medical + telephone
             )
-
             professional_tax = 200
             gross_salary = basic + hra + conveyance + medical + telephone + special_allowance
             net_salary = gross_salary - professional_tax
@@ -1087,7 +1070,7 @@ def admin_generate_document(emp_id, doc_type):
                 'pan_no': employee.pan_no,
                 'designation': employee.designation,
                 'base_ctc': employee.base_ctc,
-                'ctc': employee.ctc,                      # ADD current CTC for display
+                'ctc': employee.ctc,
                 'increment_per_month': increment_amount,
                 'salary_breakdown': salary_breakdown,
                 'increment_effective_date': effective_date,
@@ -1106,8 +1089,42 @@ def admin_generate_document(emp_id, doc_type):
         
         # GET request - show increment form
         return render_template('increment_form.html', employee=employee, companies=COMPANIES, now=datetime.now)
+    
+    # ===== Resignation Acceptance =====
+    elif doc_type == 'resignation_acceptance':
+        company_id = request.args.get('company', 'company1')
+        company = next((c for c in COMPANIES if c['id'] == company_id), None)
+        if not company:
+            flash('Company not found.', 'danger')
+            return redirect(url_for('view_employee', emp_id=employee.id))
 
-    # Handle POST requests for other document types
+        if not employee.resignation_date or not employee.resignation_email_content:
+            flash('Resignation details not found. Please mark employee as resigned first.', 'danger')
+            return redirect(url_for('view_employee', emp_id=employee.id))
+
+        relieving_date = employee.resignation_date + timedelta(days=30)
+        formatted_relieving_date = relieving_date.strftime('%d %B %Y')
+        formatted_email_datetime = employee.resignation_datetime.strftime('%d %B %Y %I:%M %p') if employee.resignation_datetime else None
+
+        form_data = {
+            'employee_id': employee.employee_id,
+            'company': company_id,
+            'document_type': doc_type,
+            'full_name': employee.full_name,
+            'employee_email': employee.email,
+            'designation': employee.designation,
+            'relieving_date': formatted_relieving_date,
+            'resignation_email': employee.resignation_email_content,
+            'resignation_email_datetime': formatted_email_datetime,
+            'hr_name': company.get('hr_name', 'HR Manager'),
+            'hr_designation': company.get('hr_designation', 'Human Resource Manager'),
+            'hr_email': company.get('hr_email', 'hr@example.com'),
+            'timestamp': datetime.now().strftime('%d/%m/%Y %I:%M %p')
+        }
+        session['form_data'] = form_data
+        return redirect(url_for('preview'))
+
+    # Handle POST requests for other document types (offer, experience, etc.)
     if request.method == 'POST':
         company_id = request.form.get('company', 'company1')
 
@@ -1120,21 +1137,19 @@ def admin_generate_document(emp_id, doc_type):
             session['selected_months'] = selected_months
             session['selected_year'] = request.form.get('year', datetime.now().year)
 
-        # 🔴 ADD SALARY BREAKDOWN FOR OTHER DOCUMENTS – use computed ctc
-        ctc = float(employee.ctc)                         # FIXED: use ctc property, not base_ctc
+        # Salary breakdown for other documents (no increment)
+        ctc = float(employee.ctc)
         monthly_ctc = round(ctc / 12)
-        monthly_ctc_after_increment = monthly_ctc          # no increment
+        monthly_ctc_after_increment = monthly_ctc  # no increment
 
         basic = round(monthly_ctc_after_increment * 0.5)
         hra = round(basic * 0.5)
         conveyance = round(monthly_ctc_after_increment * 0.05)
         medical = round(monthly_ctc_after_increment * 0.014)
         telephone = round(monthly_ctc_after_increment * 0.02)
-
         special_allowance = monthly_ctc_after_increment - (
             basic + hra + conveyance + medical + telephone
         )
-
         professional_tax = 200
         gross_salary = basic + hra + conveyance + medical + telephone + special_allowance
         net_salary = gross_salary - professional_tax
@@ -1163,7 +1178,7 @@ def admin_generate_document(emp_id, doc_type):
             'pan_no': employee.pan_no,
             'designation': employee.designation,
             'base_ctc': employee.base_ctc,
-            'ctc': employee.ctc,                           # include current CTC
+            'ctc': employee.ctc,
             'increment_per_month': 0,
             'salary_breakdown': salary_breakdown,
             'joining_date': employee.joining_date.strftime('%Y-%m-%d') if employee.joining_date else None,
@@ -1178,13 +1193,19 @@ def admin_generate_document(emp_id, doc_type):
         }
         session['form_data'] = form_data
         return redirect(url_for('preview'))
-    
+
+    # ------------------------------------------------------------------
     # GET request - show options for salary slip
+    # ------------------------------------------------------------------
     if doc_type == 'salary_slip':
         return render_template('select_months.html', employee=employee, companies=COMPANIES)
-    
-    # For other documents (GET request), directly generate with default company
-    ctc = float(employee.ctc)                               # FIXED: use ctc property
+
+    # ------------------------------------------------------------------
+    # Fallback for all other documents (GET request)
+    # (This will also handle documents like offer_letter, experience_letter,
+    #  relieving_letter, and any other doc_type not caught above.)
+    # ------------------------------------------------------------------
+    ctc = float(employee.ctc)
     monthly_ctc = round(ctc / 12)
     monthly_ctc_after_increment = monthly_ctc  # no increment
 
@@ -1193,11 +1214,9 @@ def admin_generate_document(emp_id, doc_type):
     conveyance = round(monthly_ctc_after_increment * 0.05)
     medical = round(monthly_ctc_after_increment * 0.014)
     telephone = round(monthly_ctc_after_increment * 0.02)
-
     special_allowance = monthly_ctc_after_increment - (
         basic + hra + conveyance + medical + telephone
     )
-
     professional_tax = 200
     gross_salary = basic + hra + conveyance + medical + telephone + special_allowance
     net_salary = gross_salary - professional_tax
@@ -1449,6 +1468,65 @@ def update_employee_status(emp_id, status):
 
     flash("Employee status updated successfully!", "success")
     return redirect(url_for('view_employee', emp_id=emp_id))
+
+@app.route('/admin/employee/<int:emp_id>/save-resignation', methods=['POST'])
+def save_resignation_details(emp_id):
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+
+    employee = Employee.query.get_or_404(emp_id)
+
+    resignation_date_str = request.form.get('resignation_date')
+    relieving_date_str = request.form.get('relieving_date')
+
+    if not resignation_date_str:
+        flash('Resignation date is required.', 'danger')
+        return redirect(url_for('view_employee', emp_id=emp_id))
+
+    try:
+        # 1️⃣ Convert resignation date
+        resignation_date = datetime.strptime(
+            resignation_date_str, '%Y-%m-%d'
+        ).date()
+
+        employee.resignation_date = resignation_date
+
+        # 2️⃣ If admin entered relieving date
+        if relieving_date_str and relieving_date_str.strip():
+            relieving_date = datetime.strptime(
+                relieving_date_str, '%Y-%m-%d'
+            ).date()
+        else:
+            # 3️⃣ Otherwise calculate +30 days
+            relieving_date = resignation_date + timedelta(days=30)
+
+        # ✅ Save relieving date to DB
+        employee.relieving_date = relieving_date
+
+        # 4️⃣ Mark status
+        employee.status = 'resigned'
+        employee.resignation_datetime = datetime.now()
+
+        db.session.commit()
+
+        print("✅ Saved resignation and relieving date")
+        print("Resignation:", employee.resignation_date)
+        print("Relieving:", employee.relieving_date)
+
+        flash('Resignation details saved successfully.', 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error: {str(e)}', 'danger')
+
+    return redirect(url_for('view_employee', emp_id=emp_id))
+
+@app.route('/admin/employee/<int:emp_id>/resignation-form')
+def resignation_input_form(emp_id):
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+    employee = Employee.query.get_or_404(emp_id)
+    return render_template('resignation_input_form.html', employee=employee)
 
 def get_drive_service():
     """Get authenticated Google Drive service"""

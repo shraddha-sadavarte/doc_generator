@@ -173,8 +173,8 @@
                 <p style="margin: 5px 0;"><strong>Account No.:</strong> {{ data.bank_details.account_number | default('', true) }}</p>
             </div>
             <div style="flex: 1; min-width: 250px;">
-                <p style="margin: 5px 0;"><strong>Month:</strong> {{ month }}</p>
-                <p style="margin: 5px 0;"><strong>Employee ID:</strong> {{ data.employee_id }}</p>
+                <p style="margin: 5px 0;"><strong>Month:</strong> {{ month }} </p>
+                <p style="margin: 5px 0;"><strong>Employee ID:</strong> {{ data.employee_id }} </p>
                 <p style="margin: 5px 0;"><strong>CTC (Annual):</strong> ₹{{ "{:,.2f}".format(data.ctc|float) }}</p>
             </div>
         </div>

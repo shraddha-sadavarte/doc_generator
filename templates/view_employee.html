@@ -10,6 +10,11 @@
             </a>
             Employee Details
         </h2>
+        <form action="{{ url_for('admin_generate_document', emp_id=employee.id, doc_type='resignation_acceptance') }}" method="GET" style="display:inline;">
+            <button type="submit" class="btn btn-sm btn-info">
+                <i class="fas fa-file-pdf"></i> Resignation Acceptance
+            </button>
+        </form>
         <div class="dropdown">
             <button class="btn btn-sm dropdown-toggle 
                 {% if employee.status == 'active' %}btn-success
@@ -21,7 +26,11 @@
             </button>
             <ul class="dropdown-menu">
                 <li><a class="dropdown-item" href="{{ url_for('update_employee_status', emp_id=employee.id, status='active') }}">Active</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('update_employee_status', emp_id=employee.id, status='resigned') }}">Resigned</a></li>
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('resignation_input_form', emp_id=employee.id) }}">
+                        Resigned
+                    </a>
+                </li>
                 <li><a class="dropdown-item text-danger" href="{{ url_for('update_employee_status', emp_id=employee.id, status='terminated') }}">Terminated</a></li>
             </ul>
         </div>
