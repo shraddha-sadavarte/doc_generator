@@ -46,7 +46,8 @@ os.makedirs(app.config['GOOGLE_DRIVE_TOKEN_FOLDER'], exist_ok=True)
 
 CLIENT_SECRETS_FILE = "credentials.json"  # Download this from Google Cloud Console
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
-REDIRECT_URI = 'http://localhost:5000/oauth2callback'
+# Use environment variable with fallback for local development
+REDIRECT_URI = os.getenv('OAUTH_REDIRECT_URI', 'http://localhost:5000/oauth2callback')
 os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], "employee_documents"), exist_ok=True)
 os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], "profiles"), exist_ok=True)
 
