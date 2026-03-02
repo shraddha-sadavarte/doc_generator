@@ -9,7 +9,6 @@ os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 from flask import Flask, flash, render_template, request, redirect, url_for, session, send_file, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
-from xhtml2pdf import pisa
 from flask_migrate import Migrate
 from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta

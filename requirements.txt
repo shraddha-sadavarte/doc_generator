@@ -10,7 +10,6 @@ Flask-Migrate
 gunicorn
 PyMySQL
 weasyprint
-xhtml2pdf
 humanize
 google-api-python-client
 google-auth
