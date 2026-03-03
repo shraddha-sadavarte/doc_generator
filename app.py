@@ -2,7 +2,6 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
-
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -37,7 +36,11 @@ from num2words import num2words
 app = Flask(__name__)
 app.secret_key = "super-secret-key"
 
-app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+if DATABASE_URL:
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+else:
+    # Local development – use MySQL
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://LiteCode:LiteCode%400804@localhost/lc_lms'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, "generated_docs")
 # Google Drive Configuration
@@ -153,6 +156,7 @@ class Payment(db.Model):
     employee = db.relationship('Employee', backref='payments')
     document = db.relationship('Document', backref='payment')
 
+#function for production
 def html_to_pdf(html_content, output_path):
     try:
         HTML(string=html_content).write_pdf(output_path)
@@ -160,6 +164,33 @@ def html_to_pdf(html_content, output_path):
     except Exception as e:
         print("WeasyPrint error:", e)
         return False
+
+# def html_to_pdf(html_content, output_path):
+#     # Path to the standalone WeasyPrint executable (for local Windows)
+#     weasyprint_path = os.path.join(app.root_path, 'weasyprint', 'weasyprint.exe')
+    
+#     with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+#         f.write(html_content)
+#         temp_html_path = f.name
+
+#     try:
+#         result = subprocess.run(
+#             [weasyprint_path, temp_html_path, output_path],
+#             capture_output=True,
+#             text=True,
+#             timeout=30
+#         )
+#         if result.returncode == 0:
+#             return True
+#         else:
+#             print("WeasyPrint error:", result.stderr)
+#             return False
+#     except Exception as e:
+#         print("WeasyPrint exception:", e)
+#         return False
+#     finally:
+#         if os.path.exists(temp_html_path):
+#             os.unlink(temp_html_path)
 
 @app.template_filter('humanize')
 def humanize_filter(value):
@@ -657,6 +688,11 @@ def generate():
         return redirect(url_for('admin_dashboard'))
 
     # ==================== OTHER DOCUMENTS ====================
+    #fetch employee again to get resignation/relieving dates
+    emp = Employee.query.filter_by(employee_id=form_data.get('employee_id')).first()
+    if emp:
+        form_data['formatted_resignation_date'] = format_date(emp.resignation_date)
+        form_data['relieving_date'] = format_date(emp.relieving_date)
     html = render_template(
         f"documents/{doc_type}.html",
         data=form_data,

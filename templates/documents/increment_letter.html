@@ -33,145 +33,65 @@
 </div>
 
 <style>
-    /* Action Bar Container */
-    .action-bar {
-        background: white;
-        border-bottom: 1px solid #e9ecef;
-        padding: 15px 0;
-        position: sticky;
-        top: 0;
-        z-index: 1000;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    }
+   /* ================= ACTION BAR ================= */
 
-    .action-bar-container {
-        max-width: 900px;
-        margin: 0 auto;
-        display: flex;
-        gap: 12px;
-        justify-content: flex-end;
-        align-items: center;
-        padding: 0 20px;
-    }
+.action-bar{
+    background:white;
+    padding:15px 0;
+    border-bottom:1px solid #000;
+}
 
-    /* Base Button Styles */
-    .btn {
-        padding: 12px 24px;
-        border: none;
-        border-radius: 8px;
-        font-size: 15px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        letter-spacing: 0.3px;
-        position: relative;
-        overflow: hidden;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
+.action-bar-container{
+    max-width:1000px;
+    margin:auto;
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    padding:0 20px;
+    flex-wrap: wrap;          /* allows wrapping on small screens */
+}
+.action-form{
+    margin: 0;
+    padding: 0;
+}
 
-    .btn:before {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 0;
-        height: 0;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.2);
-        transform: translate(-50%, -50%);
-        transition: width 0.6s, height 0.6s;
-    }
+.btn{
+    padding:10px 18px;
+    border:1px solid #000;
+    border-radius:4px;
+    font-size:14px;
+    cursor:pointer;
+    font-weight:500;
+    background:white;
+    color:black;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: background-color 0.2s;
+}
 
-    .btn:hover:before {
-        width: 300px;
-        height: 300px;
-    }
+.btn:hover{
+    background:#e9e9e9;
+}
 
-    .btn-icon {
-        font-size: 18px;
-        position: relative;
-        z-index: 1;
-    }
+/* Override any colored button classes to use the same border‑only style */
+.btn-primary,
+.btn-success,
+.btn-secondary,
+.btn-danger {
+    background: white !important;
+    color: black !important;
+    border:1px solid #000 !important;
+    box-shadow: none !important;
+}
 
-    .btn-text {
-        position: relative;
-        z-index: 1;
-    }
-
-    /* Primary Button - Green */
-    .btn-primary {
-        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-        color: white;
-        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
-    }
-
-    .btn-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(40, 167, 69, 0.3);
-        background: linear-gradient(135deg, #218838 0%, #1ba87e 100%);
-    }
-
-    .btn-primary:active {
-        transform: translateY(0);
-        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
-    }
-
-    .btn-success {
-        background: linear-gradient(135deg, #1e7e34 0%, #28a745 100%);
-        color: white;
-        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
-    }
-
-    .btn-success:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(40, 167, 69, 0.3);
-        background: linear-gradient(135deg, #1e7e34 0%, #218838 100%);
-    }
-
-    .btn-success:active {
-        transform: translateY(0);
-        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
-    }
-
-    /* Secondary Button - Blue */
-    .btn-secondary {
-        background: linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%);
-        color: white;
-        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
-    }
-
-    .btn-secondary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(13, 110, 253, 0.3);
-        background: linear-gradient(135deg, #0b5ed7 0%, #0bb5d9 100%);
-    }
-
-    .btn-secondary:active {
-        transform: translateY(0);
-        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
-    }
-
-    /* Danger Button - Red */
-    .btn-danger {
-        background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
-        color: white;
-        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
-    }
-
-    .btn-danger:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(220, 53, 69, 0.3);
-        background: linear-gradient(135deg, #c82333 0%, #d62c1a 100%);
-    }
-
-    .btn-danger:active {
-        transform: translateY(0);
-        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
-    }
+.btn-primary:hover,
+.btn-success:hover,
+.btn-secondary:hover,
+.btn-danger:hover {
+    background:#e9e9e9 !important;
+}
 
     /* Hide buttons in print mode */
     @media print {
@@ -314,7 +234,7 @@
     <!-- Employee Details -->
     <div style="margin-bottom: 20px;">
         <p style="font-weight: bold; margin-bottom: 5px;">{{ data.full_name|title }}</p>
-        <p style="margin-top: 0;">EMP ID - {{ data.employee_id or 'Not Specified' }}</p>
+        <p style="margin-top: 0;"><strong>EMPLOYEE ID - </strong> {{ data.employee_id or 'Not Specified' }}</p>
     </div>
 
     <!-- Date -->
@@ -350,8 +270,8 @@
             This increment will be effective from 
             <strong>
                 {% set effective_date = now + timedelta(days=30) %}
-                {{ effective_date.strftime('%d %B %Y') }}
-            </strong>, i.e., starting from next month.
+                {{ effective_date.strftime('%d %B %Y') }}.
+            </strong>
         </p>
 
         <p>
@@ -363,51 +283,55 @@
         </p>
     </div>
 
-    <!-- Salary Breakdown Section (NEW) -->
-    {% if data.salary_breakdown %}
-    <div class="salary-breakdown">
-        <h4>📊 Revised Salary Breakdown</h4>
-        <div class="salary-grid">
-            <div class="salary-item">
-                <span class="salary-label">Basic Salary (50%):</span>
-                <span class="salary-value">₹{{ "{:,.0f}".format(data.salary_breakdown.basic|float) }}</span>
-            </div>
-            <div class="salary-item">
-                <span class="salary-label">HRA (50% of Basic):</span>
-                <span class="salary-value">₹{{ "{:,.0f}".format(data.salary_breakdown.hra|float) }}</span>
-            </div>
-            <div class="salary-item">
-                <span class="salary-label">Conveyance:</span>
-                <span class="salary-value">₹{{ "{:,.0f}".format(data.salary_breakdown.conveyance|float) }}</span>
-            </div>
-            <div class="salary-item">
-                <span class="salary-label">Medical:</span>
-                <span class="salary-value">₹{{ "{:,.0f}".format(data.salary_breakdown.medical|float) }}</span>
-            </div>
-            <div class="salary-item">
-                <span class="salary-label">Telephone:</span>
-                <span class="salary-value">₹{{ "{:,.0f}".format(data.salary_breakdown.telephone|float) }}</span>
-            </div>
-            <div class="salary-item">
-                <span class="salary-label">Special Allowance:</span>
-                <span class="salary-value">₹{{ "{:,.0f}".format(data.salary_breakdown.special_allowance|float) }}</span>
-            </div>
-            <div class="salary-item">
-                <span class="salary-label">Professional Tax:</span>
-                <span class="salary-value">-₹{{ "{:,.0f}".format(data.salary_breakdown.professional_tax|float) }}</span>
-            </div>
-            <div class="salary-item">
-                <span class="salary-label">Gross Salary:</span>
-                <span class="salary-value">₹{{ "{:,.0f}".format(data.salary_breakdown.gross_salary|float) }}</span>
-            </div>
-        </div>
-        
-        <div class="total-ctc">
-            <div class="label">New Monthly Net Salary</div>
-            <div class="value">₹{{ "{:,.0f}".format(data.salary_breakdown.net_salary|float) }}</div>
-        </div>
+ <!-- Salary Breakdown Section (Simplified) -->
+{% if data.salary_breakdown %}
+<div style="margin: 30px 0;">
+    <h4 style="color: #333; margin-bottom: 15px; font-size: 18px; font-weight: 600;">Revised Salary Breakdown</h4>
+    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+        <tr style="background-color: #f2f2f2;">
+            <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Component</th>
+            <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Amount (₹)</th>
+        </tr>
+        <tr>
+            <td style="padding: 8px 10px; border: 1px solid #ddd;">Basic Salary (50%)</td>
+            <td style="padding: 8px 10px; text-align: right; border: 1px solid #ddd;">{{ "{:,.0f}".format(data.salary_breakdown.basic|float) }}</td>
+        </tr>
+        <tr style="background-color: #f9f9f9;">
+            <td style="padding: 8px 10px; border: 1px solid #ddd;">HRA (50% of Basic)</td>
+            <td style="padding: 8px 10px; text-align: right; border: 1px solid #ddd;">{{ "{:,.0f}".format(data.salary_breakdown.hra|float) }}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px 10px; border: 1px solid #ddd;">Conveyance</td>
+            <td style="padding: 8px 10px; text-align: right; border: 1px solid #ddd;">{{ "{:,.0f}".format(data.salary_breakdown.conveyance|float) }}</td>
+        </tr>
+        <tr style="background-color: #f9f9f9;">
+            <td style="padding: 8px 10px; border: 1px solid #ddd;">Medical</td>
+            <td style="padding: 8px 10px; text-align: right; border: 1px solid #ddd;">{{ "{:,.0f}".format(data.salary_breakdown.medical|float) }}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px 10px; border: 1px solid #ddd;">Telephone</td>
+            <td style="padding: 8px 10px; text-align: right; border: 1px solid #ddd;">{{ "{:,.0f}".format(data.salary_breakdown.telephone|float) }}</td>
+        </tr>
+        <tr style="background-color: #f9f9f9;">
+            <td style="padding: 8px 10px; border: 1px solid #ddd;">Special Allowance</td>
+            <td style="padding: 8px 10px; text-align: right; border: 1px solid #ddd;">{{ "{:,.0f}".format(data.salary_breakdown.special_allowance|float) }}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px 10px; border: 1px solid #ddd;">Professional Tax</td>
+            <td style="padding: 8px 10px; text-align: right; border: 1px solid #ddd;">-{{ "{:,.0f}".format(data.salary_breakdown.professional_tax|float) }}</td>
+        </tr>
+        <tr style="background-color: #e9ecef; font-weight: bold;">
+            <td style="padding: 10px; border: 1px solid #ddd;">Gross Salary</td>
+            <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">{{ "{:,.0f}".format(data.salary_breakdown.gross_salary|float) }}</td>
+        </tr>
+    </table>
+
+    <div style="margin-top: 20px; padding: 15px; background-color: #e8f4f8; border-radius: 5px; text-align: center;">
+        <div style="color: #555; font-size: 14px;">New Monthly Net Salary</div>
+        <div style="font-size: 24px; font-weight: 700; color: #28a745;">₹{{ "{:,.0f}".format(data.salary_breakdown.net_salary|float) }}</div>
     </div>
-    {% endif %}
+</div>
+{% endif %}
 
         <!-- Closing -->
     <div class="row mt-5" style="margin-top: 50px;">
@@ -422,7 +346,7 @@
             <p style="margin-bottom: 0;">
                 <strong>{{ company.hr_name }}</strong><br>
                 {{ company.hr_designation }}<br>
-                <span style="font-size: 14px; color: #111111;"><strong>{{ company.name }}</strong></span>
+                <span style="font-size: 14px; color: #111111;">{{ company.name }}</span>
             </p>
         </div>
     </div>

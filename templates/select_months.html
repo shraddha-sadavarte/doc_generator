@@ -32,7 +32,7 @@
                         <!-- Year Selection -->
                         <div class="mb-4">
                             <label class="form-label fw-bold">Year</label>
-                            <select class="form-select" name="year" required>
+                            <select class="form-select" name="year" id="year-select" required>
                                 {% set current_year = now.year %}
                                 {% for year in range(current_year - 1, current_year + 2) %}
                                 <option value="{{ year }}" {% if year == current_year %}selected{% endif %}>{{ year }}</option>
@@ -61,48 +61,15 @@
                             </div>
                         </div>
 
-                        <!-- Default values (used when per‑month not set) -->
-                        <div class="card mb-4" id="default-values-card">
-                            <div class="card-header bg-secondary text-white">
-                                <h6 class="mb-0">Default Days (used for all months unless overridden)</h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-bold">Worked Days</label>
-                                        <input type="number" class="form-control" name="worked_days" id="default_worked" value="30" min="0" max="31" required>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-bold">LOP</label>
-                                        <input type="number" class="form-control" name="lop" id="default_lop" value="0" min="0" required>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-bold">Paid Days</label>
-                                        <input type="number" class="form-control" name="paid_days" id="default_paid" value="30" min="0" max="31" required>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Button to enable per‑month fields -->
-                        <div class="d-flex gap-2 mb-3">
-                            <button type="button" class="btn btn-info" id="enablePerMonthBtn">
-                                <i class="fas fa-pencil-alt"></i> Set per‑month values
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" id="resetToDefaultBtn" style="display:none;">
-                                <i class="fas fa-undo"></i> Use defaults for all
-                            </button>
-                        </div>
-
-                        <!-- Container for per‑month fields (initially hidden) -->
+                        <!-- Per‑month input table (hidden until months are selected) -->
                         <div id="per-month-fields" style="display: none;">
                             <div class="card">
                                 <div class="card-header bg-info text-white">
-                                    <h6 class="mb-0">Per‑Month Days (leave blank to use default)</h6>
+                                    <h6 class="mb-0">Days per month (you can edit)</h6>
                                 </div>
                                 <div class="card-body">
                                     <div id="monthly-inputs">
-                                        <!-- Dynamic rows will be inserted here -->
+                                        <!-- Dynamic table will be inserted here -->
                                     </div>
                                 </div>
                             </div>
@@ -126,73 +93,70 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const monthCheckboxes = document.querySelectorAll('.month-checkbox');
-    const enableBtn = document.getElementById('enablePerMonthBtn');
-    const resetBtn = document.getElementById('resetToDefaultBtn');
     const perMonthContainer = document.getElementById('per-month-fields');
     const monthlyInputsDiv = document.getElementById('monthly-inputs');
-    const defaultWorked = document.getElementById('default_worked');
-    const defaultLop = document.getElementById('default_lop');
-    const defaultPaid = document.getElementById('default_paid');
-    const defaultCard = document.getElementById('default-values-card');
+    const yearSelect = document.getElementById('year-select');
 
-    enableBtn.addEventListener('click', function() {
-        // Get selected months
+    function getDaysInMonth(monthName, year) {
+        const monthIndex = {
+            'January': 0, 'February': 1, 'March': 2, 'April': 3,
+            'May': 4, 'June': 5, 'July': 6, 'August': 7,
+            'September': 8, 'October': 9, 'November': 10, 'December': 11
+        }[monthName];
+        return new Date(year, monthIndex + 1, 0).getDate();
+    }
+
+    function renderMonthRows() {
         const selected = Array.from(monthCheckboxes)
             .filter(cb => cb.checked)
             .map(cb => cb.value);
 
         if (selected.length === 0) {
-            alert('Please select at least one month first.');
+            perMonthContainer.style.display = 'none';
             return;
         }
 
-        // Hide default card, show per‑month container and reset button
-        defaultCard.style.display = 'none';
         perMonthContainer.style.display = 'block';
-        resetBtn.style.display = 'inline-block';
+        const year = parseInt(yearSelect.value);
 
-        // Clear any previous generated inputs
-        monthlyInputsDiv.innerHTML = '';
-
-        // Build a table for cleaner layout
-        const table = document.createElement('table');
-        table.className = 'table table-bordered table-sm';
-        table.innerHTML = `
-            <thead class="table-light">
-                <tr>
-                    <th>Month</th>
-                    <th>Worked Days</th>
-                    <th>LOP</th>
-                    <th>Paid Days</th>
-                </tr>
-            </thead>
-            <tbody id="per-month-tbody"></tbody>
+        // Build table
+        let html = `
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr>
+                        <th>Month</th>
+                        <th>Worked Days</th>
+                        <th>LOP</th>
+                        <th>Paid Days</th>
+                    </tr>
+                </thead>
+                <tbody>
         `;
-        monthlyInputsDiv.appendChild(table);
-        const tbody = document.getElementById('per-month-tbody');
 
-        // For each selected month, create a row with inputs
         selected.forEach(month => {
             const monthKey = month.toLowerCase();
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td><strong>${month}</strong></td>
-                <td><input type="number" class="form-control" name="worked_days_${monthKey}" value="${defaultWorked.value}" min="0" max="31" required></td>
-                <td><input type="number" class="form-control" name="lop_${monthKey}" value="${defaultLop.value}" min="0" required></td>
-                <td><input type="number" class="form-control" name="paid_days_${monthKey}" value="${defaultPaid.value}" min="0" max="31" required></td>
+            const daysInMonth = getDaysInMonth(month, year);
+            html += `
+                <tr>
+                    <td><strong>${month}</strong></td>
+                    <td><input type="number" class="form-control" name="worked_days_${monthKey}" value="${daysInMonth}" min="0" max="31" required></td>
+                    <td><input type="number" class="form-control" name="lop_${monthKey}" value="0" min="0" required></td>
+                    <td><input type="number" class="form-control" name="paid_days_${monthKey}" value="${daysInMonth}" min="0" max="31" required></td>
+                </tr>
             `;
-            tbody.appendChild(row);
         });
+
+        html += '</tbody></table>';
+        monthlyInputsDiv.innerHTML = html;
+    }
+
+    // Add event listeners to all month checkboxes
+    monthCheckboxes.forEach(cb => {
+        cb.addEventListener('change', renderMonthRows);
     });
 
-    resetBtn.addEventListener('click', function() {
-        // Show default card, hide per‑month container and reset button
-        defaultCard.style.display = 'block';
-        perMonthContainer.style.display = 'none';
-        resetBtn.style.display = 'none';
-        // Optionally clear the generated inputs
-        monthlyInputsDiv.innerHTML = '';
-    });
+    // Also re-render when year changes (to update days for February in leap years)
+    yearSelect.addEventListener('change', renderMonthRows);
 });
 </script>
 {% endblock %}
