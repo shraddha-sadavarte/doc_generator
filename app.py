@@ -325,10 +325,9 @@ def preview():
         form_data['paid_days'] = pm.get('paid', form_data.get('paid_days', 30))
         form_data['preview_month'] = preview_month
     else:
-        # For non‑salary slips, month is irrelevant
         form_data['month'] = None
 
-    # Salary calculations (standard for all document types)
+    # Salary calculations
     ctc = float(form_data.get('ctc') or 0)
     increment_per_month = float(form_data.get('increment_per_month', 0))
     monthly_ctc = round(ctc / 12)
@@ -354,15 +353,50 @@ def preview():
     form_data['monthly_ctc_after_increment'] = monthly_ctc_after_increment
     form_data['formatted_joining_date'] = format_date(form_data.get('joining_date'))
 
+    # --- RELIEVING DATE AND CERTIFICATE DATE LOGIC ---
+    relieving_date_raw = form_data.get('relieving_date')
+    if relieving_date_raw and isinstance(relieving_date_raw, str):
+        try:
+            form_data['relieving_date'] = datetime.strptime(relieving_date_raw, '%Y-%m-%d')
+        except ValueError:
+            pass
+
+    if not form_data.get('relieving_date'):
+        emp = Employee.query.filter_by(employee_id=form_data.get('employee_id')).first()
+        if emp and emp.relieving_date:
+            form_data['relieving_date'] = emp.relieving_date
+        elif form_data.get('resignation_date'):
+            res_date = form_data['resignation_date']
+            if isinstance(res_date, str):
+                res_date = datetime.strptime(res_date, '%Y-%m-%d')
+            form_data['relieving_date'] = res_date + timedelta(days=30)
+
+    # 1. NEW TOP DATE LOGIC (+1 day from Relieving Date)
+    base_relieving = form_data.get('relieving_date')
+    if base_relieving:
+        form_data['top_date'] = base_relieving + timedelta(days=1)
+    else:
+        form_data['top_date'] = datetime.now()
+
+    # 2. Existing Certificate Issue Date (+15 days skip weekends)
+    base_date_for_cert = form_data.get('relieving_date') or datetime.now()
+    target_date = base_date_for_cert + timedelta(days=15)
+    if target_date.weekday() == 5:
+        target_date += timedelta(days=2)
+    elif target_date.weekday() == 6:
+        target_date += timedelta(days=1)
+    
+    form_data['certificate_issue_date'] = target_date
+
+    # --- REMAINING DB CHECKS ---
     emp = Employee.query.filter_by(employee_id=form_data.get('employee_id')).first()
     if emp:
         form_data['formatted_resignation_date'] = format_date(emp.resignation_date)
-        form_data['relieving_date'] = format_date(emp.relieving_date)
+        if not form_data.get('relieving_date'):
+            form_data['relieving_date'] = emp.relieving_date
     else:
         form_data['formatted_resignation_date'] = None
-        form_data['relieving_date'] = None
 
-    # Build month label list (used by other document types, kept for compatibility)
     month_label = []
     if form_data.get('document_type') in ['salary_slip', 'offer_and_salary'] and selected_months:
         current_year = session.get('selected_year', datetime.now().year)
@@ -380,7 +414,8 @@ def preview():
         company=company,
         months=selected_months,
         month=month_label,
-        watermark_logo=watermark_logo
+        watermark_logo=watermark_logo,
+        now=datetime.now()
     )
 
 @app.route('/preview_document/<doc_type>')
@@ -420,7 +455,7 @@ def preview_document(doc_type):
     )
 
     professional_tax = 200
-    gross_salary = basic + hra + conveyance + medical + telephone + special_allowance
+    gross_salary = basic + hra + medical + telephone + special_allowance
     net_salary = gross_salary - professional_tax
 
     form_data['salary_breakdown'] = {

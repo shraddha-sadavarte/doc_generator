@@ -1,275 +1,222 @@
-<!-- Action Bar (hidden in PDF) -->
-<div class="action-bar">
-    <div class="action-bar-container">
-        <!-- Download Button (local only) -->
-        <form action="{{ url_for('generate') }}" method="POST" class="action-form">
-            <input type="hidden" name="upload_to_drive" value="false">
-            <button type="submit" class="btn btn-primary">
-                <span class="btn-icon">📥</span>
-                <span class="btn-text">Download</span>
-            </button>
-        </form>
-
-        <!-- Download & Save to Drive -->
-        <form action="{{ url_for('generate') }}" method="POST" class="action-form">
-            <input type="hidden" name="upload_to_drive" value="true">
-            <button type="submit" class="btn btn-success">
-                <span class="btn-icon">☁️</span>
-                <span class="btn-text">Download & Save to Drive</span>
-            </button>
-        </form>
-
-        <!-- Print Button -->
-        <button type="button" class="btn btn-secondary" onclick="window.print()">
-            <span class="btn-icon">🖨️</span>
-            <span class="btn-text">Print</span>
-        </button>
-
-        <!-- Cancel Button -->
-        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-danger">
-            <span class="btn-icon">✕</span>
-            <span class="btn-text">Cancel</span>
-        </a>
-    </div>
-</div>
-
 <style>
-/* ================= ACTION BAR ================= */
-
-.action-bar{
-    background:white;
-    padding:15px 0;
-    border-bottom:1px solid #000;
-}
-
-.action-bar-container{
-    max-width:1000px;
-    margin:auto;
-    display:flex;
-    justify-content:flex-end;
-    gap:10px;
-    padding:0 20px;
-    flex-wrap: wrap;          /* allows wrapping on small screens */
-}
-
-.btn{
-    padding:10px 18px;
-    border:1px solid #000;
-    border-radius:4px;
-    font-size:14px;
-    cursor:pointer;
-    font-weight:500;
-    background:white;
-    color:black;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    transition: background-color 0.2s;
-}
-.action-form{
-    margin: 0;
-    padding: 0;
-}
-
-.btn:hover{
-    background:#e9e9e9;
-}
-
-/* Override any colored button classes to use the same border‑only style */
-.btn-primary,
-.btn-success,
-.btn-secondary,
-.btn-danger {
-    background: white !important;
-    color: black !important;
-    border:1px solid #000 !important;
-    box-shadow: none !important;
-}
-
-.btn-primary:hover,
-.btn-success:hover,
-.btn-secondary:hover,
-.btn-danger:hover {
-    background:#e9e9e9 !important;
-}
-    @media print { .action-bar { display: none !important; } }
-
-    /* PDF page settings */
+    /* ================= GLOBAL PRINT & A4 SETUP ================= */
     @page {
         size: A4;
-        margin: 2cm;
+        margin: 0; /* Let CSS control margins for more precision */
     }
 
-    /* Experience letter styles – screen version (centered) */
+    body {
+        margin: 0;
+        background: #f4f4f4;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        -webkit-print-color-adjust: exact;
+    }
+
+    @media print {
+        body { background: white; }
+        .action-bar { display: none !important; }
+        .experience-letter {
+            border: none !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            padding: 2cm !important; /* Standard A4 padding */
+            width: 100%;
+            height: 29.7cm; /* Full A4 height */
+        }
+    }
+
+    /* ================= ACTION BAR (KEEPING ORIGINAL STYLE) ================= */
+    .action-bar {
+        background: white;
+        padding: 15px 0;
+        border-bottom: 1px solid #000;
+    }
+    .action-bar-container {
+        max-width: 1000px;
+        margin: auto;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 0 20px;
+    }
+    .btn {
+        padding: 8px 16px;
+        border: 1px solid #000;
+        border-radius: 4px;
+        font-size: 14px;
+        cursor: pointer;
+        background: white;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        text-decoration: none;
+        color: black;
+    }
+
+    /* ================= EXPERIENCE LETTER CONTAINER ================= */
     .experience-letter {
-        font-family: 'Arial', sans-serif;
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 30px;
-        position: relative;
         background-color: white;
+        width: 21cm; /* Fixed A4 Width */
+        min-height: 29.7cm; /* Fixed A4 Height */
+        margin: 30px auto;
+        padding: 2cm;
+        box-sizing: border-box;
+        position: relative;
         border: 1px solid #e0e0e0;
         box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        display: flex;
+        flex-direction: column;
     }
+
+    /* ================= LETTERHEAD ================= */
     .letter-header {
         border-bottom: 2px solid #0d6efd;
-        padding-bottom: 20px;
-        margin-bottom: 30px;
+        padding-bottom: 15px;
+        margin-bottom: 25px;
         display: flex;
         justify-content: space-between;
-        align-items: center;
-        gap: 3rem;
+        align-items: flex-start;
     }
+
+    .letter-header img {
+        height: 80px; /* Reduced from 140px to save space */
+        max-width: 250px;
+        object-fit: contain;
+    }
+
+    .company-contact {
+        text-align: right;
+        font-size: 12px;
+        color: #444;
+        line-height: 1.4;
+    }
+
     h2 {
         text-align: center;
         color: #0d6efd;
-        margin-bottom: 30px;
+        font-size: 22px;
+        margin: 20px 0 30px 0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }
+
+    /* ================= CONTENT AREA ================= */
     .content {
         text-align: justify;
-        line-height: 1.8;
+        line-height: 1.6; /* Balanced for readability and space */
         font-size: 15px;
+        color: #333;
     }
+
+    .content p {
+        margin-bottom: 15px;
+    }
+
+    /* ================= SIGNATURE & FOOTER ================= */
     .signature-section {
-        margin-top: 60px;
+        margin-top: auto; /* Pushes signature towards bottom if content is short */
+        padding-bottom: 40px;
     }
+
     .footer-note {
-        margin-top: 40px;
-        border-top: 1px solid #e0e0e0;
+        margin-top: 20px;
+        border-top: 1px solid #eee;
         padding-top: 10px;
-        font-size: 12px;
-        color: #777;
+        font-size: 11px;
+        color: #888;
         text-align: center;
-    }
-
-    /* Watermark container (text version) */
-    .watermark-container {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        pointer-events: none;
-        z-index: 0;
-        color: #e5e8ec;
-        font-size: 120px;
-        font-weight: bold;
-        opacity: 0.1;
-        transform: rotate(-20deg);
-        white-space: nowrap;
-    }
-
-    /* Print styles – full width, no borders/shadows */
-    @media print {
-        .experience-letter {
-            max-width: none;
-            margin: 0;
-            padding: 0;
-            border: none;
-            box-shadow: none;
-        }
-        .letter-header, .content, .signature-section, .footer-note {
-            width: 100%;
-        }
     }
 </style>
 
-<!-- Watermark placed OUTSIDE the main container – appears on every page in PDF -->
+<div class="action-bar">
+    <div class="action-bar-container">
+        <form action="{{ url_for('generate') }}" method="POST" class="action-form">
+            <input type="hidden" name="upload_to_drive" value="false">
+            <button type="submit" class="btn">📥 Download</button>
+        </form>
+        <form action="{{ url_for('generate') }}" method="POST">
+            <input type="hidden" name="upload_to_drive" value="true">
+            <button type="submit" class="btn btn-success">Download & Save</button>
+        </form>
+        <button type="button" class="btn" onclick="window.print()">🖨️ Print</button>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn">✕ Cancel</a>
+    </div>
+</div>
+
 {% include '_watermark.html' %}
 
 <div class="experience-letter">
-    <!-- Letterhead -->
     <div class="letter-header">
-        <div>
-            <img src="{{ request.url_root }}static/images/{{ company.logo }}"
-                 alt="{{ company.name }} Logo"
-                 style="height: 140px; max-width: 350px; object-fit: contain;">
-        </div>
-        <div style="text-align: left; font-size: 14px; color: #555;">
-            <strong>Office:</strong> {{ company.address }}<br>
-            <strong>Phone:</strong> {{ company.phone }}<br>
-            <strong>Email:</strong> {{ company.email }}<br>
-            <strong>Website:</strong> {{ company.website }}
+        <img src="{{ request.url_root }}static/images/{{ company.logo }}" alt="Logo">
+        <div class="company-contact">
+            <strong>{{ company.name }}</strong><br>
+            {{ company.address }}<br>
+            Phone: {{ company.phone }}<br>
+            Email: {{ company.email }}<br>
+            Website: {{ company.website }}
         </div>
     </div>
 
-    <!-- Date -->
-    <div style="text-align: right; margin-bottom: 30px;">
-        <strong>Date:</strong> {{ now.strftime('%d %B %Y') }}
-    </div>
+    <div style="text-align: right; margin-bottom: 20px;">
+    <strong>Date:</strong> 
+    {% if data.certificate_issue_date and data.certificate_issue_date is not string %}
+        {{ data.certificate_issue_date.strftime('%d %B %Y') }}
+    {% else %}
+        {{ now.strftime('%d %B %Y') }}
+    {% endif %}
+</div>
 
-    <!-- Title -->
-    <h2>EXPERIENCE CERTIFICATE</h2>
+    <h2>Experience Certificate</h2>
 
-    <!-- Employee Info -->
     <div style="margin-bottom: 20px;">
-        <p style="font-weight: bold; margin-bottom: 5px;">{{ data.full_name|title }}</p>
-        <strong><p style="margin-top: 0;">Employee ID: </strong>{{ "%04d"|format(employee.id) if employee else data.employee_id }}</p>
+        <p style="font-size: 16px; margin: 0;"><strong>{{ data.full_name|title }}</strong></p>
+        <p style="margin: 0; color: #666;">Employee ID: {{ "%04d"|format(employee.id) if employee else data.employee_id }}</p>
     </div>
 
-    <!-- Content -->
     <div class="content">
-        <p>
-            This is to certify that <strong>{{ data.full_name|title }}</strong> was employed with 
-            <strong>{{ company.name }}</strong> as a 
-            <strong>{{ data.designation|title }}</strong>.
-        </p>
-        <p>
-            The employee worked with us from 
-            <strong>
-                {% if data.joining_date %}
-                    {{ data.joining_date.strftime('%d %B %Y') }}
-                {% else %}
-                    [Joining Date Not Available]
-                {% endif %}
-            </strong>
-            to 
-            <strong>
-                {% if data.resignation_date %}
-                    {{ data.resignation_date.strftime('%d %B %Y') }}
-                {% else %}
-                    Present
-                {% endif %}
-            </strong>.
-        </p>
-        <p>
-            During the tenure of employment, {{ data.full_name.split()[0] }} demonstrated
-            professionalism, dedication, and commitment towards assigned responsibilities.
-            The employee efficiently handled duties related to the role and maintained
-            good conduct and teamwork within the organization.
-        </p>
-        <p>
-            We found {{ data.full_name.split()[0] }} to be sincere, hardworking,
-            and a valuable contributor to the company. The services rendered
-            were satisfactory during the period of employment.
-        </p>
-        <p>
-            We wish {{ data.full_name.split()[0] }} all the very best for future
-            professional endeavors.
-        </p>
+        <p>This is to certify that <strong>{{ data.full_name|title }}</strong> was employed with <strong>{{ company.name }}</strong> as a <strong>{{ data.designation|title }}</strong>.</p>
+        
+       <p>
+    The employee worked with us from 
+    <strong>
+        {% if data.joining_date and data.joining_date is not string %}
+            {{ data.joining_date.strftime('%d %B %Y') }}
+        {% else %}
+            {{ data.joining_date or '[N/A]' }}
+        {% endif %}
+    </strong> 
+    to 
+    <strong>
+        {% if data.relieving_date and data.relieving_date is not string %}
+            {{ data.relieving_date.strftime('%d %B %Y') }}
+        {% elif data.relieving_date %}
+            {{ data.relieving_date }}
+        {% else %}
+            Present
+        {% endif %}
+    </strong>.
+</p>
+
+        <p>During the tenure of employment, {{ data.full_name.split()[0] }} demonstrated professionalism, dedication, and commitment towards assigned responsibilities. The employee efficiently handled duties related to the role and maintained good conduct and teamwork within the organization.</p>
+
+        <p>We found {{ data.full_name.split()[0] }} to be sincere, hardworking, and a valuable contributor to the company. The services rendered were satisfactory during the period of employment.</p>
+
+        <p>We wish {{ data.full_name.split()[0] }} all the very best for future professional endeavors.</p>
     </div>
 
-    <!-- Signature -->
     <div class="signature-section">
-        <div style="height: 80px; margin-bottom: 10px;">
+        <div style="height: 80px;">
             {% if company.signature %}
-                <img src="{{ request.url_root }}static/images/signatures/{{ company.signature }}"
-                     alt="Authorized Signature"
-                     style="height: 100px; max-width: 200px; object-fit: contain;">
+                <img src="{{ request.url_root }}static/images/signatures/{{ company.signature }}" style="height: 80px; object-fit: contain;">
             {% endif %}
         </div>
-        <p style="margin-bottom: 0;">
+        <p>
             <strong>{{ company.hr_name }}</strong><br>
             {{ company.hr_designation }}<br>
             {{ company.name }}
         </p>
     </div>
 
-    <!-- Footer Note -->
     <div class="footer-note">
         *This is a system-generated document and does not require physical signature if digitally generated.
     </div>

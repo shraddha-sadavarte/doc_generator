@@ -329,13 +329,13 @@ body{
             </tr>
             <tr>
                 <td>Internet/Mobile</td>
-                <td class="amount">{{ "{:,.0f}".format(data.internet|default(0)) }}</td>
+                <td class="amount">{{ "{:,.0f}".format(data.telephone|default(0)) }}</td>
                 <td>Provident Fund</td>
                 <td class="amount">{{ "{:,.0f}".format(data.provident_fund|default(0)) }}</td>
             </tr>
             <tr>
-                <td>Other Allowances</td>
-                <td class="amount">{{ "{:,.0f}".format(data.other_allowances|default(0)) }}</td>
+                <td>Special Allowance</td>
+                <td class="amount">{{ "{:,.0f}".format(data.special_allowance|default(0)) }}</td>
                 <td>Paid Leave</td>
                 <td class="amount">{{ "{:,.0f}".format(data.paid_leave|default(0)) }}</td>
             </tr>
@@ -349,13 +349,13 @@ body{
         </tbody>
     </table>
 
-    <div class="net-salary">
-        NET Salary : Rs. {{ "{:,.0f}".format(data.net_salary|default(0)) }}/-
-    </div>
+<div class="net-salary">
+    NET Salary : Rs. {{ "{:,.0f}".format(data.net_salary | default(0)) }}/-
+</div>
 
-    <div class="words">
-        Net Payable in Words : {{ data.words or 'Thirty Three Thousand One Hundred' }}
-    </div>
+<div class="words">
+    Net Payable in Words : {{ data.words | default('Zero Only') }}
+</div>
 
     <!-- FOOTER NOTE -->
     <div class="footer-note">
