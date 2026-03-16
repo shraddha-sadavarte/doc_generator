@@ -4,12 +4,12 @@
 <div class="action-bar">
     <div class="action-bar-container">
 
-        <form action="{{ url_for('generate') }}" method="POST">
+        <form action="/generate" method="POST">
             <input type="hidden" name="upload_to_drive" value="false">
             <button type="submit" class="btn btn-primary">Download</button>
         </form>
 
-        <form action="{{ url_for('generate') }}" method="POST">
+        <form action="/generate" method="POST">
             <input type="hidden" name="upload_to_drive" value="true">
             <button type="submit" class="btn btn-success">Download & Save</button>
         </form>
@@ -298,53 +298,58 @@ body{
         </table>
     </div>
 
-    <!-- SALARY TABLE -->
+        <!-- SALARY TABLE -->
     <table class="salary-table">
         <thead>
             <tr>
                 <th>Earnings</th>
-                <th class="amount">Current Month</th>
+                <th class="amount">Amount (₹)</th>
                 <th>Deductions</th>
-                <th class="amount">Current Month</th>
+                <th class="amount">Amount (₹)</th>
             </tr>
         </thead>
         <tbody>
             <tr>
-                <td>Basic</td>
+                <td>Basic Salary</td>
                 <td class="amount">{{ "{:,.0f}".format(data.basic|default(0)) }}</td>
                 <td>Professional Tax</td>
                 <td class="amount">{{ "{:,.0f}".format(data.professional_tax|default(200)) }}</td>
             </tr>
             <tr>
-                <td>HRA</td>
+                <td>House Rent Allowance (HRA)</td>
                 <td class="amount">{{ "{:,.0f}".format(data.hra|default(0)) }}</td>
-                <td>Income Tax</td>
+                <td>Income Tax (TDS)</td>
                 <td class="amount">{{ "{:,.0f}".format(data.income_tax|default(0)) }}</td>
             </tr>
             <tr>
-                <td>Medical</td>
+                <td>Conveyance Allowance</td>
+                <td class="amount">{{ "{:,.0f}".format(data.conveyance|default(0)) }}</td>
+                <td>Provident Fund (PF)</td>
+                <td class="amount">{{ "{:,.0f}".format(data.pf_amount|default(0)) }}</td>
+            </tr>
+            <tr>
+                <td>Medical Allowance</td>
                 <td class="amount">{{ "{:,.0f}".format(data.medical|default(0)) }}</td>
-                <td>Other</td>
+                <td>Other Deductions</td>
                 <td class="amount">{{ "{:,.0f}".format(data.other_deductions|default(0)) }}</td>
             </tr>
             <tr>
-                <td>Internet/Mobile</td>
+                <td>Internet / Mobile Allowance</td>
                 <td class="amount">{{ "{:,.0f}".format(data.telephone|default(0)) }}</td>
-                <td>Provident Fund</td>
-                <td class="amount">{{ "{:,.0f}".format(data.provident_fund|default(0)) }}</td>
+                <td>Paid Leave</td>
+                <td class="amount">0</td>
             </tr>
             <tr>
                 <td>Special Allowance</td>
                 <td class="amount">{{ "{:,.0f}".format(data.special_allowance|default(0)) }}</td>
-                <td>Paid Leave</td>
-                <td class="amount">{{ "{:,.0f}".format(data.paid_leave|default(0)) }}</td>
+                <td></td>
+                <td class="amount"></td>
             </tr>
-
             <tr class="total-row">
                 <td>GROSS EARNINGS</td>
-                <td class="amount">{{ "{:,.2f}".format(data.gross_earnings|default(0)) }}</td>
+                <td class="amount">{{ "{:,.0f}".format(data.gross_earnings|default(0)) }}</td>
                 <td>GROSS DEDUCTIONS</td>
-                <td class="amount">{{ "{:,.2f}".format(data.gross_deductions|default(0)) }}</td>
+                <td class="amount">{{ "{:,.0f}".format(data.gross_deductions|default(0)) }}</td>
             </tr>
         </tbody>
     </table>
@@ -359,7 +364,7 @@ body{
 
     <!-- FOOTER NOTE -->
     <div class="footer-note">
-        ---------------------------------------------------------------------------------------------------------------------------------------<br>
+        -----------------------------------------------------------------------------------------------------------------------------------<br>
         <i>This is a computer-generated document and does not require any signature or seal.</i>
     </div>
 

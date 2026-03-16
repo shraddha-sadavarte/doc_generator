@@ -183,6 +183,122 @@ class Company(db.Model):
 #         print("WeasyPrint error:", e)
 #         return False
 
+def calculate_salary_components(ctc, increment_per_month=0, paid_days=30, month_days=30):
+    """
+    Calculate all salary components correctly with no rounding errors
+    """
+    print(f"\n🔍 DEBUG - calculate_salary_components called with:")
+    print(f"  ctc: {ctc}")
+    print(f"  paid_days: {paid_days}")
+    print(f"  month_days: {month_days}")
+    
+    # Monthly CTC with increment
+    monthly_ctc = round(ctc / 12)
+    monthly_ctc_after_increment = monthly_ctc + increment_per_month
+    
+    # IMPORTANT FIX: Ensure pro-ration factor is NEVER > 1
+    if paid_days > month_days:
+        print(f"  ⚠️ WARNING: paid_days ({paid_days}) > month_days ({month_days}), capping at {month_days}")
+        paid_days = month_days
+    
+    pro_ration_factor = paid_days / month_days if month_days > 0 else 1
+    print(f"  pro_ration_factor: {pro_ration_factor}")
+    
+    # Calculate FULL month values with consistent rounding
+    basic_full = round(monthly_ctc_after_increment * 0.5)
+    hra_full = round(basic_full * 0.5)  # 50% of basic
+    conveyance_full = round(monthly_ctc_after_increment * 0.05)
+    medical_full = round(monthly_ctc_after_increment * 0.014)
+    telephone_full = round(monthly_ctc_after_increment * 0.02)
+    
+    # Sum of all fixed components
+    sum_fixed = basic_full + hra_full + conveyance_full + medical_full + telephone_full
+    
+    # Special allowance is the balancing figure to reach monthly CTC
+    special_allowance_full = monthly_ctc_after_increment - sum_fixed
+    
+    # Apply pro-ration to ALL components including special allowance
+    basic = round(basic_full * pro_ration_factor)
+    hra = round(hra_full * pro_ration_factor)
+    conveyance = round(conveyance_full * pro_ration_factor)
+    medical = round(medical_full * pro_ration_factor)
+    telephone = round(telephone_full * pro_ration_factor)
+    special_allowance = round(special_allowance_full * pro_ration_factor)
+    
+    # RECALCULATE special allowance to ensure exact total
+    # This is the key fix - recalculate special allowance to balance the pro-rated total
+    sum_pro_rated = basic + hra + conveyance + medical + telephone
+    expected_total = round(monthly_ctc_after_increment * pro_ration_factor)
+    special_allowance = expected_total - sum_pro_rated
+    
+    # GROSS EARNINGS - now should equal expected_total exactly
+    gross_earnings = basic + hra + conveyance + medical + telephone + special_allowance
+    
+    # DEDUCTIONS
+    professional_tax = 200
+    pf_amount = 0  # PF set to 0 as requested
+    income_tax = 0
+    
+    # GROSS DEDUCTIONS
+    gross_deductions = professional_tax + pf_amount + income_tax
+    
+    # NET SALARY
+    net_salary = gross_earnings - gross_deductions
+    
+    print(f"  Expected total: {expected_total}")
+    print(f"  Sum of pro-rated components: {sum_pro_rated}")
+    print(f"  Recalculated Special Allowance: {special_allowance}")
+    print(f"  GROSS EARNINGS: {gross_earnings}")
+    print(f"  Professional Tax: {professional_tax}")
+    print(f"  PF: {pf_amount}")
+    print(f"  GROSS DEDUCTIONS: {gross_deductions}")
+    print(f"  NET SALARY: {net_salary}")
+    print(f"  VERIFICATION: {gross_earnings} == {expected_total} ? {gross_earnings == expected_total}")
+    
+    return {
+        # Earnings
+        'basic': basic,
+        'hra': hra,
+        'conveyance': conveyance,
+        'medical': medical,
+        'telephone': telephone,
+        'special_allowance': special_allowance,
+        'gross_earnings': gross_earnings,
+        
+        # Deductions
+        'professional_tax': professional_tax,
+        'pf_amount': pf_amount,
+        'income_tax': income_tax,
+        'gross_deductions': gross_deductions,
+        
+        # Net
+        'net_salary': net_salary,
+        
+        # Full month values
+        'basic_full': basic_full,
+        'hra_full': hra_full,
+        'monthly_ctc': monthly_ctc_after_increment,
+        'expected_total': expected_total
+    }
+
+def calculate_annual_income_tax(annual_ctc):
+    """
+    Calculate annual income tax based on old tax regime
+    (You may want to update this based on current financial year)
+    """
+    # Standard deduction
+    taxable_income = max(0, annual_ctc - 50000)
+    
+    # Tax slabs (old regime)
+    if taxable_income <= 250000:
+        return 0
+    elif taxable_income <= 500000:
+        return (taxable_income - 250000) * 0.05
+    elif taxable_income <= 1000000:
+        return 12500 + (taxable_income - 500000) * 0.2
+    else:
+        return 112500 + (taxable_income - 1000000) * 0.3
+
 def html_to_pdf(html_content, output_path):
     # Path to the standalone WeasyPrint executable (for local Windows)
     weasyprint_path = os.path.join(app.root_path, 'weasyprint', 'weasyprint.exe')
@@ -224,6 +340,22 @@ def inject_now():
         'now': datetime.now(),
         'timedelta': timedelta  # Add timedelta to template context
     }
+
+def get_days_in_month(month_name, year):
+    """Return the number of days in a given month"""
+    month_days = {
+        'January': 31, 'February': 28, 'March': 31, 'April': 30,
+        'May': 31, 'June': 30, 'July': 31, 'August': 31,
+        'September': 30, 'October': 31, 'November': 30, 'December': 31
+    }
+    
+    # Handle leap year for February
+    if month_name == 'February':
+        # Check if it's a leap year
+        if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0):
+            return 29
+    
+    return month_days.get(month_name, 30)
 
 def get_previous_workday(target_date, days_before):
     """Get previous working day (Monday-Friday)"""
@@ -300,6 +432,7 @@ def preview():
     form_data = session.get('form_data', {})
     selected_months = session.get('selected_months', [])
     per_month_values = session.get('per_month_values', {})
+    month_days_values = session.get('month_days_values', {})  # Get month days from session
 
     if 'document_type' not in form_data:
         flash('Document type is missing!', 'danger')
@@ -314,7 +447,7 @@ def preview():
         date_before = get_previous_workday(form_data['joining_date'], 8)
         form_data['date_before'] = date_before
 
-    # Get company ID from form data (it's stored as string in session, but we stored as int in form_data)
+    # Get company ID from form data
     company_id = form_data.get('company')
     if company_id:
         try:
@@ -337,41 +470,112 @@ def preview():
     else:
         preview_month = None
 
+    # Get base values
+    ctc = float(form_data.get('ctc') or 0)
+    increment_per_month = float(form_data.get('increment_per_month', 0))
+    
     # Apply per‑month values for the selected preview month
     if form_data.get('document_type') == 'salary_slip' and preview_month:
         form_data['month'] = preview_month
         pm = per_month_values.get(preview_month, {})
-        form_data['worked_days'] = pm.get('worked', form_data.get('worked_days', 30))
-        form_data['lop'] = pm.get('lop', form_data.get('lop', 0))
-        form_data['paid_days'] = pm.get('paid', form_data.get('paid_days', 30))
-        form_data['preview_month'] = preview_month
+        paid_days = pm.get('paid', 30)
+        
+        # Get actual days in this month
+        month_days = month_days_values.get(preview_month, 30)
+        
+        # Calculate components with CORRECT month_days
+        components = calculate_salary_components(
+            ctc=ctc,
+            increment_per_month=increment_per_month,
+            paid_days=paid_days,
+            month_days=month_days  # Use actual days!
+        )
+        
+        # Update form_data with ALL components
+        updated_data = {
+            # Earnings
+            'basic': components['basic'],
+            'hra': components['hra'],
+            'conveyance': components['conveyance'],
+            'medical': components['medical'],
+            'telephone': components['telephone'],
+            'special_allowance': components['special_allowance'],
+            'gross_earnings': components['gross_earnings'],
+            
+            # Deductions - Individual
+            'professional_tax': components['professional_tax'],
+            'pf_amount': components['pf_amount'],
+            'income_tax': components['income_tax'],
+            
+            # Deductions - Total
+            'gross_deductions': components['gross_deductions'],
+            
+            # Net
+            'net_salary': components['net_salary'],
+            
+            # Day details
+            'worked_days': pm.get('worked', 30),
+            'lop': pm.get('lop', 0),
+            'paid_days': paid_days,
+            'month_days': month_days,  # Add month days
+            'preview_month': preview_month,
+            'month': preview_month
+        }
+        form_data.update(updated_data)
+        
+        # Generate amount in words
+        words = num2words(int(components['net_salary']), lang='en_IN').title() + ' Rupees'
+        form_data['words'] = words
+        
     else:
-        form_data['month'] = None
+        # For non-salary documents, use helper with full month
+        components = calculate_salary_components(
+            ctc=ctc,
+            increment_per_month=increment_per_month,
+            paid_days=30,
+            month_days=30
+        )
+        
+        updated_data = {
+            'basic': components['basic'],
+            'hra': components['hra'],
+            'conveyance': components['conveyance'],
+            'medical': components['medical'],
+            'telephone': components['telephone'],
+            'special_allowance': components['special_allowance'],
+            'gross_earnings': components['gross_earnings'],
+            'professional_tax': components['professional_tax'],
+            'pf_amount': components['pf_amount'],
+            'income_tax': components['income_tax'],
+            'gross_deductions': components['gross_deductions'],
+            'net_salary': components['net_salary'],
+            'month': None,
+            'words': num2words(int(components['net_salary']), lang='en_IN').title() + ' Rupees',
+            'worked_days': 30,
+            'lop': 0,
+            'paid_days': 30,
+            'month_days': 30
+        }
+        form_data.update(updated_data)
 
-    # Salary calculations
-    ctc = float(form_data.get('ctc') or 0)
-    increment_per_month = float(form_data.get('increment_per_month', 0))
-    monthly_ctc = round(ctc / 12)
-    monthly_ctc_after_increment = monthly_ctc + increment_per_month
-
-    basic = round(monthly_ctc_after_increment * 0.5)
-    hra = round(basic * 0.5)
-    conveyance = round(monthly_ctc_after_increment * 0.05)
-    medical = round(monthly_ctc_after_increment * 0.014)
-    telephone = round(monthly_ctc_after_increment * 0.02)
-    special_allowance = monthly_ctc_after_increment - (basic + hra + conveyance + medical + telephone)
-    professional_tax = 200
-    gross_salary = basic + hra + conveyance + medical + telephone + special_allowance
-    net_salary = gross_salary - professional_tax
-
+    # Salary breakdown dictionary
     form_data['salary_breakdown'] = {
-        'basic': basic, 'hra': hra, 'conveyance': conveyance,
-        'medical': medical, 'telephone': telephone,
-        'special_allowance': special_allowance, 'professional_tax': professional_tax,
-        'gross_salary': gross_salary, 'net_salary': net_salary,
+        'basic': form_data['basic'],
+        'hra': form_data['hra'],
+        'conveyance': form_data['conveyance'],
+        'medical': form_data['medical'],
+        'telephone': form_data['telephone'],
+        'special_allowance': form_data['special_allowance'],
+        'professional_tax': form_data['professional_tax'],
+        'pf_amount': form_data.get('pf_amount', 0),
+        'income_tax': form_data.get('income_tax', 0),
+        'gross_salary': form_data['gross_earnings'],
+        'gross_deductions': form_data['gross_deductions'],
+        'net_salary': form_data['net_salary'],
         'increment_per_month': increment_per_month
     }
-    form_data['monthly_ctc_after_increment'] = monthly_ctc_after_increment
+    
+    form_data['monthly_ctc_after_increment'] = round((ctc / 12) + increment_per_month)
     form_data['formatted_joining_date'] = format_date(form_data.get('joining_date'))
 
     # --- RELIEVING DATE AND CERTIFICATE DATE LOGIC ---
@@ -392,14 +596,14 @@ def preview():
                 res_date = datetime.strptime(res_date, '%Y-%m-%d')
             form_data['relieving_date'] = res_date + timedelta(days=30)
 
-    # 1. NEW TOP DATE LOGIC (+1 day from Relieving Date)
+    # TOP DATE LOGIC
     base_relieving = form_data.get('relieving_date')
     if base_relieving:
         form_data['top_date'] = base_relieving + timedelta(days=1)
     else:
         form_data['top_date'] = datetime.now()
 
-    # 2. Existing Certificate Issue Date (+15 days skip weekends)
+    # Certificate Issue Date
     base_date_for_cert = form_data.get('relieving_date') or datetime.now()
     target_date = base_date_for_cert + timedelta(days=15)
     if target_date.weekday() == 5:
@@ -409,7 +613,7 @@ def preview():
     
     form_data['certificate_issue_date'] = target_date
 
-    # --- REMAINING DB CHECKS ---
+    # DB CHECKS
     emp = Employee.query.filter_by(employee_id=form_data.get('employee_id')).first()
     if emp:
         form_data['formatted_resignation_date'] = format_date(emp.resignation_date)
@@ -418,6 +622,7 @@ def preview():
     else:
         form_data['formatted_resignation_date'] = None
 
+    # Month label
     month_label = []
     if form_data.get('document_type') in ['salary_slip', 'offer_and_salary'] and selected_months:
         current_year = session.get('selected_year', datetime.now().year)
@@ -426,7 +631,7 @@ def preview():
             m = m[:1].upper() + m[1:].lower()
             month_label.append(f"{m} {current_year}")
 
-    watermark_logo = company.logo  # directly from company object
+    watermark_logo = company.logo
 
     template = f"documents/{form_data['document_type']}.html"
     return render_template(
@@ -466,32 +671,55 @@ def preview_document(doc_type):
         flash('Company not found.', 'danger')
         return redirect(url_for('admin_dashboard'))
 
-    # Salary calculations (same as before)
+    # Get base values
     ctc = float(form_data.get('ctc') or 0)
     increment_per_month = float(form_data.get('increment_per_month') or 0)
-    monthly_ctc = round(ctc / 12)
-    monthly_ctc_after_increment = monthly_ctc + increment_per_month
-
-    basic = round(monthly_ctc_after_increment * 0.5)
-    hra = round(basic * 0.5)
-    conveyance = round(monthly_ctc_after_increment * 0.05)
-    medical = round(monthly_ctc_after_increment * 0.014)
-    telephone = round(monthly_ctc_after_increment * 0.02)
-    special_allowance = monthly_ctc_after_increment - (basic + hra + conveyance + medical + telephone)
-    professional_tax = 200
-    gross_salary = basic + hra + medical + telephone + special_allowance
-    net_salary = gross_salary - professional_tax
+    
+    # Calculate components
+    components = calculate_salary_components(
+        ctc=ctc,
+        increment_per_month=increment_per_month,
+        paid_days=30,  # Default for non-salary docs
+        month_days=30
+    )
+    
+    # Update form_data with calculated values
+    form_data.update({
+        'basic': components['basic'],
+        'hra': components['hra'],
+        'conveyance': components['conveyance'],
+        'medical': components['medical'],
+        'telephone': components['telephone'],
+        'special_allowance': components['special_allowance'],
+        'gross_earnings': components['gross_earnings'],
+        'professional_tax': components['professional_tax'],
+        'pf_amount': components['pf_amount'],
+        'income_tax': components['income_tax'],
+        'gross_deductions': components['gross_deductions'],
+        'net_salary': components['net_salary'],
+        'words': num2words(int(components['net_salary']), lang='en_IN').title() + ' Rupees'
+    })
 
     form_data['salary_breakdown'] = {
-        'basic': basic, 'hra': hra, 'conveyance': conveyance,
-        'medical': medical, 'telephone': telephone,
-        'special_allowance': special_allowance, 'professional_tax': professional_tax,
-        'gross_salary': gross_salary, 'net_salary': net_salary,
+        'basic': components['basic'],
+        'hra': components['hra'],
+        'conveyance': components['conveyance'],
+        'medical': components['medical'],
+        'telephone': components['telephone'],
+        'special_allowance': components['special_allowance'],
+        'professional_tax': components['professional_tax'],
+        'pf_amount': components['pf_amount'],
+        'income_tax': components['income_tax'],
+        'gross_salary': components['gross_earnings'],
+        'gross_deductions': components['gross_deductions'],
+        'net_salary': components['net_salary'],
         'increment_per_month': increment_per_month
     }
-    form_data['monthly_ctc_after_increment'] = monthly_ctc_after_increment
+    
+    form_data['monthly_ctc_after_increment'] = round((ctc / 12) + increment_per_month)
     form_data['formatted_joining_date'] = format_date(form_data.get('joining_date'))
 
+    # Resignation and relieving dates
     resignation_date = form_data.get('resignation_date')
     if resignation_date:
         form_data['formatted_resignation_date'] = format_date(resignation_date)
@@ -504,7 +732,7 @@ def preview_document(doc_type):
         form_data['formatted_resignation_date'] = None
         form_data['relieving_date'] = None
 
-    # month label for preview route
+    # Month label for preview
     month_label = None
     if doc_type in ['salary_slip'] and selected_months:
         m = selected_months[0].strip()
@@ -547,7 +775,6 @@ def generate():
 
     print(f"\n{'='*50}")
     print(f"GENERATE ROUTE STARTED for {doc_type}")
-    print(f"Selected months: {selected_months}")
     print(f"{'='*50}")
 
     form_data = convert_dates(form_data)
@@ -561,53 +788,11 @@ def generate():
         flash('Employee not found', 'danger')
         return redirect(url_for('admin_dashboard'))
 
-    # ------------------------- BASE SALARY CALCULATION -------------------------
+    # Get base values
     ctc = float(form_data.get('ctc') or 0)
     increment_per_month = float(form_data.get('increment_per_month') or 0)
 
-    monthly_ctc = round(ctc / 12)
-    monthly_ctc_after_increment = monthly_ctc + increment_per_month
-
-    basic = round(monthly_ctc_after_increment * 0.5)
-    hra = round(basic * 0.5)
-    conveyance = round(monthly_ctc_after_increment * 0.05)
-    medical = round(monthly_ctc_after_increment * 0.014)
-    telephone = round(monthly_ctc_after_increment * 0.02)
-    special_allowance = monthly_ctc_after_increment - (basic + hra + conveyance + medical + telephone)
-    professional_tax = 200
-    gross_salary = basic + hra + conveyance + medical + telephone + special_allowance
-    net_salary = gross_salary - professional_tax
-
-    # Store base values
-    form_data['basic'] = basic
-    form_data['hra'] = hra
-    form_data['conveyance'] = conveyance
-    form_data['medical'] = medical
-    form_data['telephone'] = telephone
-    form_data['special_allowance'] = special_allowance
-    form_data['professional_tax'] = professional_tax
-    form_data['gross_earnings'] = gross_salary
-    form_data['gross_deductions'] = professional_tax
-    form_data['net_salary'] = net_salary
-    form_data['salary_breakdown'] = {
-        'basic': basic, 'hra': hra, 'conveyance': conveyance,
-        'medical': medical, 'telephone': telephone,
-        'special_allowance': special_allowance, 'professional_tax': professional_tax,
-        'gross_salary': gross_salary, 'net_salary': net_salary,
-        'increment_per_month': increment_per_month
-    }
-    form_data['monthly_ctc_after_increment'] = monthly_ctc_after_increment
-    form_data['formatted_joining_date'] = format_date(form_data.get('joining_date'))
-
-    emp = Employee.query.filter_by(employee_id=form_data.get('employee_id')).first()
-    if emp:
-        form_data['formatted_resignation_date'] = format_date(emp.resignation_date)
-        form_data['relieving_date'] = format_date(emp.relieving_date)
-    else:
-        form_data['formatted_resignation_date'] = None
-        form_data['relieving_date'] = None
-
-    # Get company ID from form_data
+    # Get company
     company_id = form_data.get('company')
     if company_id:
         try:
@@ -632,41 +817,112 @@ def generate():
 
     # Retrieve per‑month values from session
     per_month_values = session.get('per_month_values', {})
-    print(f"Per‑month values from session: {per_month_values}")
-
+    
     # ==================== SALARY SLIP (multiple months) ====================
     if doc_type == "salary_slip" and selected_months:
         uploaded_files = []
         files_generated = []
         failed_months = []
+        
+        # Get stored month days from session
+        month_days_values = session.get('month_days_values', {})
 
         for month in selected_months:
             print(f"\n--- Processing month: {month} ---")
-            form_data_copy = form_data.copy()
-            form_data_copy['month'] = month
-
-            # Override with per‑month day values
+            
+            # Get per‑month day values
             pm = per_month_values.get(month, {})
-            form_data_copy['worked_days'] = pm.get('worked', form_data.get('worked_days', 30))
-            form_data_copy['lop'] = pm.get('lop', form_data.get('lop', 0))
-            form_data_copy['paid_days'] = pm.get('paid', form_data.get('paid_days', 30))
+            paid_days = pm.get('paid', 30)
+            
+            # Get actual days in this month
+            month_days = month_days_values.get(month, 30)
+            
+            print(f"  Month: {month}, Paid Days: {paid_days}, Month Days: {month_days}")
+            
+            # Calculate components for this month using helper
+            components = calculate_salary_components(
+                ctc=ctc,
+                increment_per_month=increment_per_month,
+                paid_days=paid_days,
+                month_days=month_days  # Use actual days!
+            )
+            
+            # Create form data for this month
+            month_form_data = {
+                'employee_id': form_data.get('employee_id'),
+                'company': company.id,
+                'document_type': doc_type,
+                'full_name': form_data.get('full_name'),
+                'address': form_data.get('address'),
+                'aadhar_no': form_data.get('aadhar_no'),
+                'pan_no': form_data.get('pan_no'),
+                'designation': form_data.get('designation'),
+                'gender': form_data.get('gender'),
+                'department': form_data.get('department'),
+                'ctc': ctc,
+                'increment_per_month': increment_per_month,
+                'month': month,
+                
+                # Earnings - from components
+                'basic': components['basic'],
+                'hra': components['hra'],
+                'conveyance': components['conveyance'],
+                'medical': components['medical'],
+                'telephone': components['telephone'],
+                'special_allowance': components['special_allowance'],
+                'gross_earnings': components['gross_earnings'],
+                
+                # Deductions - Individual
+                'professional_tax': components['professional_tax'],
+                'pf_amount': components['pf_amount'],
+                'income_tax': components['income_tax'],
+                
+                # Deductions - Total
+                'gross_deductions': components['gross_deductions'],
+                
+                # Net
+                'net_salary': components['net_salary'],
+                
+                # Words
+                'words': num2words(int(components['net_salary']), lang='en_IN').title() + ' Rupees',
+                
+                # Day details
+                'worked_days': pm.get('worked', 30),
+                'lop': pm.get('lop', 0),
+                'paid_days': paid_days,
+                'month_days': month_days,
+                
+                # Dates
+                'joining_date': form_data.get('joining_date'),
+                'resignation_date': form_data.get('resignation_date'),
+                
+                # Bank details
+                'bank_details': form_data.get('bank_details', {})
+            }
 
-            print(f"  worked_days={form_data_copy['worked_days']}, lop={form_data_copy['lop']}, paid_days={form_data_copy['paid_days']}")
-
-            # Generate amount in words
-            words = num2words(int(form_data_copy['net_salary']), lang='en_IN').title() + ' Rupees'
-            form_data_copy['words'] = words
+            # DEBUG - Print to verify
+            print(f"  MONTH: {month}")
+            print(f"  PAID DAYS: {paid_days}")
+            print(f"  MONTH DAYS: {month_days}")
+            print(f"  PRO-RATION FACTOR: {paid_days/month_days:.3f}")
+            print(f"  BASIC: {components['basic']}")
+            print(f"  GROSS EARNINGS: {components['gross_earnings']}")
+            print(f"  PROFESSIONAL TAX: {components['professional_tax']}")
+            print(f"  PF AMOUNT: {components['pf_amount']}")
+            print(f"  GROSS DEDUCTIONS: {components['gross_deductions']}")
+            print(f"  NET SALARY: {components['net_salary']}")
 
             html = render_template(
                 "documents/salary_slip.html",
-                data=form_data_copy,
+                data=month_form_data,
                 company=company,
-                watermark_logo=watermark_logo
+                watermark_logo=watermark_logo,
+                now=datetime.now()
             )
 
-            filename = f"Salary_Slip_{month}.pdf"
+            filename = f"Salary_Slip_{month}_{datetime.now().strftime('%Y%m%d')}.pdf"
 
-            # Create a temporary file for the PDF
+            # Create temporary file
             with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
                 temp_path = tmp_file.name
 
@@ -683,27 +939,7 @@ def generate():
                             employee=employee
                         )
                         uploaded_files.append(filename)
-                        print(f"  ✅ Uploaded to Drive")
-
-                        # Save document record with Drive file ID only (no local path)
-                        if employee:
-                            doc = Document(
-                                employee_id=employee.id,
-                                document_type=doc_type,
-                                filename=filename,
-                                file_path=None,  # no local file
-                                month=month,
-                                year=session.get('selected_year', datetime.now().year),
-                                generated_by=session.get('admin_username', 'system'),
-                                drive_file_id=drive_file_id
-                            )
-                            db.session.add(doc)
-                    except Exception as e:
-                        print(f"  ❌ Drive upload error: {e}")
-                        flash(f'{filename} upload failed', 'warning')
-                else:
-                    # Upload not requested – still create document record but without Drive ID
-                    if employee:
+                        
                         doc = Document(
                             employee_id=employee.id,
                             document_type=doc_type,
@@ -712,11 +948,25 @@ def generate():
                             month=month,
                             year=session.get('selected_year', datetime.now().year),
                             generated_by=session.get('admin_username', 'system'),
-                            drive_file_id=None
+                            drive_file_id=drive_file_id
                         )
                         db.session.add(doc)
+                    except Exception as e:
+                        print(f"  ❌ Drive upload error: {e}")
+                else:
+                    doc = Document(
+                        employee_id=employee.id,
+                        document_type=doc_type,
+                        filename=filename,
+                        file_path=None,
+                        month=month,
+                        year=session.get('selected_year', datetime.now().year),
+                        generated_by=session.get('admin_username', 'system'),
+                        drive_file_id=None
+                    )
+                    db.session.add(doc)
 
-                # Delete temporary file
+                # Delete temp file
                 if os.path.exists(temp_path):
                     os.unlink(temp_path)
             else:
@@ -725,15 +975,14 @@ def generate():
 
         if files_generated:
             db.session.commit()
-            print(f"\n✅ Successfully generated {len(files_generated)} salary slips")
-            if failed_months:
-                print(f"❌ Failed months: {failed_months}")
-
+            
             # Clear session data
             session.pop('form_data', None)
             session.pop('selected_months', None)
             session.pop('selected_year', None)
             session.pop('per_month_values', None)
+            session.pop('month_days_values', None)
+            session.pop('pending_increment', None)
 
             if upload_to_drive_flag and uploaded_files:
                 flash(f'{len(uploaded_files)} salary slips uploaded to Drive!', 'success')
@@ -746,17 +995,77 @@ def generate():
         return redirect(url_for('admin_dashboard'))
 
     # ==================== OTHER DOCUMENTS ====================
-    # Fetch employee again to get resignation/relieving dates
+    # For non-salary documents, calculate once using helper
+    components = calculate_salary_components(
+        ctc=ctc,
+        increment_per_month=increment_per_month,
+        paid_days=30,
+        month_days=30
+    )
+    
+    # Create a clean form_data with ONLY the calculated values
+    clean_form_data = {
+        'employee_id': form_data.get('employee_id'),
+        'company': company.id,
+        'document_type': doc_type,
+        'full_name': form_data.get('full_name'),
+        'address': form_data.get('address'),
+        'aadhar_no': form_data.get('aadhar_no'),
+        'pan_no': form_data.get('pan_no'),
+        'designation': form_data.get('designation'),
+        'gender': form_data.get('gender'),
+        'department': form_data.get('department'),
+        'ctc': ctc,
+        'increment_per_month': increment_per_month,
+        
+        # Earnings - from components
+        'basic': components['basic'],
+        'hra': components['hra'],
+        'conveyance': components['conveyance'],
+        'medical': components['medical'],
+        'telephone': components['telephone'],
+        'special_allowance': components['special_allowance'],
+        'gross_earnings': components['gross_earnings'],
+        
+        # Deductions - Individual
+        'professional_tax': components['professional_tax'],
+        'pf_amount': components['pf_amount'],
+        'income_tax': components['income_tax'],
+        
+        # Deductions - Total
+        'gross_deductions': components['gross_deductions'],
+        
+        # Net
+        'net_salary': components['net_salary'],
+        
+        # Words
+        'words': num2words(int(components['net_salary']), lang='en_IN').title() + ' Rupees',
+        
+        # Dates
+        'joining_date': form_data.get('joining_date'),
+        'resignation_date': form_data.get('resignation_date'),
+        
+        # Bank details
+        'bank_details': form_data.get('bank_details', {}),
+        
+        # Default values
+        'worked_days': 30,
+        'lop': 0,
+        'paid_days': 30
+    }
+
+    # Get resignation/relieving dates
     emp = Employee.query.filter_by(employee_id=form_data.get('employee_id')).first()
     if emp:
-        form_data['formatted_resignation_date'] = format_date(emp.resignation_date)
-        form_data['relieving_date'] = format_date(emp.relieving_date)
+        clean_form_data['formatted_resignation_date'] = format_date(emp.resignation_date)
+        clean_form_data['relieving_date'] = format_date(emp.relieving_date)
 
     html = render_template(
         f"documents/{doc_type}.html",
-        data=form_data,
+        data=clean_form_data,
         company=company,
-        watermark_logo=watermark_logo
+        watermark_logo=watermark_logo,
+        now=datetime.now()
     )
 
     filename = f"{doc_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
@@ -770,7 +1079,7 @@ def generate():
         flash('Failed to generate PDF', 'danger')
         return redirect(url_for('admin_dashboard'))
 
-    # ------------------------- UPDATE INCREMENT -------------------------
+    # Update increment if needed
     if should_update_increment and employee and pending:
         try:
             old_ctc = employee.ctc
@@ -791,7 +1100,7 @@ def generate():
             print("Increment Update Error:", e)
             db.session.rollback()
 
-    # ------------------------- SAVE DOCUMENT RECORD -------------------------
+    # Upload to Drive if requested
     drive_file_id = None
     if upload_to_drive_flag and employee:
         try:
@@ -808,11 +1117,10 @@ def generate():
                 folder_name=folder_name,
                 employee=employee
             )
-            flash('Document uploaded to Drive successfully!', 'success')
         except Exception as e:
             print("Drive Upload Error:", e)
-            flash('Drive upload failed', 'warning')
 
+    # Save document record
     if employee:
         doc = Document(
             employee_id=employee.id,
@@ -826,7 +1134,7 @@ def generate():
 
     db.session.commit()
 
-    # Delete temporary file
+    # Delete temp file
     if os.path.exists(temp_path):
         os.unlink(temp_path)
 
@@ -834,6 +1142,7 @@ def generate():
     session.pop('form_data', None)
     session.pop('selected_months', None)
     session.pop('selected_year', None)
+    session.pop('per_month_values', None)
 
     flash(f'{doc_type.replace("_", " ").title()} generated successfully!', 'success')
 
@@ -1192,54 +1501,62 @@ def admin_generate_document(emp_id, doc_type):
             return redirect(url_for('view_employee', emp_id=employee.id))
 
         selected_months = request.form.getlist('months')
-        worked_days = int(request.form.get('worked_days', 30))
-        lop = int(request.form.get('lop', 0))
-        paid_days = int(request.form.get('paid_days', 30))
+        year = int(request.form.get('year', datetime.now().year))
 
-        # Collect per‑month values if they exist
+        # Collect per‑month values and store actual days in month
         per_month_values = {}
+        month_days_values = {}  # New dict to store actual days in each month
+
         for month in selected_months:
             month_key = month.lower()
+            
+            # Get the values from form
             if f'worked_days_{month_key}' in request.form:
-                per_month_values[month] = {
-                    'worked': int(request.form.get(f'worked_days_{month_key}')),
-                    'lop': int(request.form.get(f'lop_{month_key}')),
-                    'paid': int(request.form.get(f'paid_days_{month_key}'))
-                }
+                worked_days = int(request.form.get(f'worked_days_{month_key}'))
+                lop = int(request.form.get(f'lop_{month_key}'))
+                paid_days = int(request.form.get(f'paid_days_{month_key}'))
             else:
-                per_month_values[month] = {
-                    'worked': worked_days,
-                    'lop': lop,
-                    'paid': paid_days
-                }
+                worked_days = int(request.form.get('worked_days', 30))
+                lop = int(request.form.get('lop', 0))
+                paid_days = int(request.form.get('paid_days', 30))
+            
+            # Calculate actual days in this month
+            actual_days_in_month = get_days_in_month(month, year)
+            
+            per_month_values[month] = {
+                'worked': worked_days,
+                'lop': lop,
+                'paid': paid_days
+            }
+            
+            # Store actual days in month for this month
+            month_days_values[month] = actual_days_in_month
 
         session['per_month_values'] = per_month_values
+        session['month_days_values'] = month_days_values  # Store in session
 
         if not selected_months:
             flash('Please select at least one month.', 'danger')
             return render_template('select_months.html', employee=employee, companies=Company.query.all())
 
         session['selected_months'] = selected_months
-        session['selected_year'] = request.form.get('year', datetime.now().year)
-        session['worked_days'] = worked_days
-        session['lop'] = lop
-        session['paid_days'] = paid_days
+        session['selected_year'] = year
 
-        # Salary calculations
-        ctc = float(employee.ctc)
-        monthly_ctc = round(ctc / 12)
-
-        basic = round(monthly_ctc * 0.5)
-        hra = round(basic * 0.5)
-        conveyance = round(monthly_ctc * 0.05)
-        medical = round(monthly_ctc * 0.014)
-        telephone = round(monthly_ctc * 0.02)
-        special_allowance = monthly_ctc - (basic + hra + conveyance + medical + telephone)
-        professional_tax = 200
-        gross_salary = basic + hra + conveyance + medical + telephone + special_allowance
-        net_salary = gross_salary - professional_tax
-
-        words = num2words(int(net_salary), lang='en_IN').title() + ' Rupees'
+        # Use the first month's values for preview
+        first_month = selected_months[0]
+        first_month_values = per_month_values[first_month]
+        first_month_days = month_days_values[first_month]
+        
+        # Calculate salary components with CORRECT month_days
+        components = calculate_salary_components(
+            ctc=float(employee.ctc),
+            increment_per_month=0,
+            paid_days=first_month_values['paid'],
+            month_days=first_month_days  # Use actual days in month!
+        )
+        
+        # Generate amount in words
+        words = num2words(int(components['net_salary']), lang='en_IN').title() + ' Rupees'
 
         form_data = {
             'employee_id': employee.employee_id,
@@ -1255,22 +1572,37 @@ def admin_generate_document(emp_id, doc_type):
             'base_ctc': employee.base_ctc,
             'ctc': employee.ctc,
             'increment_per_month': 0,
-            'basic': basic,
-            'hra': hra,
-            'conveyance': conveyance,
-            'medical': medical,
-            'telephone': telephone,
-            'special_allowance': special_allowance,
-            'professional_tax': professional_tax,
-            'gross_earnings': gross_salary,
-            'gross_deductions': professional_tax,
-            'net_salary': net_salary,
+            
+            # Earnings
+            'basic': components['basic'],
+            'hra': components['hra'],
+            'conveyance': components['conveyance'],
+            'medical': components['medical'],
+            'telephone': components['telephone'],
+            'special_allowance': components['special_allowance'],
+            'gross_earnings': components['gross_earnings'],
+            
+            # Deductions
+            'professional_tax': components['professional_tax'],
+            'pf_amount': components['pf_amount'],
+            'income_tax': components['income_tax'],
+            'gross_deductions': components['gross_deductions'],
+            
+            # Net
+            'net_salary': components['net_salary'],
             'words': words,
-            'worked_days': worked_days,
-            'lop': lop,
-            'paid_days': paid_days,
+            
+            # Day details
+            'worked_days': first_month_values['worked'],
+            'lop': first_month_values['lop'],
+            'paid_days': first_month_values['paid'],
+            'month_days': first_month_days,  # Add actual month days
+            
+            # Dates
             'joining_date': employee.joining_date.strftime('%Y-%m-%d') if employee.joining_date else None,
             'resignation_date': employee.resignation_date.strftime('%Y-%m-%d') if employee.resignation_date else None,
+            
+            # Bank details
             'bank_details': {
                 'account_holder': employee.account_holder,
                 'account_number': employee.account_number,
@@ -2056,7 +2388,7 @@ with app.app_context():
             db.session.add(company)
         db.session.commit()
         print("✅ Static companies imported into database with correct logos.")
-        
+
 if __name__ == '__main__':
     app.run(debug=True)
 
