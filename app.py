@@ -112,6 +112,8 @@ class Employee(db.Model):
     resignation_email_content = db.Column(db.Text, nullable=True)  # To store resignation email content for resignation acceptance letter
     resignation_datetime = db.Column(db.DateTime, nullable=True)  # To store resignation email date and time for resignation acceptance letter
     relieving_date = db.Column(db.Date, nullable=True)  # To store calculated relieving date for resignation acceptance letter
+    company_id = db.Column(db.Integer, db.ForeignKey('company.id'), nullable=True)
+    company = db.relationship('Company', backref='employees')
     
     # Bank Details
     account_holder = db.Column(db.String(100))
@@ -156,41 +158,57 @@ class Payment(db.Model):
     employee = db.relationship('Employee', backref='payments')
     document = db.relationship('Document', backref='payment')
 
-#function for production
-def html_to_pdf(html_content, output_path):
-    try:
-        HTML(string=html_content).write_pdf(output_path)
-        return True
-    except Exception as e:
-        print("WeasyPrint error:", e)
-        return False
+#company module
+class Company(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    address = db.Column(db.Text)
+    phone = db.Column(db.String(50))
+    email = db.Column(db.String(100))
+    website = db.Column(db.String(200))
+    logo = db.Column(db.String(200))        # filename in static/images
+    signature = db.Column(db.String(200))   # filename in static/images/signatures
+    hr_name = db.Column(db.String(100))
+    hr_designation = db.Column(db.String(100))
+    hr_email = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    notice_period = db.Column(db.String(50), nullable=True)
 
+# #function for production
 # def html_to_pdf(html_content, output_path):
-#     # Path to the standalone WeasyPrint executable (for local Windows)
-#     weasyprint_path = os.path.join(app.root_path, 'weasyprint', 'weasyprint.exe')
-    
-#     with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
-#         f.write(html_content)
-#         temp_html_path = f.name
-
 #     try:
-#         result = subprocess.run(
-#             [weasyprint_path, temp_html_path, output_path],
-#             capture_output=True,
-#             text=True,
-#             timeout=30
-#         )
-#         if result.returncode == 0:
-#             return True
-#         else:
-#             print("WeasyPrint error:", result.stderr)
-#             return False
+#         HTML(string=html_content).write_pdf(output_path)
+#         return True
 #     except Exception as e:
-#         print("WeasyPrint exception:", e)
+#         print("WeasyPrint error:", e)
 #         return False
-#     finally:
-#         if os.path.exists(temp_html_path):
-#             os.unlink(temp_html_path)
+
+def html_to_pdf(html_content, output_path):
+    # Path to the standalone WeasyPrint executable (for local Windows)
+    weasyprint_path = os.path.join(app.root_path, 'weasyprint', 'weasyprint.exe')
+    
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+        f.write(html_content)
+        temp_html_path = f.name
+
+    try:
+        result = subprocess.run(
+            [weasyprint_path, temp_html_path, output_path],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode == 0:
+            return True
+        else:
+            print("WeasyPrint error:", result.stderr)
+            return False
+    except Exception as e:
+        print("WeasyPrint exception:", e)
+        return False
+    finally:
+        if os.path.exists(temp_html_path):
+            os.unlink(temp_html_path)
 
 @app.template_filter('humanize')
 def humanize_filter(value):
@@ -246,15 +264,11 @@ def convert_dates(form_data):
     return form_data
 
 def get_watermark_logo(company_id):
-    """Return watermark logo filename based on company ID"""
-    # Map your actual company IDs from config.py to logo filenames
-    watermarks = {
-        'company1': 'lc_logo.png',      # Map company1 to lc_logo.png
-        'company2': 'arr_logo.png',     # Map company2 to arr_logo.png
-    }
-    
-    watermark = watermarks.get(company_id, 'lc_logo.png')  # Default to lc_logo.png
-    return watermark
+    """Get watermark logo filename for a company"""
+    company = Company.query.get(company_id)
+    if not company or not company.logo:
+        return None
+    return company.logo  # Just return the filename
 
 def generate_pdf_file(form_data, company, doc_type):
     watermark_logo = get_watermark_logo(company['id'])
@@ -291,9 +305,6 @@ def preview():
         flash('Document type is missing!', 'danger')
         return redirect(url_for('admin_dashboard'))
 
-    if 'company' not in form_data or not form_data['company']:
-        form_data['company'] = 'company1'
-
     if not form_data:
         return redirect(url_for('index'))
 
@@ -303,9 +314,19 @@ def preview():
         date_before = get_previous_workday(form_data['joining_date'], 8)
         form_data['date_before'] = date_before
 
-    company = next((c for c in COMPANIES if c['id'] == form_data['company']), None)
+    # Get company ID from form data (it's stored as string in session, but we stored as int in form_data)
+    company_id = form_data.get('company')
+    if company_id:
+        try:
+            company = Company.query.get(int(company_id))
+        except (ValueError, TypeError):
+            company = None
+    else:
+        company = None
+
     if not company:
-        return "Company not found", 404
+        flash('Company not found.', 'danger')
+        return redirect(url_for('admin_dashboard'))
 
     # Determine which month to preview
     preview_month = request.args.get('month')
@@ -325,10 +346,9 @@ def preview():
         form_data['paid_days'] = pm.get('paid', form_data.get('paid_days', 30))
         form_data['preview_month'] = preview_month
     else:
-        # For non‑salary slips, month is irrelevant
         form_data['month'] = None
 
-    # Salary calculations (standard for all document types)
+    # Salary calculations
     ctc = float(form_data.get('ctc') or 0)
     increment_per_month = float(form_data.get('increment_per_month', 0))
     monthly_ctc = round(ctc / 12)
@@ -371,7 +391,7 @@ def preview():
             m = m[:1].upper() + m[1:].lower()
             month_label.append(f"{m} {current_year}")
 
-    watermark_logo = get_watermark_logo(company['id'])
+    watermark_logo = company.logo  # directly from company object
 
     template = f"documents/{form_data['document_type']}.html"
     return render_template(
@@ -386,26 +406,33 @@ def preview():
 @app.route('/preview_document/<doc_type>')
 def preview_document(doc_type):
     form_data = session.get('form_data', {})
-    
     selected_months = session.get('selected_months', [])
     if not form_data:
         return redirect(url_for('index'))
 
-    # Convert string dates to date objects for calculations
     form_data = convert_dates(form_data)
 
-    # Calculate date_before if joining_date exists
     if form_data.get('joining_date'):
         date_before = get_previous_workday(form_data['joining_date'], 8)
         form_data['date_before'] = date_before
 
-    company = next((c for c in COMPANIES if c['id'] == form_data['company']), None)
-    if not company:
-        return "Company not found", 404
+    # Get company ID from form data
+    company_id = form_data.get('company')
+    if company_id:
+        try:
+            company = Company.query.get(int(company_id))
+        except (ValueError, TypeError):
+            company = None
+    else:
+        company = None
 
+    if not company:
+        flash('Company not found.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    # Salary calculations (same as before)
     ctc = float(form_data.get('ctc') or 0)
     increment_per_month = float(form_data.get('increment_per_month') or 0)
-
     monthly_ctc = round(ctc / 12)
     monthly_ctc_after_increment = monthly_ctc + increment_per_month
 
@@ -414,37 +441,24 @@ def preview_document(doc_type):
     conveyance = round(monthly_ctc_after_increment * 0.05)
     medical = round(monthly_ctc_after_increment * 0.014)
     telephone = round(monthly_ctc_after_increment * 0.02)
-
-    special_allowance = monthly_ctc_after_increment - (
-        basic + hra + conveyance + medical + telephone
-    )
-
+    special_allowance = monthly_ctc_after_increment - (basic + hra + conveyance + medical + telephone)
     professional_tax = 200
     gross_salary = basic + hra + conveyance + medical + telephone + special_allowance
     net_salary = gross_salary - professional_tax
 
     form_data['salary_breakdown'] = {
-        'basic': basic,
-        'hra': hra,
-        'conveyance': conveyance,
-        'medical': medical,
-        'telephone': telephone,
-        'special_allowance': special_allowance,
-        'professional_tax': professional_tax,
-        'gross_salary': gross_salary,
-        'net_salary': net_salary,
+        'basic': basic, 'hra': hra, 'conveyance': conveyance,
+        'medical': medical, 'telephone': telephone,
+        'special_allowance': special_allowance, 'professional_tax': professional_tax,
+        'gross_salary': gross_salary, 'net_salary': net_salary,
         'increment_per_month': increment_per_month
     }
-
     form_data['monthly_ctc_after_increment'] = monthly_ctc_after_increment
-
-    # Format dates for display using the safe format_date function
     form_data['formatted_joining_date'] = format_date(form_data.get('joining_date'))
-    
+
     resignation_date = form_data.get('resignation_date')
     if resignation_date:
         form_data['formatted_resignation_date'] = format_date(resignation_date)
-        # Calculate relieving date (30 days after resignation)
         if isinstance(resignation_date, str):
             relieving_date = datetime.strptime(resignation_date, "%Y-%m-%d").date() + timedelta(days=30)
         else:
@@ -462,8 +476,7 @@ def preview_document(doc_type):
         current_year = datetime.now().year
         month_label = f"{m} {current_year}"
 
-    # Determine watermark logo based on company
-    watermark_logo = get_watermark_logo(company['id'])
+    watermark_logo = company.logo
 
     if form_data.get('document_type') == 'offer_and_salary' and doc_type == 'offer_letter':
         return render_template(
@@ -558,12 +571,21 @@ def generate():
         form_data['formatted_resignation_date'] = None
         form_data['relieving_date'] = None
 
-    company = next((c for c in COMPANIES if c['id'] == form_data.get('company')), None)
+    # Get company ID from form_data
+    company_id = form_data.get('company')
+    if company_id:
+        try:
+            company = Company.query.get(int(company_id))
+        except (ValueError, TypeError):
+            company = None
+    else:
+        company = None
+
     if not company:
-        flash('Company not found', 'danger')
+        flash('Company not found.', 'danger')
         return redirect(url_for('admin_dashboard'))
 
-    watermark_logo = get_watermark_logo(company['id'])
+    watermark_logo = company.logo
 
     # ------------------------- PENDING INCREMENT -------------------------
     should_update_increment = False
@@ -688,11 +710,12 @@ def generate():
         return redirect(url_for('admin_dashboard'))
 
     # ==================== OTHER DOCUMENTS ====================
-    #fetch employee again to get resignation/relieving dates
+    # Fetch employee again to get resignation/relieving dates
     emp = Employee.query.filter_by(employee_id=form_data.get('employee_id')).first()
     if emp:
         form_data['formatted_resignation_date'] = format_date(emp.resignation_date)
         form_data['relieving_date'] = format_date(emp.relieving_date)
+
     html = render_template(
         f"documents/{doc_type}.html",
         data=form_data,
@@ -702,7 +725,6 @@ def generate():
 
     filename = f"{doc_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
 
-    # Create temporary file
     with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
         temp_path = tmp_file.name
 
@@ -755,7 +777,6 @@ def generate():
             print("Drive Upload Error:", e)
             flash('Drive upload failed', 'warning')
 
-    # Save document record (with Drive ID if available, no local path)
     if employee:
         doc = Document(
             employee_id=employee.id,
@@ -780,7 +801,6 @@ def generate():
 
     flash(f'{doc_type.replace("_", " ").title()} generated successfully!', 'success')
 
-    # No local file download – redirect to dashboard
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/generated_docs/<filename>')
@@ -997,32 +1017,39 @@ def delete_employee(emp_id):
 
     return redirect(url_for('admin_dashboard', tab='employees'))
 
-# generate document for specific employee
 @app.route('/admin/employee/<int:emp_id>/generate/<doc_type>', methods=['GET', 'POST'])
 def admin_generate_document(emp_id, doc_type):
     if not session.get('is_admin'):
         return redirect(url_for('admin_login'))
-    
+
     employee = Employee.query.get_or_404(emp_id)
 
     # Special handling for increment letter
     if doc_type == 'increment_letter':
         if request.method == 'POST':
-            # Get company_id from form
-            company_id = request.form.get('company', 'company1')
+            # Get company_id from form – now it's an integer ID
+            company_id = request.form.get('company', type=int)
+            if not company_id:
+                flash('Please select a company.', 'danger')
+                return render_template('increment_form.html', employee=employee, companies=Company.query.all(), now=datetime.now)
+
+            company = Company.query.get(company_id)
+            if not company:
+                flash('Company not found.', 'danger')
+                return redirect(url_for('view_employee', emp_id=employee.id))
+
             increment_amount = float(request.form.get('increment_amount', 0))
             effective_date = request.form.get('effective_date')
-            
+
             if increment_amount <= 0:
                 flash('Increment amount must be greater than zero.', 'danger')
-                return render_template('increment_form.html', employee=employee, companies=COMPANIES, now=datetime.now)
-            
-            # Store increment data in session (NOT in database yet)
+                return render_template('increment_form.html', employee=employee, companies=Company.query.all(), now=datetime.now)
+
             session['pending_increment'] = {
                 'amount': increment_amount,
                 'effective_date': effective_date,
                 'employee_id': employee.id,
-                'old_ctc': employee.ctc   # store old CTC
+                'old_ctc': employee.ctc
             }
 
             # Salary breakdown calculations
@@ -1035,30 +1062,22 @@ def admin_generate_document(emp_id, doc_type):
             conveyance = round(monthly_ctc_after_increment * 0.05)
             medical = round(monthly_ctc_after_increment * 0.014)
             telephone = round(monthly_ctc_after_increment * 0.02)
-            special_allowance = monthly_ctc_after_increment - (
-                basic + hra + conveyance + medical + telephone
-            )
+            special_allowance = monthly_ctc_after_increment - (basic + hra + conveyance + medical + telephone)
             professional_tax = 200
             gross_salary = basic + hra + conveyance + medical + telephone + special_allowance
             net_salary = gross_salary - professional_tax
 
             salary_breakdown = {
-                'basic': basic,
-                'hra': hra,
-                'conveyance': conveyance,
-                'medical': medical,
-                'telephone': telephone,
-                'special_allowance': special_allowance,
-                'professional_tax': professional_tax,
-                'gross_salary': gross_salary,
-                'net_salary': net_salary,
+                'basic': basic, 'hra': hra, 'conveyance': conveyance,
+                'medical': medical, 'telephone': telephone,
+                'special_allowance': special_allowance, 'professional_tax': professional_tax,
+                'gross_salary': gross_salary, 'net_salary': net_salary,
                 'increment_per_month': increment_amount
             }
 
-            # Prepare form data with increment amount and salary breakdown
             form_data = {
                 'employee_id': employee.employee_id,
-                'company': company_id,
+                'company': company.id,
                 'document_type': doc_type,
                 'full_name': employee.full_name,
                 'address': employee.address,
@@ -1082,14 +1101,18 @@ def admin_generate_document(emp_id, doc_type):
             }
             session['form_data'] = form_data
             return redirect(url_for('preview'))
-        
-        # GET request - show increment form
-        return render_template('increment_form.html', employee=employee, companies=COMPANIES, now=datetime.now)
-    
+
+        # GET request – show increment form with all companies
+        return render_template('increment_form.html', employee=employee, companies=Company.query.all(), now=datetime.now)
+
     # ===== Resignation Acceptance =====
     elif doc_type == 'resignation_acceptance':
-        company_id = request.args.get('company', 'company1')
-        company = next((c for c in COMPANIES if c['id'] == company_id), None)
+        company_id = request.args.get('company', type=int)
+        if not company_id:
+            flash('No company selected.', 'danger')
+            return redirect(url_for('select_company_for_doc', emp_id=employee.id, doc_type=doc_type))
+
+        company = Company.query.get(company_id)
         if not company:
             flash('Company not found.', 'danger')
             return redirect(url_for('view_employee', emp_id=employee.id))
@@ -1104,7 +1127,7 @@ def admin_generate_document(emp_id, doc_type):
 
         form_data = {
             'employee_id': employee.employee_id,
-            'company': company_id,
+            'company': company.id,
             'document_type': doc_type,
             'full_name': employee.full_name,
             'employee_email': employee.email,
@@ -1112,9 +1135,9 @@ def admin_generate_document(emp_id, doc_type):
             'relieving_date': formatted_relieving_date,
             'resignation_email': employee.resignation_email_content,
             'resignation_email_datetime': formatted_email_datetime,
-            'hr_name': company.get('hr_name', 'HR Manager'),
-            'hr_designation': company.get('hr_designation', 'Human Resource Manager'),
-            'hr_email': company.get('hr_email', 'hr@example.com'),
+            'hr_name': company.hr_name,
+            'hr_designation': company.hr_designation,
+            'hr_email': company.hr_email,
             'timestamp': datetime.now().strftime('%d/%m/%Y %I:%M %p')
         }
         session['form_data'] = form_data
@@ -1122,7 +1145,16 @@ def admin_generate_document(emp_id, doc_type):
 
     # ===== Salary Slip =====
     if doc_type == 'salary_slip' and request.method == 'POST':
-        company_id = request.form.get('company', 'company1')
+        company_id = request.form.get('company', type=int)
+        if not company_id:
+            flash('Please select a company.', 'danger')
+            return render_template('select_months.html', employee=employee, companies=Company.query.all())
+
+        company = Company.query.get(company_id)
+        if not company:
+            flash('Company not found.', 'danger')
+            return redirect(url_for('view_employee', emp_id=employee.id))
+
         selected_months = request.form.getlist('months')
         worked_days = int(request.form.get('worked_days', 30))
         lop = int(request.form.get('lop', 0))
@@ -1139,19 +1171,17 @@ def admin_generate_document(emp_id, doc_type):
                     'paid': int(request.form.get(f'paid_days_{month_key}'))
                 }
             else:
-                # Use global values
                 per_month_values[month] = {
                     'worked': worked_days,
                     'lop': lop,
                     'paid': paid_days
                 }
 
-        # Store per_month_values in session for later use in generate
         session['per_month_values'] = per_month_values
 
         if not selected_months:
             flash('Please select at least one month.', 'danger')
-            return render_template('select_months.html', employee=employee, companies=COMPANIES)
+            return render_template('select_months.html', employee=employee, companies=Company.query.all())
 
         session['selected_months'] = selected_months
         session['selected_year'] = request.form.get('year', datetime.now().year)
@@ -1173,13 +1203,11 @@ def admin_generate_document(emp_id, doc_type):
         gross_salary = basic + hra + conveyance + medical + telephone + special_allowance
         net_salary = gross_salary - professional_tax
 
-        # Generate amount in words (Indian format)
         words = num2words(int(net_salary), lang='en_IN').title() + ' Rupees'
 
-        # Build form_data with all required top-level keys
         form_data = {
             'employee_id': employee.employee_id,
-            'company': company_id,
+            'company': company.id,
             'document_type': doc_type,
             'full_name': employee.full_name,
             'address': employee.address,
@@ -1218,67 +1246,13 @@ def admin_generate_document(emp_id, doc_type):
         session['form_data'] = form_data
         return redirect(url_for('preview'))
 
-    # GET request - show options for salary slip
+    # GET request – show options for salary slip
     if doc_type == 'salary_slip':
-        return render_template('select_months.html', employee=employee, companies=COMPANIES)
+        return render_template('select_months.html', employee=employee, companies=Company.query.all())
 
-    # ------------------------------------------------------------------
-    # Fallback for all other documents (GET request)
-    # ------------------------------------------------------------------
-    ctc = float(employee.ctc)
-    monthly_ctc = round(ctc / 12)
-    monthly_ctc_after_increment = monthly_ctc  # no increment
-
-    basic = round(monthly_ctc_after_increment * 0.5)
-    hra = round(basic * 0.5)
-    conveyance = round(monthly_ctc_after_increment * 0.05)
-    medical = round(monthly_ctc_after_increment * 0.014)
-    telephone = round(monthly_ctc_after_increment * 0.02)
-    special_allowance = monthly_ctc_after_increment - (
-        basic + hra + conveyance + medical + telephone
-    )
-    professional_tax = 200
-    gross_salary = basic + hra + conveyance + medical + telephone + special_allowance
-    net_salary = gross_salary - professional_tax
-
-    salary_breakdown = {
-        'basic': basic,
-        'hra': hra,
-        'conveyance': conveyance,
-        'medical': medical,
-        'telephone': telephone,
-        'special_allowance': special_allowance,
-        'professional_tax': professional_tax,
-        'gross_salary': gross_salary,
-        'net_salary': net_salary,
-        'increment_per_month': 0
-    }
-
-    form_data = {
-        'employee_id': employee.employee_id,
-        'company': 'company1',
-        'document_type': doc_type,
-        'full_name': employee.full_name,
-        'address': employee.address,
-        'aadhar_no': employee.aadhar_no,
-        'pan_no': employee.pan_no,
-        'designation': employee.designation,
-        'base_ctc': employee.base_ctc,
-        'ctc': employee.ctc,
-        'increment_per_month': 0,
-        'salary_breakdown': salary_breakdown,
-        'joining_date': employee.joining_date.strftime('%Y-%m-%d') if employee.joining_date else None,
-        'resignation_date': employee.resignation_date.strftime('%Y-%m-%d') if employee.resignation_date else None,
-        'bank_details': {
-            'account_holder': employee.account_holder,
-            'account_number': employee.account_number,
-            'bank_name': employee.bank_name,
-            'branch': employee.branch,
-            'ifsc_code': employee.ifsc_code
-        }
-    }
-    session['form_data'] = form_data
-    return redirect(url_for('preview'))
+    # ===== All other document types (offer letter, experience letter, etc.) =====
+    # Redirect to company selection page so the admin can choose a company
+    return redirect(url_for('select_company_for_doc', emp_id=emp_id, doc_type=doc_type))
 
 #view employee details and documents
 @app.route('/admin/employee/<int:emp_id>')
@@ -1469,6 +1443,17 @@ def save_resignation_details(emp_id):
 
     employee = Employee.query.get_or_404(emp_id)
 
+    # 1️⃣ Get company from form
+    company_id = request.form.get('company_id', type=int)
+    if not company_id:
+        flash('Please select a company for the resignation letter.', 'danger')
+        return redirect(url_for('view_employee', emp_id=emp_id))
+
+    company = Company.query.get(company_id)
+    if not company:
+        flash('Selected company does not exist.', 'danger')
+        return redirect(url_for('view_employee', emp_id=emp_id))
+
     resignation_date_str = request.form.get('resignation_date')
     relieving_date_str = request.form.get('relieving_date')
 
@@ -1477,34 +1462,29 @@ def save_resignation_details(emp_id):
         return redirect(url_for('view_employee', emp_id=emp_id))
 
     try:
-        # 1️⃣ Convert resignation date
-        resignation_date = datetime.strptime(
-            resignation_date_str, '%Y-%m-%d'
-        ).date()
-
+        # Convert resignation date
+        resignation_date = datetime.strptime(resignation_date_str, '%Y-%m-%d').date()
         employee.resignation_date = resignation_date
 
-        # 2️⃣ If admin entered relieving date
+        # Determine relieving date
         if relieving_date_str and relieving_date_str.strip():
-            relieving_date = datetime.strptime(
-                relieving_date_str, '%Y-%m-%d'
-            ).date()
+            relieving_date = datetime.strptime(relieving_date_str, '%Y-%m-%d').date()
         else:
-            # 3️⃣ Otherwise calculate +30 days
             relieving_date = resignation_date + timedelta(days=30)
-
-        # ✅ Save relieving date to DB
         employee.relieving_date = relieving_date
 
-        # 4️⃣ Mark status
+        # Mark status and timestamp
         employee.status = 'resigned'
         employee.resignation_datetime = datetime.now()
 
-        # Generate resignation email content
+        # ✅ Assign the selected company to the employee
+        employee.company_id = company.id
+
+        # Generate resignation email content using the selected company's name
         employee.resignation_email_content = f"""
         Dear HR,
 
-        I am writing to formally resign from my position as {employee.designation} at {COMPANIES[0]['name']}, effective from {resignation_date.strftime('%d %B %Y')}. 
+        I am writing to formally resign from my position as {employee.designation} at {company.name}, effective from {resignation_date.strftime('%d %B %Y')}. 
 
         I have decided to pursue other opportunities and would like to thank you for the support and opportunities provided during my tenure.
 
@@ -1517,7 +1497,6 @@ def save_resignation_details(emp_id):
         """.strip()
 
         db.session.commit()
-
         flash('Resignation details saved successfully.', 'success')
 
     except Exception as e:
@@ -1531,7 +1510,8 @@ def resignation_input_form(emp_id):
     if not session.get('is_admin'):
         return redirect(url_for('admin_login'))
     employee = Employee.query.get_or_404(emp_id)
-    return render_template('resignation_input_form.html', employee=employee)
+    companies = Company.query.all()
+    return render_template('resignation_input_form.html', employee=employee, companies=companies)
 
 def get_drive_service():
     """Get authenticated Google Drive service"""
@@ -1790,6 +1770,206 @@ def utility_processor():
     
     return dict(check_drive_connection=check_drive_connection)
 
+#============company routes====================
+@app.route('/admin/companies')
+def admin_companies():
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+    companies = Company.query.all()
+    return render_template('admin_companies.html', companies=companies)
+
+@app.route('/admin/companies/add', methods=['GET', 'POST'])
+def add_company():
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+    if request.method == 'POST':
+        # Handle file uploads
+        logo_file = request.files.get('logo')
+        signature_file = request.files.get('signature')
+        logo_filename = None
+        signature_filename = None
+
+        if logo_file and logo_file.filename:
+            logo_filename = secure_filename(logo_file.filename)
+            logo_file.save(os.path.join(app.root_path, 'static', 'images', logo_filename))
+        if signature_file and signature_file.filename:
+            signature_filename = secure_filename(signature_file.filename)
+            signature_file.save(os.path.join(app.root_path, 'static', 'images', 'signatures', signature_filename))
+
+        company = Company(
+            name=request.form['name'],
+            address=request.form.get('address'),
+            phone=request.form.get('phone'),
+            email=request.form.get('email'),
+            website=request.form.get('website'),
+            logo=logo_filename,
+            signature=signature_filename,
+            hr_name=request.form.get('hr_name'),
+            hr_designation=request.form.get('hr_designation'),
+            hr_email=request.form.get('hr_email')
+        )
+        db.session.add(company)
+        db.session.commit()
+        flash('Company added successfully', 'success')
+        return redirect(url_for('admin_companies'))
+    return render_template('company_form.html', company=None)
+
+@app.route('/admin/companies/<int:company_id>/edit', methods=['GET', 'POST'])
+def edit_company(company_id):
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+    company = Company.query.get_or_404(company_id)
+    if request.method == 'POST':
+        company.name = request.form['name']
+        company.address = request.form.get('address')
+        company.phone = request.form.get('phone')
+        company.email = request.form.get('email')
+        company.website = request.form.get('website')
+        company.hr_name = request.form.get('hr_name')
+        company.hr_designation = request.form.get('hr_designation')
+        company.hr_email = request.form.get('hr_email')
+
+        # Handle file uploads (replace if new file uploaded)
+        logo_file = request.files.get('logo')
+        if logo_file and logo_file.filename:
+            logo_filename = secure_filename(logo_file.filename)
+            logo_file.save(os.path.join(app.root_path, 'static', 'images', logo_filename))
+            company.logo = logo_filename
+
+        signature_file = request.files.get('signature')
+        if signature_file and signature_file.filename:
+            signature_filename = secure_filename(signature_file.filename)
+            signature_file.save(os.path.join(app.root_path, 'static', 'images', 'signatures', signature_filename))
+            company.signature = signature_filename
+
+        db.session.commit()
+        flash('Company updated', 'success')
+        return redirect(url_for('admin_companies'))
+    return render_template('company_form.html', company=company)
+
+@app.route('/admin/companies/<int:company_id>/delete', methods=['POST'])
+def delete_company(company_id):
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+    company = Company.query.get_or_404(company_id)
+    db.session.delete(company)
+    db.session.commit()
+    flash('Company deleted', 'success')
+    return redirect(url_for('admin_companies'))
+
+@app.route('/admin/select-company-for-doc/<int:emp_id>/<doc_type>', methods=['GET', 'POST'])
+def select_company_for_doc(emp_id, doc_type):
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+
+    employee = Employee.query.get_or_404(emp_id)
+    companies = Company.query.all()
+
+    if not companies:
+        flash('No companies found. Please add a company first.', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    if request.method == 'POST':
+        company_id = request.form.get('company_id', type=int)
+        if not company_id:
+            flash('Please select a company.', 'danger')
+            return redirect(request.url)
+
+        company = Company.query.get(company_id)
+        if not company:
+            flash('Selected company does not exist.', 'danger')
+            return redirect(request.url)
+
+        # --- Build form_data based on document type ---
+        if doc_type == 'resignation_acceptance':
+            # Resignation acceptance logic
+            if not employee.resignation_date or not employee.resignation_email_content:
+                flash('Resignation details not found. Please mark employee as resigned first.', 'danger')
+                return redirect(url_for('view_employee', emp_id=employee.id))
+
+            relieving_date = employee.resignation_date + timedelta(days=30)
+            formatted_relieving_date = relieving_date.strftime('%d %B %Y')
+            formatted_email_datetime = employee.resignation_datetime.strftime('%d %B %Y %I:%M %p') if employee.resignation_datetime else None
+
+            form_data = {
+                'employee_id': employee.employee_id,
+                'company': company.id,
+                'document_type': doc_type,
+                'full_name': employee.full_name,
+                'employee_email': employee.email,
+                'designation': employee.designation,
+                'relieving_date': formatted_relieving_date,
+                'resignation_email': employee.resignation_email_content,
+                'resignation_email_datetime': formatted_email_datetime,
+                'hr_name': company.hr_name,
+                'hr_designation': company.hr_designation,
+                'hr_email': company.hr_email,
+                'timestamp': datetime.now().strftime('%d/%m/%Y %I:%M %p')
+            }
+
+        # FIXED: Added 'relieving_letter' to the list
+        elif doc_type in ['offer_letter', 'appointment_letter', 'experience_letter', 
+                         'relieving_letter', 'other_standard_doc']:
+            # Generic salary‑based document logic
+            ctc = float(employee.ctc)
+            monthly_ctc = round(ctc / 12)
+
+            basic = round(monthly_ctc * 0.5)
+            hra = round(basic * 0.5)
+            conveyance = round(monthly_ctc * 0.05)
+            medical = round(monthly_ctc * 0.014)
+            telephone = round(monthly_ctc * 0.02)
+            special_allowance = monthly_ctc - (basic + hra + conveyance + medical + telephone)
+            professional_tax = 200
+            gross_salary = basic + hra + conveyance + medical + telephone + special_allowance
+            net_salary = gross_salary - professional_tax
+
+            salary_breakdown = {
+                'basic': basic, 'hra': hra, 'conveyance': conveyance,
+                'medical': medical, 'telephone': telephone,
+                'special_allowance': special_allowance, 'professional_tax': professional_tax,
+                'gross_salary': gross_salary, 'net_salary': net_salary,
+                'increment_per_month': 0
+            }
+
+            form_data = {
+                'employee_id': employee.employee_id,
+                'company': company.id,
+                'document_type': doc_type,
+                'full_name': employee.full_name,
+                'address': employee.address,
+                'aadhar_no': employee.aadhar_no,
+                'pan_no': employee.pan_no,
+                'designation': employee.designation,
+                'base_ctc': employee.base_ctc,
+                'ctc': employee.ctc,
+                'increment_per_month': 0,
+                'salary_breakdown': salary_breakdown,
+                'joining_date': employee.joining_date.strftime('%Y-%m-%d') if employee.joining_date else None,
+                'resignation_date': employee.resignation_date.strftime('%Y-%m-%d') if employee.resignation_date else None,
+                'bank_details': {
+                    'account_holder': employee.account_holder,
+                    'account_number': employee.account_number,
+                    'bank_name': employee.bank_name,
+                    'branch': employee.branch,
+                    'ifsc_code': employee.ifsc_code
+                }
+            }
+
+        else:
+            flash(f'Document type "{doc_type}" is not supported.', 'danger')
+            return redirect(url_for('admin_dashboard'))
+
+        # Save to session and go to preview
+        session['form_data'] = form_data
+        return redirect(url_for('preview'))
+
+    # GET request – show company selection form
+    return render_template('select_company.html',
+                           employee=employee,
+                           doc_type=doc_type,
+                           companies=companies)
+                 
 # Create default admin if none exists
 with app.app_context():
     try:
@@ -1808,6 +1988,39 @@ with app.app_context():
     except Exception as e:
         print(f"❌ Database setup error: {e}")
 
+with app.app_context():
+    db.create_all()
+    # Seed companies if none exist
+    if Company.query.count() == 0:
+        from config import COMPANIES as static_companies
+        for comp in static_companies:
+            # Map company names to logo files
+            logo_filename = None
+            if 'LiteCode' in comp['name']:
+                logo_filename = 'lc_logo.png'
+            elif 'Arraycon' in comp['name']:
+                logo_filename = 'arr_logo.png'
+            elif 'Web Minds' in comp['name']:
+                logo_filename = 'saraswati-yantra-saraswati-symbol-vector-happy-dussehra-vijayadashmi-sacred-symbol-2JDKHCY.jpg'
+            else:
+                logo_filename = comp.get('logo')  # fallback to config value
+            
+            company = Company(
+                name=comp['name'],
+                address=comp.get('address'),
+                phone=comp.get('phone'),
+                email=comp.get('email'),
+                website=comp.get('website'),
+                logo=logo_filename,  # Use the mapped filename
+                signature=comp.get('signature'),
+                hr_name=comp.get('hr_name'),
+                hr_designation=comp.get('hr_designation'),
+                hr_email=comp.get('hr_email')
+            )
+            db.session.add(company)
+        db.session.commit()
+        print("✅ Static companies imported into database with correct logos.")
+        
 if __name__ == '__main__':
     app.run(debug=True)
 

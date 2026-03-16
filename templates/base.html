@@ -81,58 +81,68 @@
 </head>
 <body>
     <!-- Navigation Bar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm py-3">
-        <div class="container">
-            <a class="navbar-brand fw-bold fs-4" href="{{ url_for('index') }}">
-                <i class="fas fa-file-pdf me-2"></i> Document Generator
-            </a>
-            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto align-items-center">
-                    {% if session.is_admin %}
-                    <li class="nav-item">
-                        <a class="nav-link px-3" href="{{ url_for('admin_dashboard') }}">
-                            <i class="fas fa-tachometer-alt me-1"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle px-3" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user-shield me-1"></i> Admin
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">
-                                <i class="fas fa-tachometer-alt me-2"></i>Dashboard
-                            </a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('add_employee') }}">
-                                <i class="fas fa-user-plus me-2"></i>Add Employee
-                            </a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('admin_profile') }}">
-                                <i class="fas fa-user-cog me-2"></i>Profile
-                            </a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item text-danger" href="{{ url_for('admin_logout') }}">
-                                <i class="fas fa-sign-out-alt me-2"></i>Logout
-                            </a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item">
-                        <span class="nav-link text-white-50">
-                            <i class="fas fa-user-circle me-1"></i> {{ session.admin_username }}
-                        </span>
-                    </li>
-                    {% else %}
-                    <li class="nav-item">
-                        <a class="nav-link px-3" href="{{ url_for('admin_login') }}">
-                            <i class="fas fa-lock me-1"></i> Admin Login
-                        </a>
-                    </li>
-                    {% endif %}
-                </ul>
-            </div>
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm py-3">
+    <div class="container">
+        <a class="navbar-brand fw-bold fs-4" href="{{ url_for('index') }}">
+            <i class="fas fa-file-pdf me-2"></i> Document Generator
+        </a>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto align-items-center">
+                {% if session.is_admin %}
+                <li class="nav-item">
+                    <a class="nav-link px-3" href="{{ url_for('admin_dashboard') }}">
+                        <i class="fas fa-tachometer-alt me-1"></i> Dashboard
+                    </a>
+                </li>
+                <!-- NEW: Companies Link -->
+                <li class="nav-item">
+                    <a class="nav-link px-3" href="{{ url_for('admin_companies') }}">
+                        <i class="fas fa-building me-1"></i> Companies
+                    </a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle px-3" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-user-shield me-1"></i> Admin
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">
+                            <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('add_employee') }}">
+                            <i class="fas fa-user-plus me-2"></i>Add Employee
+                        </a></li>
+                        <!-- NEW: Companies in dropdown as well -->
+                        <li><a class="dropdown-item" href="{{ url_for('admin_companies') }}">
+                            <i class="fas fa-building me-2"></i>Companies
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin_profile') }}">
+                            <i class="fas fa-user-cog me-2"></i>Profile
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="{{ url_for('admin_logout') }}">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </a></li>
+                    </ul>
+                </li>
+                <li class="nav-item">
+                    <span class="nav-link text-white-50">
+                        <i class="fas fa-user-circle me-1"></i> {{ session.admin_username }}
+                    </span>
+                </li>
+                {% else %}
+                <li class="nav-item">
+                    <a class="nav-link px-3" href="{{ url_for('admin_login') }}">
+                        <i class="fas fa-lock me-1"></i> Admin Login
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
         </div>
-    </nav>
+    </div>
+</nav>
 
     <!-- Flash Messages -->
     <div class="flash-messages">

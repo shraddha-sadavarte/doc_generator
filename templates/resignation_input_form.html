@@ -30,6 +30,18 @@
                             <small class="text-muted">If not provided, will be 30 days after resignation</small>
                         </div>
 
+                        <!-- Company Selection -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Select Company</label>
+                            <select class="form-select" name="company_id" required>
+                                <option value="">-- Select Company --</option>
+                                {% for company in companies %}
+                                <option value="{{ company.id }}">{{ company.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">The company that will issue the resignation acceptance letter.</small>
+                        </div>
+
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-primary btn-lg rounded-pill">
                                 <i class="fas fa-save me-2"></i>Save & Mark as Resigned

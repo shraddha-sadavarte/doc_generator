@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <h2>{% if company %}Edit{% else %}Add{% endif %} Company</h2>
+    <form method="POST" enctype="multipart/form-data">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label>Company Name *</label>
+                <input type="text" name="name" class="form-control" value="{{ company.name if company else '' }}" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Email</label>
+                <input type="email" name="email" class="form-control" value="{{ company.email if company else '' }}">
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Phone</label>
+                <input type="text" name="phone" class="form-control" value="{{ company.phone if company else '' }}">
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Website</label>
+                <input type="url" name="website" class="form-control" value="{{ company.website if company else '' }}">
+            </div>
+            <div class="col-12 mb-3">
+                <label>Address</label>
+                <textarea name="address" class="form-control" rows="2">{{ company.address if company else '' }}</textarea>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Logo (PNG/JPG)</label>
+                <input type="file" name="logo" class="form-control" accept="image/*">
+                {% if company and company.logo %}
+                <small>Current: {{ company.logo }}</small>
+                {% endif %}
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Signature (PNG/JPG)</label>
+                <input type="file" name="signature" class="form-control" accept="image/*">
+                {% if company and company.signature %}
+                <small>Current: {{ company.signature }}</small>
+                {% endif %}
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Notice Period</label>
+                <input type="text" class="form-control" name="notice_period" value="{{ company.notice_period or '' }}">
+                <small class="text-muted">e.g., "30 days"</small>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>HR Name</label>
+                <input type="text" name="hr_name" class="form-control" value="{{ company.hr_name if company else '' }}">
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>HR Designation</label>
+                <input type="text" name="hr_designation" class="form-control" value="{{ company.hr_designation if company else '' }}">
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>HR Email</label>
+                <input type="email" name="hr_email" class="form-control" value="{{ company.hr_email if company else '' }}">
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="{{ url_for('admin_companies') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

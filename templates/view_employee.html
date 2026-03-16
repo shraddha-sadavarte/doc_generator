@@ -10,7 +10,7 @@
             </a>
             Employee Details
         </h2>
-        <form action="{{ url_for('admin_generate_document', emp_id=employee.id, doc_type='resignation_acceptance') }}" method="GET" style="display:inline;">
+        <form action="{{ url_for('select_company_for_doc', emp_id=employee.id, doc_type='resignation_acceptance') }}" method="GET" style="display:inline;">
             <button type="submit" class="btn btn-sm btn-info">
                 <i class="fas fa-file-pdf"></i> Resignation Acceptance
             </button>
