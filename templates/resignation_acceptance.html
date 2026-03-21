@@ -39,20 +39,17 @@
         .btn-secondary { background: #0d6efd; }
         .btn-danger { background: #dc3545; }
 
-        /* HIDE ACTION BAR IN PRINT/PDF */
         @media print {
             .action-bar {
                 display: none !important;
             }
         }
 
-        /* PAGE SETTINGS */
         @page {
             size: A4;
             margin: 20mm;
         }
 
-        /* BODY STYLES */
         body {
             font-family: "Courier New", Courier, monospace;
             font-size: 14px;
@@ -62,7 +59,6 @@
             line-height: 1.4;
         }
 
-        /* PAGE STYLE */
         .page {
             width: 794px;
             margin: 20px auto;
@@ -72,20 +68,17 @@
             box-sizing: border-box;
         }
 
-        /* EMAIL WRAPPER */
         .email-wrapper {
             max-width: 750px;
             margin: 0 auto;
         }
 
-        /* TOP ROW */
         .top-row {
             display: flex;
             align-items: flex-start;
             gap: 15px;
         }
 
-        /* PROFILE ICON */
         .profile-icon {
             width: 48px;
             height: 48px;
@@ -100,14 +93,12 @@
             object-fit: contain;
         }
 
-        /* SUBJECT */
         .subject {
             font-weight: bold;
             font-size: 16px;
             margin-bottom: 6px;
         }
 
-        /* HEADER */
         .header {
             margin-bottom: 25px;
         }
@@ -136,33 +127,35 @@
             font-weight: bold;
         }
 
-        /* BODY MESSAGE */
         .message {
             margin-top: 5px;
             white-space: pre-line;
         }
 
-        /* SIGNATURE */
         .signature {
             margin-top: 10px;
             white-space: pre-line;
         }
 
-        /* QUOTE HEADER */
         .quote-header {
             margin-top: 35px;
             font-size: 13px;
             page-break-before: auto;
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-left: 3px solid #1a73e8;
         }
 
-        /* QUOTED TEXT */
         .quote {
             margin-top: 10px;
             white-space: pre-line;
             color: #1a4fa3;
+            background: #fefefe;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
         }
 
-        /* PRINT STYLES */
         @media print {
             body {
                 background: white;
@@ -180,31 +173,16 @@
 <!-- ACTION BAR (VISIBLE ON SCREEN ONLY) -->
 <div class="action-bar">
     <div class="action-bar-container">
-        <!-- Download Button -->
         <form action="{{ url_for('generate') }}" method="POST" class="action-form">
             <input type="hidden" name="upload_to_drive" value="false">
-            <button type="submit" class="btn btn-primary">
-                📥 Download
-            </button>
+            <button type="submit" class="btn btn-primary">📥 Download</button>
         </form>
-
-        <!-- Download + Drive -->
         <form action="{{ url_for('generate') }}" method="POST" class="action-form">
             <input type="hidden" name="upload_to_drive" value="true">
-            <button type="submit" class="btn btn-success">
-                ☁️ Save to Drive
-            </button>
+            <button type="submit" class="btn btn-success">☁️ Save to Drive</button>
         </form>
-
-        <!-- Print -->
-        <button onclick="window.print()" class="btn btn-secondary">
-            🖨 Print
-        </button>
-
-        <!-- Cancel -->
-        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-danger">
-            ✕ Cancel
-        </a>
+        <button onclick="window.print()" class="btn btn-secondary">🖨 Print</button>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-danger">✕ Cancel</a>
     </div>
 </div>
 
@@ -224,7 +202,7 @@
                 </div>
                 
                 <div class="header">
-                    <!-- From -->
+                    <!-- From: HR -->
                     <div class="header-row">
                         <span class="label">From</span>
                         <span class="company">
@@ -232,25 +210,15 @@
                         </span>
                         <br>
                         <span class="email">
-                            {% if data.hr_name and data.hr_name.split() %}
-                                hr.{{ data.hr_name.split()[0]|lower }}@ilitecode.com
-                            {% else %}
-                                hr@ilitecode.com
-                            {% endif %}
+                            {{ data.hr_email }}
                         </span>
                     </div>
                     
-                    <!-- To -->
+                    <!-- To: Employee -->
                     <div class="header-row">
                         <span class="label">To</span>
                         <span class="email">
-                            {% if data.full_name and data.full_name.split()|length >= 2 %}
-                                {{ data.full_name.split()[0]|lower }}.{{ data.full_name.split()[-1]|lower }}.ilitecode@gmail.com
-                            {% elif data.full_name and data.full_name.split()|length == 1 %}
-                                {{ data.full_name.split()[0]|lower }}@ilitecode.com
-                            {% else %}
-                                {{ data.employee_email }}
-                            {% endif %}
+                            {{ data.employee_email }}
                         </span>
                     </div>
                     
@@ -267,35 +235,28 @@
         
         <!-- MESSAGE BODY -->
         <div class="message">
-            Dear {% if data.full_name and data.full_name.split() %}{{ data.full_name.split()[0] }}{% else %}{{ data.full_name }}{% endif %},
+            <p>Dear {{ data.first_name }},</p>
             
-            Let me inform you that your letter of resignation is accepted and
+            <p>Let me inform you that your letter of resignation is accepted and
             as per your request you will be relieved from the services of the
-            organization on ({{ data.relieving_date }}). It has been a pleasure to work with
+            organization on <strong>{{ data.relieving_date }}</strong>. It has been a pleasure to work with
             you, and on behalf of our entire organization, I would like to
-            wish you the best in future endeavors.
+            wish you the best in future endeavors.</p>
         </div>
         
         <!-- SIGNATURE -->
         <div class="signature">
-            Thanks and Regards
-            {{ data.hr_name }}
-            {{ data.hr_designation }}
+            <p>Thanks and Regards,</p>
+            <p><strong>{{ data.hr_name }}</strong><br>
+            {{ data.hr_designation }}<br>
+            {{ data.company_name }}</p>
         </div>
         
-        <!-- QUOTED RESIGNATION EMAIL (if exists) -->
+        <!-- QUOTED RESIGNATION EMAIL (DYNAMIC) -->
         {% if data.resignation_email and data.resignation_email.strip() %}
         <div class="quote-header">
             On {{ data.resignation_email_datetime }},
-            <span class="email">
-                {% if data.full_name and data.full_name.split()|length >= 2 %}
-                    {{ data.full_name.split()[0]|lower }}.{{ data.full_name.split()[-1]|lower }}.ilitecode@gmail.com
-                {% elif data.full_name and data.full_name.split()|length == 1 %}
-                    {{ data.full_name.split()[0]|lower }}@ilitecode.com
-                {% else %}
-                    {{ data.employee_email }}
-                {% endif %}
-            </span> wrote:
+            <span class="email">{{ data.employee_email }}</span> wrote:
         </div>
         <div class="quote">
             {{ data.resignation_email }}

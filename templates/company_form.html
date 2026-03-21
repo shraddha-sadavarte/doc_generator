@@ -55,6 +55,14 @@
                 <label>HR Email</label>
                 <input type="email" name="hr_email" class="form-control" value="{{ company.hr_email if company else '' }}">
             </div>
+            <!-- In your company form template -->
+            <div class="mb-3">
+                <label class="form-label">Company Email Domain</label>
+                <input type="text" class="form-control" name="email_domain" 
+                    placeholder="e.g., bithub.com" 
+                    value="{{ company.email_domain if company else '' }}">
+                <small class="text-muted">Used for generating employee email addresses (e.g., name@domain.com)</small>
+            </div>
         </div>
         <button type="submit" class="btn btn-primary">Save</button>
         <a href="{{ url_for('admin_companies') }}" class="btn btn-secondary">Cancel</a>
