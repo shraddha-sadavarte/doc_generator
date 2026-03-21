@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 import os
 import json
+import traceback
 
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -26,10 +27,10 @@ from config import COMPANIES
 from werkzeug.security import generate_password_hash, check_password_hash
 from humanize import intword
 from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build  
+from googleapiclient.http import MediaFileUpload  
+from google.oauth2.credentials import Credentials 
+from google_auth_oauthlib.flow import Flow  
 import pickle
 import uuid
 from num2words import num2words
@@ -195,14 +196,151 @@ class Company(db.Model):
     notice_period = db.Column(db.String(50), nullable=True)
     email_domain = db.Column(db.String(100), nullable=True)
 
-#function for production
-def html_to_pdf(html_content, output_path):
-    try:
-        HTML(string=html_content).write_pdf(output_path)
-        return True
-    except Exception as e:
-        print("WeasyPrint error:", e)
-        return False
+#==================helper functions========================
+def get_company_domain(company):
+    """Safely get company domain from company object"""
+    if not company:
+        return 'company.com'
+    
+    # Check if email_domain field exists and has value
+    if hasattr(company, 'email_domain') and company.email_domain:
+        return company.email_domain
+    
+    # Try to extract from company email
+    if company.email and '@' in company.email:
+        return company.email.split('@')[-1]
+    
+    # Try to extract from company website
+    if company.website:
+        website = company.website.replace('http://', '').replace('https://', '').replace('www.', '')
+        return website.split('/')[0]
+    
+    # Default fallback
+    return 'company.com'
+
+def get_hr_email(company):
+    """Get HR email from company or generate from domain"""
+    if not company:
+        return 'hr@company.com'
+    
+    # Use company's HR email if available
+    if company.hr_email:
+        return company.hr_email
+    
+    # Otherwise generate from domain
+    domain = get_company_domain(company)
+    return f"hr@{domain}"
+
+def get_employee_email(employee, company):
+    """Generate employee email from name and company domain"""
+    if not employee:
+        return ''
+    
+    # Use employee's email if available and it matches company domain
+    if employee.email:
+        # If employee has an email, check if we should use it or generate new one
+        company_domain = get_company_domain(company)
+        if company_domain in employee.email:
+            return employee.email
+        # If email doesn't match company domain, generate new one
+        # (optional - you can remove this if you want to keep existing email)
+    
+    # Generate from name and company domain
+    if employee.full_name:
+        name_parts = employee.full_name.split()
+        if len(name_parts) >= 2:
+            first_name = name_parts[0].lower()
+            last_name = name_parts[-1].lower()
+            domain = get_company_domain(company)
+            return f"{first_name}.{last_name}@{domain}"
+        elif len(name_parts) == 1:
+            domain = get_company_domain(company)
+            return f"{name_parts[0].lower()}@{domain}"
+    
+    return ''
+
+def get_google_flow(state=None):
+    """Create and return a Google OAuth flow object"""
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        return None
+    
+    # Create flow using client configuration
+    flow = Flow.from_client_config(
+        {
+            "web": {
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": [REDIRECT_URI]
+            }
+        },
+        scopes=SCOPES,
+        state=state  # Add this line
+    )
+    flow.redirect_uri = REDIRECT_URI
+    return flow
+
+def get_days_in_month(month_name, year):
+    """Return the number of days in a given month"""
+    month_days = {
+        'January': 31, 'February': 28, 'March': 31, 'April': 30,
+        'May': 31, 'June': 30, 'July': 31, 'August': 31,
+        'September': 30, 'October': 31, 'November': 30, 'December': 31
+    }
+    
+    # Handle leap year for February
+    if month_name == 'February':
+        # Check if it's a leap year
+        if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0):
+            return 29
+    
+    return month_days.get(month_name, 30)
+
+def get_previous_workday(target_date, days_before):
+    """Get previous working day (Monday-Friday)"""
+    count = 0
+    current_date = target_date
+    while count < days_before:
+        current_date -= timedelta(days=1)
+        if current_date.weekday() < 5:  # Monday=0, Friday=4
+            count += 1
+    return current_date
+
+def format_date(date_value, format_string="%d %B %Y"):
+    """Safely format a date, handling both string and datetime objects"""
+    if date_value is None:
+        return None
+    
+    if isinstance(date_value, str):
+        try:
+            date_obj = datetime.strptime(date_value, "%Y-%m-%d").date()
+            return date_obj.strftime(format_string)
+        except (ValueError, TypeError):
+            return None
+    elif hasattr(date_value, 'strftime'):  # datetime or date object
+        return date_value.strftime(format_string)
+    else:
+        return None
+
+def convert_dates(form_data):
+    """Convert date strings to datetime objects"""
+    date_fields = ['joining_date', 'resignation_date']
+    for field in date_fields:
+        if field in form_data and form_data[field]:
+            try:
+                # Store as date object
+                form_data[field] = datetime.strptime(form_data[field], '%Y-%m-%d').date()
+            except (ValueError, TypeError):
+                form_data[field] = None
+    return form_data
+
+def get_watermark_logo(company_id):
+    """Get watermark logo filename for a company"""
+    company = Company.query.get(company_id)
+    if not company or not company.logo:
+        return None
+    return company.logo  # Just return the filename
 
 def calculate_salary_components(ctc, increment_per_month=0, paid_days=30, month_days=30):
     """
@@ -320,6 +458,15 @@ def calculate_annual_income_tax(annual_ctc):
     else:
         return 112500 + (taxable_income - 1000000) * 0.3
 
+#function for production
+def html_to_pdf(html_content, output_path):
+    try:
+        HTML(string=html_content).write_pdf(output_path)
+        return True
+    except Exception as e:
+        print("WeasyPrint error:", e)
+        return False
+
 #local function
 # def html_to_pdf(html_content, output_path):
 #     # Path to the standalone WeasyPrint executable (for local Windows)
@@ -348,90 +495,6 @@ def calculate_annual_income_tax(annual_ctc):
 #         if os.path.exists(temp_html_path):
 #             os.unlink(temp_html_path)
 
-def get_company_domain(company):
-    """Safely get company domain from company object"""
-    if not company:
-        return 'company.com'
-    
-    # Check if email_domain field exists and has value
-    if hasattr(company, 'email_domain') and company.email_domain:
-        return company.email_domain
-    
-    # Try to extract from company email
-    if company.email and '@' in company.email:
-        return company.email.split('@')[-1]
-    
-    # Try to extract from company website
-    if company.website:
-        website = company.website.replace('http://', '').replace('https://', '').replace('www.', '')
-        return website.split('/')[0]
-    
-    # Default fallback
-    return 'company.com'
-
-def get_hr_email(company):
-    """Get HR email from company or generate from domain"""
-    if not company:
-        return 'hr@company.com'
-    
-    # Use company's HR email if available
-    if company.hr_email:
-        return company.hr_email
-    
-    # Otherwise generate from domain
-    domain = get_company_domain(company)
-    return f"hr@{domain}"
-
-def get_employee_email(employee, company):
-    """Generate employee email from name and company domain"""
-    if not employee:
-        return ''
-    
-    # Use employee's email if available and it matches company domain
-    if employee.email:
-        # If employee has an email, check if we should use it or generate new one
-        company_domain = get_company_domain(company)
-        if company_domain in employee.email:
-            return employee.email
-        # If email doesn't match company domain, generate new one
-        # (optional - you can remove this if you want to keep existing email)
-    
-    # Generate from name and company domain
-    if employee.full_name:
-        name_parts = employee.full_name.split()
-        if len(name_parts) >= 2:
-            first_name = name_parts[0].lower()
-            last_name = name_parts[-1].lower()
-            domain = get_company_domain(company)
-            return f"{first_name}.{last_name}@{domain}"
-        elif len(name_parts) == 1:
-            domain = get_company_domain(company)
-            return f"{name_parts[0].lower()}@{domain}"
-    
-    return ''
-
-def get_google_flow(state=None):
-    """Create and return a Google OAuth flow object"""
-    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-        return None
-    
-    # Create flow using client configuration
-    flow = Flow.from_client_config(
-        {
-            "web": {
-                "client_id": GOOGLE_CLIENT_ID,
-                "client_secret": GOOGLE_CLIENT_SECRET,
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [REDIRECT_URI]
-            }
-        },
-        scopes=SCOPES,
-        state=state  # Add this line
-    )
-    flow.redirect_uri = REDIRECT_URI
-    return flow
-
 @app.template_filter('humanize')
 def humanize_filter(value):
     try:
@@ -446,67 +509,6 @@ def inject_now():
         'now': datetime.now(),
         'timedelta': timedelta  # Add timedelta to template context
     }
-
-def get_days_in_month(month_name, year):
-    """Return the number of days in a given month"""
-    month_days = {
-        'January': 31, 'February': 28, 'March': 31, 'April': 30,
-        'May': 31, 'June': 30, 'July': 31, 'August': 31,
-        'September': 30, 'October': 31, 'November': 30, 'December': 31
-    }
-    
-    # Handle leap year for February
-    if month_name == 'February':
-        # Check if it's a leap year
-        if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0):
-            return 29
-    
-    return month_days.get(month_name, 30)
-
-def get_previous_workday(target_date, days_before):
-    """Get previous working day (Monday-Friday)"""
-    count = 0
-    current_date = target_date
-    while count < days_before:
-        current_date -= timedelta(days=1)
-        if current_date.weekday() < 5:  # Monday=0, Friday=4
-            count += 1
-    return current_date
-
-def format_date(date_value, format_string="%d %B %Y"):
-    """Safely format a date, handling both string and datetime objects"""
-    if date_value is None:
-        return None
-    
-    if isinstance(date_value, str):
-        try:
-            date_obj = datetime.strptime(date_value, "%Y-%m-%d").date()
-            return date_obj.strftime(format_string)
-        except (ValueError, TypeError):
-            return None
-    elif hasattr(date_value, 'strftime'):  # datetime or date object
-        return date_value.strftime(format_string)
-    else:
-        return None
-
-def convert_dates(form_data):
-    """Convert date strings to datetime objects"""
-    date_fields = ['joining_date', 'resignation_date']
-    for field in date_fields:
-        if field in form_data and form_data[field]:
-            try:
-                # Store as date object
-                form_data[field] = datetime.strptime(form_data[field], '%Y-%m-%d').date()
-            except (ValueError, TypeError):
-                form_data[field] = None
-    return form_data
-
-def get_watermark_logo(company_id):
-    """Get watermark logo filename for a company"""
-    company = Company.query.get(company_id)
-    if not company or not company.logo:
-        return None
-    return company.logo  # Just return the filename
 
 def generate_pdf_file(form_data, company, doc_type):
     watermark_logo = get_watermark_logo(company['id'])
