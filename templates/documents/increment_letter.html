@@ -198,34 +198,110 @@
         font-weight: 700;
         color: #28a745;
     }
+
+    /* ================= LETTERHEAD ================= */
+
+.letter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #000;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.logo-section {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-shrink: 0;
+}
+
+.logo-section img {
+    height: 70px;
+    max-width: 200px;
+    object-fit: contain;
+}
+
+.company-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.company-name {
+    font-size: 20px;
+    font-weight: bold;
+    color: #000;
+}
+
+.company-address {
+    font-size: 11px;
+    color: #666;
+    line-height: 1.3;
+}
+
+.company-contact {
+    text-align: right;
+    font-size: 12px;
+    color: #444;
+    line-height: 1.4;
+    flex-shrink: 0;
+}
+
+.company-contact strong {
+    font-size: 14px;
+}
+
+/* Responsive - stack on small screens */
+@media (max-width: 600px) {
+    .letter-header {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .logo-section {
+        justify-content: center;
+    }
+    
+    .company-contact {
+        text-align: center;
+    }
+}
+        
 </style>
 
 <!-- Watermark placed OUTSIDE the main container – appears on every page in PDF -->
 {% include '_watermark.html' %}
 
 <div class="increment-letter" style="font-family: 'Arial', sans-serif; max-width: 800px; margin: 0 auto; padding: 30px; position: relative; background-color: white;">
-    <!-- Letterhead with decorative border -->
-    <div class="letter-header mb-4" style="border-bottom: 2px solid #0d6efd; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; gap: 3rem;">
-        <!-- Logo on the left -->
-        <div style="flex: 0 0 auto;">
-            <img src="{{ request.url_root }}static/images/{{ company.logo }}" 
-                 alt="{{ company.name }} Logo" 
-                 style="height: 150px; max-width: 400px; object-fit: contain;">
+    <div class="letter-header">
+        <div class="logo-section">
+            {% if company.logo_with_name %}
+                <img src="{{ url_for('static', filename='images/' + company.logo_with_name) }}" alt="{{ company.name }}" style="height: 80px; object-fit: contain;">
+            {% elif company.logo %}
+                <img src="{{ url_for('static', filename='images/' + company.logo) }}" alt="Logo" style="height: 60px; object-fit: contain;">
+                <div class="company-info">
+                    <div class="company-name">{{ company.name }}</div>
+                    <div class="company-address">{{ company.address }}</div>
+                </div>
+            {% else %}
+                <div class="company-info">
+                    <div class="company-name">{{ company.name }}</div>
+                    <div class="company-address">{{ company.address }}</div>
+                </div>
+            {% endif %}
         </div>
-        
-        <!-- Company info on the right -->
-        <div style="flex: 1; text-align: left;">
-            <div style="display: flex; justify-content: space-between;">
-                <p style="color: #555; font-size: 14px;">
-                    <strong>Office:</strong> {{ company.address }}<br>
-                    <strong>Phone:</strong> {{ company.phone }}<br>
-                    <strong>Email:</strong> {{ company.email }}<br>
-                    <strong>Website:</strong> {{ company.website }}<br>
-                </p>
-            </div>
+        <div class="company-contact">
+            <strong>{{ company.name }}</strong><br>
+            {{ company.address }}<br>
+            Phone: {{ company.phone }}<br>
+            Email: {{ company.email }}<br>
+            Website: {{ company.website }}
         </div>
     </div>
-
     <!-- Letter Title -->
     <h2 class="text-center" style="color: #0d6efd; text-align: center; margin-bottom: 30px;">
         Increment Letter

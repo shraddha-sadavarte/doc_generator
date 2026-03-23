@@ -117,7 +117,7 @@ body{
 
 /* ================= LETTERHEAD ================= */
 
-.letterhead{
+.letter-header{
     display:flex;
     justify-content:space-between;
     align-items:center;
@@ -225,6 +225,28 @@ body{
 .footer-note{
     text-align: center;
 }
+     .logo-section {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .company-info {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .company-name {
+        font-size: 20px;
+        font-weight: bold;
+        color: #28a745; /* Change color per document type */
+    }
+
+    .company-address {
+        font-size: 11px;
+        color: #666;
+        line-height: 1.3;
+    }
 
 </style>
 
@@ -233,13 +255,28 @@ body{
 
 <div class="salary-slip">
 
-    <!-- LETTERHEAD -->
-    <div class="letterhead">
-        <img src="{{ request.url_root }}static/images/{{ company.logo }}" alt="{{ company.name }} Logo">
-        <div class="company-info">
+    <div class="letter-header">
+        <div class="logo-section">
+            {% if company.logo_with_name %}
+                <img src="{{ url_for('static', filename='images/' + company.logo_with_name) }}" alt="{{ company.name }}" style="height: 80px; object-fit: contain;">
+            {% elif company.logo %}
+                <img src="{{ url_for('static', filename='images/' + company.logo) }}" alt="Logo" style="height: 60px; object-fit: contain;">
+                <div class="company-info">
+                    <div class="company-name">{{ company.name }}</div>
+                    <div class="company-address">{{ company.address }}</div>
+                </div>
+            {% else %}
+                <div class="company-info">
+                    <div class="company-name">{{ company.name }}</div>
+                    <div class="company-address">{{ company.address }}</div>
+                </div>
+            {% endif %}
+        </div>
+        <div class="company-contact">
             <strong>{{ company.name }}</strong><br>
             {{ company.address }}<br>
-            Phone: {{ company.phone }} | Email: {{ company.email }}<br>
+            Phone: {{ company.phone }}<br>
+            Email: {{ company.email }}<br>
             Website: {{ company.website }}
         </div>
     </div>
