@@ -155,18 +155,43 @@
                                 <tr>
                                     <th>Document Type</th>
                                     <th>Generated Date</th>
-                                    <th>Action</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for doc in documents %}
                                 <tr>
-                                    <td>{{ doc.document_type.replace('_', ' ').title() }}</td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ doc.document_type.replace('_', ' ').title() }}</span>
+                                    </td>
                                     <td>{{ doc.generated_at.strftime('%d %B %Y') }}</td>
                                     <td>
-                                        <a href="{{ url_for('download_document', doc_id=doc.id) }}" class="btn btn-sm btn-primary">
+                                        <!-- Download Button -->
+                                        <a href="{{ url_for('download_document', doc_id=doc.id) }}" 
+                                           class="btn btn-sm btn-success" 
+                                           title="Download Document">
                                             <i class="fas fa-download"></i> Download
                                         </a>
+                                        
+                                        <!-- View on Drive Button (if available) -->
+                                        {% if doc.drive_file_id %}
+                                        <a href="https://drive.google.com/file/d/{{ doc.drive_file_id }}/view" 
+                                           class="btn btn-sm btn-info" 
+                                           target="_blank" 
+                                           title="View on Google Drive">
+                                            <i class="fab fa-google-drive"></i> View
+                                        </a>
+                                        {% endif %}
+                                        
+                                        <!-- Delete Button -->
+                                        <form action="{{ url_for('delete_document', doc_id=doc.id) }}" 
+                                              method="POST" 
+                                              style="display:inline;"
+                                              onsubmit="return confirm('Are you sure you want to delete this document?');">
+                                            <button type="submit" class="btn btn-sm btn-danger" title="Delete Document">
+                                                <i class="fas fa-trash"></i> Delete
+                                            </button>
+                                        </form>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -215,6 +240,21 @@
     }
     .gap-2 {
         gap: 10px;
+    }
+    .table td, .table th {
+        vertical-align: middle;
+    }
+    .badge {
+        font-size: 12px;
+        padding: 5px 10px;
+    }
+    .btn-sm {
+        padding: 5px 10px;
+        font-size: 12px;
+        margin-right: 5px;
+    }
+    .btn-sm i {
+        margin-right: 3px;
     }
 </style>
 {% endblock %}

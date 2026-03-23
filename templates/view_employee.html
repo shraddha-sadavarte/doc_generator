@@ -5,7 +5,7 @@
     <!-- Header with Back Button -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>
-            <a href="{{ url_for('admin_dashboard', tab='employees') }}" class="btn btn-outline-secondary me-3">
+            <a href="{{ url_for('admin_dashboard', tab='members') }}" class="btn btn-outline-secondary me-3">
                 <i class="fas fa-arrow-left"></i>
             </a>
             Employee Details
@@ -97,7 +97,7 @@
                                 <div class="col-md-6">
                                     <h6 class="text-success mb-3">Earnings</h6>
                                     <table class="table table-sm">
-                                        <tr><td>Basic Salary (50%)</td><td class="text-end">₹{{ "{:,.2f}".format(basic) }}</td></tr>
+                                         <tr><td>Basic Salary (50%)</td><td class="text-end">₹{{ "{:,.2f}".format(basic) }}</td></tr>
                                         <tr><td>HRA (50% of Basic)</td><td class="text-end">₹{{ "{:,.2f}".format(hra) }}</td></tr>
                                         <tr><td>Conveyance (5%)</td><td class="text-end">₹{{ "{:,.2f}".format(conveyance) }}</td></tr>
                                         <tr><td>Medical (1.4%)</td><td class="text-end">₹{{ "{:,.2f}".format(medical) }}</td></tr>
@@ -185,22 +185,31 @@
                                     <td>{{ doc.generated_at.strftime('%d %b %Y, %H:%M') }}</td>
                                     <td>{{ doc.generated_by }}</td>
                                     <td>
+                                        <!-- DOWNLOAD BUTTON - ADDED -->
+                                        <a href="{{ url_for('download_document', doc_id=doc.id) }}" 
+                                           class="btn btn-sm btn-success" 
+                                           title="Download Document">
+                                            <i class="fas fa-download"></i> Download
+                                        </a>
+                                        
                                         {% if employee.drive_folder_id %}
                                         <a href="https://drive.google.com/drive/folders/{{ employee.drive_folder_id }}" 
-                                        class="btn btn-sm btn-primary" target="_blank">
+                                           class="btn btn-sm btn-primary" target="_blank" title="Drive Folder">
                                             <i class="fab fa-google-drive"></i> Drive Folder
                                         </a>
                                         {% endif %}
+                                        
                                         {% if doc.drive_file_id %}
                                         <a href="https://drive.google.com/file/d/{{ doc.drive_file_id }}/view" 
-                                        class="btn btn-sm btn-info" target="_blank">
-                                            <i class="fas fa-file-pdf"></i> Document
+                                           class="btn btn-sm btn-info" target="_blank" title="View on Drive">
+                                            <i class="fas fa-eye"></i> View
                                         </a>
                                         {% endif %}
+                                        
                                         <!-- Delete button with confirmation -->
                                         <form action="{{ url_for('delete_document', doc_id=doc.id) }}" method="POST" style="display:inline;"
                                             onsubmit="return confirm('Are you sure you want to delete this document? This will also remove it from Google Drive.');">
-                                            <button type="submit" class="btn btn-sm btn-danger">
+                                            <button type="submit" class="btn btn-sm btn-danger" title="Delete Document">
                                                 <i class="fas fa-trash"></i> Delete
                                             </button>
                                         </form>
@@ -264,5 +273,6 @@
     .table td, .table th { vertical-align: middle; }
     .badge { font-size: 12px; padding: 5px 10px; }
     .btn-sm { padding: 5px 10px; font-size: 12px; }
+    .btn-sm i { margin-right: 3px; }
 </style>
 {% endblock %}

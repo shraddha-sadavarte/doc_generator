@@ -3,28 +3,37 @@
 <!-- ================= ACTION BAR ================= -->
 <div class="action-bar">
     <div class="action-bar-container">
-
-        <form action="/generate" method="POST">
+        <!-- Download Button (local only) -->
+        <form action="{{ url_for('generate') }}" method="POST" class="action-form">
             <input type="hidden" name="upload_to_drive" value="false">
-            <button type="submit" class="btn btn-primary">Download</button>
+            <button type="submit" class="btn btn-primary">
+                <span class="btn-icon">📥</span>
+                <span class="btn-text">Download</span>
+            </button>
         </form>
 
-        <form action="/generate" method="POST">
+        <!-- Download & Save to Drive -->
+        <form action="{{ url_for('generate') }}" method="POST" class="action-form">
             <input type="hidden" name="upload_to_drive" value="true">
-            <button type="submit" class="btn btn-success">Download & Save</button>
+            <button type="submit" class="btn btn-success">
+                <span class="btn-icon">☁️</span>
+                <span class="btn-text">Download & Save to Drive</span>
+            </button>
         </form>
 
+        <!-- Print Button -->
         <button type="button" class="btn btn-secondary" onclick="window.print()">
-            Print
+            <span class="btn-icon">🖨️</span>
+            <span class="btn-text">Print</span>
         </button>
 
+        <!-- Cancel Button -->
         <a href="{{ url_for('admin_dashboard') }}" class="btn btn-danger">
-            Cancel
+            <span class="btn-icon">✕</span>
+            <span class="btn-text">Cancel</span>
         </a>
-
     </div>
 </div>
-
 <style>
 
 /* ================= GLOBAL ================= */
@@ -46,7 +55,10 @@ body{
 }
 
 /* ================= ACTION BAR ================= */
-
+.action-form{
+    margin: 0;
+    padding: 0;
+}
 .action-bar{
     background:white;
     padding:15px 0;
@@ -76,11 +88,9 @@ body{
     display: inline-flex;
     align-items: center;
     gap: 5px;
+    box-sizing: border-box;
+    line-height: 1.4;
     transition: background-color 0.2s;
-}
-.action-form{
-    margin: 0;
-    padding: 0;
 }
 
 .btn:hover{
@@ -104,7 +114,7 @@ body{
 .btn-danger:hover {
     background:#e9e9e9 !important;
 }
-
+    @media print { .action-bar { display: none !important; } }
 /* ================= SALARY SLIP CONTAINER ================= */
 
 .salary-slip{

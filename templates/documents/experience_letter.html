@@ -25,33 +25,67 @@
         }
     }
 
-    /* ================= ACTION BAR (KEEPING ORIGINAL STYLE) ================= */
-    .action-bar {
-        background: white;
-        padding: 15px 0;
-        border-bottom: 1px solid #000;
-    }
-    .action-bar-container {
-        max-width: 1000px;
-        margin: auto;
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        padding: 0 20px;
-    }
-    .btn {
-        padding: 8px 16px;
-        border: 1px solid #000;
-        border-radius: 4px;
-        font-size: 14px;
-        cursor: pointer;
-        background: white;
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        text-decoration: none;
-        color: black;
-    }
+  /* ================= ACTION BAR ================= */
+.action-form{
+    margin: 0;
+    padding: 0;
+}
+.action-bar{
+    background:white;
+    padding:15px 0;
+    border-bottom:1px solid #000;
+}
+
+.action-bar-container{
+    max-width:1000px;
+    margin:auto;
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    padding:0 20px;
+    flex-wrap: wrap;          /* allows wrapping on small screens */
+}
+
+.btn{
+    padding:10px 18px;
+    border:1px solid #000;
+    border-radius:4px;
+    font-size:14px;
+    cursor:pointer;
+    font-weight:500;
+    background:white;
+    color:black;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    box-sizing: border-box;
+    line-height: 1.4;
+    transition: background-color 0.2s;
+}
+
+.btn:hover{
+    background:#e9e9e9;
+}
+
+/* Override any colored button classes to use the same border‑only style */
+.btn-primary,
+.btn-success,
+.btn-secondary,
+.btn-danger {
+    background: white !important;
+    color: black !important;
+    border:1px solid #000 !important;
+    box-shadow: none !important;
+}
+
+.btn-primary:hover,
+.btn-success:hover,
+.btn-secondary:hover,
+.btn-danger:hover {
+    background:#e9e9e9 !important;
+}
+    @media print { .action-bar { display: none !important; } }
 
     /* ================= EXPERIENCE LETTER CONTAINER ================= */
     .experience-letter {
@@ -152,16 +186,35 @@
 
 <div class="action-bar">
     <div class="action-bar-container">
+        <!-- Download Button (local only) -->
         <form action="{{ url_for('generate') }}" method="POST" class="action-form">
             <input type="hidden" name="upload_to_drive" value="false">
-            <button type="submit" class="btn">📥 Download</button>
+            <button type="submit" class="btn btn-primary">
+                <span class="btn-icon">📥</span>
+                <span class="btn-text">Download</span>
+            </button>
         </form>
-        <form action="{{ url_for('generate') }}" method="POST">
+
+        <!-- Download & Save to Drive -->
+        <form action="{{ url_for('generate') }}" method="POST" class="action-form">
             <input type="hidden" name="upload_to_drive" value="true">
-            <button type="submit" class="btn btn-success">Download & Save</button>
+            <button type="submit" class="btn btn-success">
+                <span class="btn-icon">☁️</span>
+                <span class="btn-text">Download & Save to Drive</span>
+            </button>
         </form>
-        <button type="button" class="btn" onclick="window.print()">🖨️ Print</button>
-        <a href="{{ url_for('admin_dashboard') }}" class="btn">✕ Cancel</a>
+
+        <!-- Print Button -->
+        <button type="button" class="btn btn-secondary" onclick="window.print()">
+            <span class="btn-icon">🖨️</span>
+            <span class="btn-text">Print</span>
+        </button>
+
+        <!-- Cancel Button -->
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-danger">
+            <span class="btn-icon">✕</span>
+            <span class="btn-text">Cancel</span>
+        </a>
     </div>
 </div>
 

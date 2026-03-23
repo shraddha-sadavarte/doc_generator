@@ -17,6 +17,7 @@ import io
 import zipfile
 import subprocess
 import tempfile
+from flask import send_file
 
 try:
     from weasyprint import HTML
@@ -677,7 +678,7 @@ def preview():
     # ========== END RESIGNATION ACCEPTANCE HANDLER ==========
 
     # ========== INTERN DOCUMENTS HANDLER ==========
-    if form_data.get('document_type') in ['intern_offer_letter', 'certificate_of_internship']:
+    if doc_type in ['intern_offer_letter', 'certificate_of_internship']:
         # Get intern from database
         intern_id = form_data.get('intern_id')
         intern = None
@@ -705,12 +706,38 @@ def preview():
         name_parts = intern.full_name.split() if intern.full_name else ['']
         first_name = name_parts[0] if name_parts else ''
         
-        # Calculate end date
         end_date = intern.end_date
         if not end_date and intern.start_date:
             end_date = intern.start_date + timedelta(days=intern.internship_duration * 30)
         
         company_domain = get_company_domain(company)
+        
+        # ========== DATE CALCULATIONS ==========
+        if intern.start_date:
+            # Convert to date if it's a datetime object
+            if isinstance(intern.start_date, datetime):
+                start_date = intern.start_date.date()
+            else:
+                start_date = intern.start_date
+        offer_date = start_date - timedelta(days=5)
+        formatted_offer_date = offer_date.strftime('%d %B %Y')
+        
+        # Use the actual start date from database (whether past or future)
+        if intern.start_date:
+            formatted_joining_date = intern.start_date.strftime('%d %B %Y')
+            print(f"📅 Using joining date: {formatted_joining_date}")
+        else:
+            formatted_joining_date = 'To be confirmed'
+            print(f"⚠️ No start date found")
+        
+        # Acceptance deadline (5 days after offer date)
+        acceptance_deadline = start_date + timedelta(days=5)
+        formatted_acceptance_deadline = acceptance_deadline.strftime('%d %B %Y')
+        
+        print(f"📅 Offer Date: {formatted_offer_date}")
+        print(f"📅 Joining Date: {formatted_joining_date}")
+        print(f"📅 Acceptance Deadline: {formatted_acceptance_deadline}")
+        # ========== END DATE CALCULATIONS ==========
         
         data = {
             'timestamp': datetime.now().strftime('%d %B %Y'),
@@ -723,7 +750,7 @@ def preview():
             'course': intern.course,
             'specialization': intern.specialization,
             'internship_duration': intern.internship_duration,
-            'start_date': intern.start_date.strftime('%d %B %Y') if intern.start_date else 'TBD',
+            'start_date': formatted_joining_date,
             'end_date': end_date.strftime('%d %B %Y') if end_date else 'TBD',
             'stipend': intern.stipend,
             'mentor_name': intern.mentor_name or company.hr_name,
@@ -732,12 +759,15 @@ def preview():
             'hr_designation': company.hr_designation or 'HR Manager',
             'company_name': company.name,
             'company_domain': company_domain,
+            'intern_id': intern.intern_id,
             'certificate_no': f"CERT-{intern.intern_id}-{datetime.now().year}",
-            'acceptance_deadline': (datetime.now() + timedelta(days=5)).strftime('%d %B %Y')
+            'offer_date': formatted_offer_date,
+            'acceptance_deadline': formatted_acceptance_deadline,
+            'joining_date': formatted_joining_date
         }
         
         return render_template(
-            f'documents/{form_data.get("document_type")}.html',
+            f'documents/{doc_type}.html',
             data=data,
             company=company,
             watermark_logo=company.logo,
@@ -1033,7 +1063,7 @@ def preview_document(doc_type):
         )
     # ========== END RESIGNATION ACCEPTANCE HANDLER ==========
 
-    # ========== INTERN DOCUMENTS HANDLER ==========
+   # ========== INTERN DOCUMENTS HANDLER ==========
     if doc_type in ['intern_offer_letter', 'certificate_of_internship']:
         # Get intern from database
         intern_id = form_data.get('intern_id')
@@ -1068,6 +1098,32 @@ def preview_document(doc_type):
         
         company_domain = get_company_domain(company)
         
+        # ========== DATE CALCULATIONS FOR OFFER LETTER ==========
+        if intern.start_date:
+            # Convert to date if it's a datetime object
+            if isinstance(intern.start_date, datetime):
+                start_date = intern.start_date.date()
+            else:
+                start_date = intern.start_date
+        offer_date = start_date - timedelta(days=5)
+        formatted_offer_date = offer_date.strftime('%d %B %Y')
+        acceptance_deadline = start_date + timedelta(days=5)
+        formatted_acceptance_deadline = acceptance_deadline.strftime('%d %B %Y')
+        
+        # IMPORTANT: Use the actual start date from database - DO NOT CHANGE IT
+        if intern.start_date:
+            formatted_joining_date = intern.start_date.strftime('%d %B %Y')
+            print(f"✅ Using intern's actual start date: {formatted_joining_date}")
+        else:
+            # Only if no start date is set (should not happen)
+            formatted_joining_date = 'To be confirmed'
+            print(f"⚠️ No start date found for intern {intern.full_name}")
+        
+        print(f"📅 Intern start_date from DB: {intern.start_date}")
+        print(f"📅 Offer Date: {formatted_offer_date}")
+        print(f"📅 Joining Date: {formatted_joining_date}")
+        # ========== END DATE CALCULATIONS ==========
+        
         data = {
             'timestamp': datetime.now().strftime('%d %B %Y'),
             'full_name': intern.full_name,
@@ -1079,7 +1135,7 @@ def preview_document(doc_type):
             'course': intern.course,
             'specialization': intern.specialization,
             'internship_duration': intern.internship_duration,
-            'start_date': intern.start_date.strftime('%d %B %Y') if intern.start_date else 'TBD',
+            'start_date': formatted_joining_date,  # Use the actual start date
             'end_date': end_date.strftime('%d %B %Y') if end_date else 'TBD',
             'stipend': intern.stipend,
             'mentor_name': intern.mentor_name or company.hr_name,
@@ -1088,8 +1144,11 @@ def preview_document(doc_type):
             'hr_designation': company.hr_designation or 'HR Manager',
             'company_name': company.name,
             'company_domain': company_domain,
+            'intern_id': intern.intern_id,
             'certificate_no': f"CERT-{intern.intern_id}-{datetime.now().year}",
-            'acceptance_deadline': (datetime.now() + timedelta(days=5)).strftime('%d %B %Y')
+            'offer_date': formatted_offer_date,
+            'acceptance_deadline': formatted_acceptance_deadline,
+            'joining_date': formatted_joining_date
         }
         
         return render_template(
@@ -1329,7 +1388,7 @@ def generate():
         return redirect(url_for('admin_dashboard'))
     # ========== END RESIGNATION ACCEPTANCE HANDLER ==========
 
-     # ========== INTERN DOCUMENTS HANDLER ==========
+    # ========== INTERN DOCUMENTS HANDLER ==========
     if doc_type in ['intern_offer_letter', 'certificate_of_internship']:
         # Get intern
         intern = None
@@ -1363,6 +1422,29 @@ def generate():
         
         company_domain = get_company_domain(company)
         
+        # ========== DATE CALCULATIONS ==========
+        if intern.start_date:
+            # Convert to date if it's a datetime object
+            if isinstance(intern.start_date, datetime):
+                start_date = intern.start_date.date()
+            else:
+                start_date = intern.start_date
+        offer_date = start_date - timedelta(days=5)
+        formatted_offer_date = offer_date.strftime('%d %B %Y')
+        
+        # Use the actual start date from database (whether past or future)
+        if intern.start_date:
+            formatted_joining_date = intern.start_date.strftime('%d %B %Y')
+            print(f"📅 Using joining date: {formatted_joining_date}")
+        else:
+            formatted_joining_date = 'To be confirmed'
+            print(f"⚠️ No start date found")
+        
+        # Acceptance deadline (5 days after offer date)
+        acceptance_deadline = start_date + timedelta(days=5)
+        formatted_acceptance_deadline = acceptance_deadline.strftime('%d %B %Y')
+        # ========== END DATE CALCULATIONS ==========
+        
         data = {
             'timestamp': datetime.now().strftime('%d %B %Y'),
             'full_name': intern.full_name,
@@ -1374,7 +1456,7 @@ def generate():
             'course': intern.course,
             'specialization': intern.specialization,
             'internship_duration': intern.internship_duration,
-            'start_date': intern.start_date.strftime('%d %B %Y') if intern.start_date else 'TBD',
+            'start_date': formatted_joining_date,
             'end_date': end_date.strftime('%d %B %Y') if end_date else 'TBD',
             'stipend': intern.stipend,
             'mentor_name': intern.mentor_name or company.hr_name,
@@ -1383,8 +1465,11 @@ def generate():
             'hr_designation': company.hr_designation or 'HR Manager',
             'company_name': company.name,
             'company_domain': company_domain,
+            'intern_id': intern.intern_id,
             'certificate_no': f"CERT-{intern.intern_id}-{datetime.now().year}",
-            'acceptance_deadline': (datetime.now() + timedelta(days=5)).strftime('%d %B %Y')
+            'offer_date': formatted_offer_date,
+            'acceptance_deadline': formatted_acceptance_deadline,
+            'joining_date': formatted_joining_date
         }
         
         # Generate HTML
@@ -3019,6 +3104,7 @@ def get_parent_folder_id(file_id):
     try:
         file = service.files().get(fileId=file_id, fields='parents').execute()
         parents = file.get('parents', [])
+        # Return the first parent (most files have only one parent)
         return parents[0] if parents else None
     except Exception as e:
         print(f"Error getting parent for {file_id}: {e}")
@@ -3051,29 +3137,6 @@ def delete_drive_folder(folder_id):
     except Exception as e:
         print(f"Error deleting folder {folder_id}: {e}")
         return False
-
-@app.route('/admin/document/<int:doc_id>/delete', methods=['POST'])
-def delete_document(doc_id):
-    if not session.get('is_admin'):
-        return "Unauthorized", 403
-
-    doc = Document.query.get_or_404(doc_id)
-    employee = doc.employee
-    drive_file_id = doc.drive_file_id
-
-    # Delete from Drive if we have a file ID
-    if drive_file_id:
-        parent_id = get_parent_folder_id(drive_file_id)
-        delete_drive_file(drive_file_id)
-        if parent_id and is_folder_empty(parent_id):
-            delete_drive_folder(parent_id)
-
-    # Remove database record
-    db.session.delete(doc)
-    db.session.commit()
-
-    flash('Document deleted successfully!', 'success')
-    return redirect(url_for('view_employee', emp_id=employee.id))
 
 # ==================== GOOGLE DRIVE AUTHENTICATION ROUTES ====================
 
@@ -3397,6 +3460,102 @@ def select_company_for_doc(emp_id, doc_type):
                            doc_type=doc_type,
                            companies=companies)
 
+@app.route('/download-document/<int:doc_id>')
+def download_document(doc_id):
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+    
+    # First try to find document in employee documents
+    document = Document.query.get(doc_id)
+    doc_type = 'employee'
+    
+    # If not found, try intern documents
+    if not document:
+        document = InternDocument.query.get(doc_id)
+        doc_type = 'intern'
+    
+    if not document:
+        flash('Document not found', 'danger')
+        return redirect(request.referrer or url_for('admin_dashboard'))
+    
+    # Check if file exists
+    if os.path.exists(document.file_path):
+        return send_file(
+            document.file_path,
+            as_attachment=True,
+            download_name=document.filename,
+            mimetype='application/pdf'
+        )
+    else:
+        flash(f'File not found: {document.filename}', 'danger')
+        return redirect(request.referrer or url_for('admin_dashboard'))
+
+@app.route('/admin/document/<int:doc_id>/delete', methods=['POST'])
+def delete_document(doc_id):
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+    
+    try:
+        # Try to find document in employee documents
+        document = Document.query.get(doc_id)
+        doc_type = 'employee'
+        
+        # If not found, try intern documents
+        if not document:
+            document = InternDocument.query.get(doc_id)
+            doc_type = 'intern'
+        
+        if not document:
+            flash('Document not found', 'danger')
+            return redirect(request.referrer or url_for('admin_dashboard'))
+        
+        # Store document info for flash message and redirect
+        doc_filename = document.filename
+        doc_type_name = document.document_type.replace('_', ' ').title()
+        
+        # Get employee/intern ID for redirect
+        if doc_type == 'employee':
+            employee_id = document.employee_id
+            redirect_url = url_for('view_employee', emp_id=employee_id)
+        else:
+            intern_id = document.intern_id
+            redirect_url = url_for('view_intern', intern_id=intern_id)
+        
+        # If document has a drive_file_id, try to delete from Google Drive
+        if document.drive_file_id:
+            try:
+                # Delete the file from Drive
+                delete_drive_file(document.drive_file_id)
+                
+                # Check if parent folder is empty and delete it
+                parent_id = get_parent_folder_id(document.drive_file_id)
+                if parent_id and is_folder_empty(parent_id):
+                    delete_drive_folder(parent_id)
+                    
+            except Exception as e:
+                print(f"Drive deletion error (continuing anyway): {e}")
+        
+        # Delete the physical file if it exists
+        if document.file_path and os.path.exists(document.file_path):
+            os.remove(document.file_path)
+            print(f"Deleted file: {document.file_path}")
+        
+        # Delete the database record
+        db.session.delete(document)
+        db.session.commit()
+        
+        flash(f'✅ {doc_type_name} document "{doc_filename}" deleted successfully!', 'success')
+        
+        return redirect(redirect_url)
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting document: {str(e)}', 'danger')
+        print(f"Error deleting document: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return redirect(request.referrer or url_for('admin_dashboard'))
+    
 # ========== APP INITIALIZATION ==========
 if __name__ == '__main__':
     with app.app_context():

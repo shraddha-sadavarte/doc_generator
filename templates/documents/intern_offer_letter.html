@@ -2,13 +2,13 @@
     /* ================= GLOBAL PRINT & A4 SETUP ================= */
     @page {
         size: A4;
-        margin: 0;
+        margin: 1.2cm;
     }
 
     body {
         margin: 0;
         background: #f4f4f4;
-        font-family: 'Segoe UI', Arial, sans-serif;
+        font-family: 'Segoe UI', 'Arial', sans-serif;
         -webkit-print-color-adjust: exact;
     }
 
@@ -19,16 +19,30 @@
             border: none !important;
             box-shadow: none !important;
             margin: 0 !important;
-            padding: 2cm !important;
+            padding: 0 !important;
             width: 100%;
-            height: 29.7cm;
+            height: auto;
+        }
+        .page-break {
+            page-break-before: always;
+            break-before: page;
+        }
+        .first-page, .second-page {
+            min-height: 27.3cm;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
     }
 
     /* ================= ACTION BAR ================= */
+    .action-form {
+        margin: 0;
+        padding: 0;
+    }
     .action-bar {
         background: white;
-        padding: 15px 0;
+        padding: 12px 0;
         border-bottom: 1px solid #000;
     }
     .action-bar-container {
@@ -38,256 +52,642 @@
         justify-content: flex-end;
         gap: 10px;
         padding: 0 20px;
+        flex-wrap: wrap;
     }
     .btn {
         padding: 8px 16px;
         border: 1px solid #000;
         border-radius: 4px;
-        font-size: 14px;
+        font-size: 13px;
         cursor: pointer;
+        font-weight: 500;
         background: white;
+        color: black;
+        text-decoration: none;
         display: inline-flex;
         align-items: center;
         gap: 5px;
-        text-decoration: none;
-        color: black;
+    }
+    .btn:hover {
+        background: #e9e9e9;
+    }
+    .btn-primary,
+    .btn-success,
+    .btn-secondary,
+    .btn-danger {
+        background: white !important;
+        color: black !important;
+        border: 1px solid #000 !important;
+    }
+    @media print { 
+        .action-bar { display: none !important; } 
     }
 
     /* ================= OFFER LETTER CONTAINER ================= */
     .offer-letter {
-        background-color: white;
-        width: 21cm;
-        min-height: 29.7cm;
-        margin: 30px auto;
-        padding: 2cm;
-        box-sizing: border-box;
-        position: relative;
-        border: 1px solid #e0e0e0;
-        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        max-width: 900px;
+        margin: 20px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        overflow: hidden;
+    }
+
+    .first-page, .second-page {
         display: flex;
         flex-direction: column;
+        min-height: 27.3cm;
     }
 
-    /* ================= LETTERHEAD ================= */
+    /* ================= HEADER SECTION ================= */
     .letter-header {
-        border-bottom: 2px solid #28a745;
-        padding-bottom: 15px;
-        margin-bottom: 25px;
+        background: #f8f9fa;
+        padding: 18px 28px;
+        border-bottom: 2px solid #2e7d32;
         display: flex;
         justify-content: space-between;
-        align-items: flex-start;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
     }
 
-    .letter-header img {
-        height: 80px;
-        max-width: 250px;
+    .logo-section {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .logo-section img {
+        height: 50px;
         object-fit: contain;
+    }
+
+    .company-info h3 {
+        margin: 0;
+        font-size: 16px;
+        color: #2e7d32;
+        font-weight: 600;
+    }
+
+    .company-info p {
+        margin: 2px 0 0;
+        font-size: 10px;
+        color: #666;
     }
 
     .company-contact {
         text-align: right;
-        font-size: 12px;
-        color: #444;
+        font-size: 10px;
+        color: #555;
         line-height: 1.4;
     }
 
-    h2 {
+    .company-contact strong {
+        font-size: 12px;
+        color: #2e7d32;
+    }
+
+    /* ================= CONTENT SECTION ================= */
+    .content-body {
+        padding: 20px 28px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .ref-date {
+        text-align: right;
+        margin-bottom: 12px;
+        color: #666;
+        font-size: 11px;
+    }
+
+    .subject {
+        margin-bottom: 12px;
         text-align: center;
-        color: #28a745;
+    }
+
+    .subject h1 {
         font-size: 22px;
-        margin: 20px 0 30px 0;
-        text-transform: uppercase;
+        color: #2e7d32;
+        margin: 0;
         letter-spacing: 1px;
     }
 
-    /* ================= CONTENT AREA ================= */
-    .content {
-        text-align: justify;
-        line-height: 1.6;
-        font-size: 15px;
-        color: #333;
-    }
-
-    .content p {
-        margin-bottom: 15px;
-    }
-
-    .intern-details {
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 8px;
-        margin: 20px 0;
-        border-left: 4px solid #28a745;
-    }
-
-    .intern-details p {
-        margin: 8px 0;
-    }
-
-    /* ================= SIGNATURE & FOOTER ================= */
-    .signature-section {
-        margin-top: auto;
-        padding-bottom: 40px;
-    }
-
-    .footer-note {
-        margin-top: 20px;
-        border-top: 1px solid #eee;
-        padding-top: 10px;
+    .subject p {
         font-size: 11px;
         color: #888;
+        margin: 3px 0 0;
+    }
+
+    .greeting {
+        font-size: 13px;
+        margin-bottom: 8px;
+    }
+
+    .greeting strong {
+        color: #2e7d32;
+    }
+
+    .offer-text {
+        font-size: 12px;
+        line-height: 1.45;
+        color: #333;
+        margin: 8px 0;
+        text-align: justify;
+    }
+
+    .highlight {
+        color: #2e7d32;
+        font-weight: 500;
+    }
+
+    /* DETAILS GRID - EXPANDED */
+    .details-grid {
+        background: #f8f9fa;
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin: 12px 0;
+        border-left: 3px solid #2e7d32;
+    }
+
+    .details-grid .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 10px;
+    }
+
+    .details-grid .row:last-child {
+        margin-bottom: 0;
+    }
+
+    .details-grid .col {
+        flex: 1;
+        min-width: 180px;
+        font-size: 12px;
+    }
+
+    .details-grid .col strong {
+        color: #2e7d32;
+        font-weight: 600;
+        min-width: 110px;
+        display: inline-block;
+    }
+
+    /* RESPONSIBILITIES - EXPANDED */
+    .responsibilities-section {
+        margin: 12px 0;
+    }
+
+    .responsibilities-section h4 {
+        color: #2e7d32;
+        font-size: 13px;
+        margin: 0 0 8px 0;
+        font-weight: 600;
+    }
+
+    .responsibilities-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 0;
+        padding: 0;
+    }
+
+    .responsibilities-list li {
+        font-size: 11px;
+        color: #444;
+        background: #f5f5f5;
+        padding: 4px 10px;
+        border-radius: 15px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        list-style: none;
+    }
+
+    .responsibilities-list li:before {
+        content: "▹";
+        color: #2e7d32;
+        font-size: 10px;
+    }
+
+    /* BENEFITS - EXPANDED */
+    .benefits-section {
+        margin: 12px 0;
+    }
+
+    .benefits-section h4 {
+        color: #d4af37;
+        font-size: 13px;
+        margin: 0 0 8px 0;
+        font-weight: 600;
+    }
+
+    .benefits-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .benefit-item {
+        font-size: 11px;
+        color: #555;
+        background: white;
+        padding: 5px 12px;
+        border-radius: 15px;
+        border: 1px solid #e0e0e0;
+        flex: 1;
+        min-width: 120px;
         text-align: center;
     }
 
-    .acceptance-line {
-        margin-top: 30px;
-        padding-top: 20px;
-        border-top: 1px dashed #ddd;
+    .benefit-item strong {
+        color: #2e7d32;
+        margin-right: 5px;
+        font-size: 12px;
+    }
+
+    /* ADDITIONAL INFO - EXPANDED TO FILL SPACE */
+    .additional-info {
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        padding: 12px 18px;
+        border-radius: 10px;
+        margin: 12px 0;
+        text-align: center;
+    }
+
+    .additional-info p {
+        margin: 5px 0;
+        font-size: 11px;
+        color: #2e7d32;
+    }
+
+    .additional-info strong {
+        font-weight: 600;
+    }
+
+    .info-highlight {
+        display: flex;
+        justify-content: space-between;
+        gap: 15px;
+        margin-top: 5px;
+    }
+
+    .info-highlight span {
+        font-size: 10px;
+        background: white;
+        padding: 3px 8px;
+        border-radius: 20px;
+    }
+
+    /* EXPECTATIONS SECTION - NEW TO FILL SPACE */
+    .expectations-section {
+        margin: 12px 0;
+    }
+
+    .expectations-section h4 {
+        color: #2e7d32;
+        font-size: 13px;
+        margin: 0 0 8px 0;
+        font-weight: 600;
+    }
+
+    .expectations-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+    }
+
+    .expectations-list li {
+        font-size: 10px;
+        color: #555;
+        background: #fff3e0;
+        padding: 3px 10px;
+        border-radius: 15px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        list-style: none;
+    }
+
+    .expectations-list li:before {
+        content: "✓";
+        color: #d4af37;
+        font-weight: bold;
+    }
+
+    /* FIRST PAGE FOOTER */
+    .first-page-footer {
+        margin-top: 15px;
+        padding-top: 10px;
+        text-align: center;
+        border-top: 1px dashed #e0e0e0;
+    }
+
+    .first-page-footer p {
+        font-size: 10px;
+        color: #999;
+        margin: 0;
+    }
+
+    /* ================= SECOND PAGE ================= */
+    .page-break {
+        page-break-before: always;
+        break-before: page;
+        margin-top: 0;
+    }
+
+    .terms-box {
+        background: #fff8e7;
+        padding: 15px 20px;
+        border-radius: 10px;
+        border-left: 3px solid #d4af37;
+        margin: 12px 0;
+    }
+
+    .terms-box p {
+        margin: 6px 0;
+        font-size: 11px;
+    }
+
+    .terms-box strong {
+        color: #2e7d32;
+    }
+
+    .acceptance {
+        margin: 15px 0 10px;
+        padding-top: 10px;
+    }
+
+    .acceptance p {
+        font-size: 12px;
+        font-weight: 500;
+        color: #2e7d32;
+        margin-bottom: 15px;
+    }
+
+    .signature-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 30px;
+        margin: 15px 0;
+        flex-wrap: wrap;
+    }
+
+    .signature-box {
+        text-align: center;
+        flex: 1;
     }
 
     .signature-line {
-        width: 200px;
+        width: 160px;
         border-top: 1px solid #333;
-        margin-top: 40px;
-        margin-bottom: 10px;
+        margin: 20px auto 5px;
     }
-    .logo-section {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
 
-.company-info {
-    display: flex;
-    flex-direction: column;
-}
+    .signature-name {
+        font-weight: 600;
+        font-size: 11px;
+        color: #2e7d32;
+    }
 
-.company-name {
-    font-size: 20px;
-    font-weight: bold;
-    color: #28a745; /* Change color per document type */
-}
+    .signature-title {
+        font-size: 9px;
+        color: #777;
+    }
 
-.company-address {
-    font-size: 11px;
-    color: #666;
-    line-height: 1.3;
-}
+    .footer-note {
+        background: #fafafa;
+        padding: 10px 25px;
+        text-align: center;
+        font-size: 9px;
+        color: #999;
+        border-top: 1px solid #eee;
+        margin-top: 12px;
+    }
 
+    @media (max-width: 700px) {
+        .letter-header {
+            flex-direction: column;
+            text-align: center;
+        }
+        .company-contact {
+            text-align: center;
+        }
+        .logo-section {
+            justify-content: center;
+        }
+        .content-body {
+            padding: 15px;
+        }
+    }
 </style>
 
+<!-- Action Bar -->
 <div class="action-bar">
     <div class="action-bar-container">
         <form action="{{ url_for('generate') }}" method="POST" class="action-form">
             <input type="hidden" name="upload_to_drive" value="false">
-            <button type="submit" class="btn">📥 Download</button>
+            <button type="submit" class="btn btn-primary">📥 Download</button>
         </form>
-        <form action="{{ url_for('generate') }}" method="POST">
+        <form action="{{ url_for('generate') }}" method="POST" class="action-form">
             <input type="hidden" name="upload_to_drive" value="true">
-            <button type="submit" class="btn btn-success">Download & Save</button>
+            <button type="submit" class="btn btn-success">☁️ Save to Drive</button>
         </form>
-        <button type="button" class="btn" onclick="window.print()">🖨️ Print</button>
-        <a href="{{ url_for('admin_dashboard') }}" class="btn">✕ Cancel</a>
+        <button type="button" class="btn btn-secondary" onclick="window.print()">🖨️ Print</button>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-danger">✕ Cancel</a>
     </div>
 </div>
 
 {% include '_watermark.html' %}
 
-<div class="offer-letter">
+<!-- FIRST PAGE -->
+<div class="offer-letter first-page">
     <div class="letter-header">
-    <div class="logo-section">
-        {% if company.logo_with_name %}
-            <!-- Show logo with company name -->
-            <img src="{{ url_for('static', filename='images/' + company.logo_with_name) }}" alt="{{ company.name }}" style="height: 80px; object-fit: contain;">
-        {% elif company.logo %}
-            <!-- Show only logo if no logo_with_name -->
-            <img src="{{ url_for('static', filename='images/' + company.logo) }}" alt="Logo" style="height: 60px; object-fit: contain;">
-            <div class="company-info">
-                <div class="company-name">{{ company.name }}</div>
-                <div class="company-address">{{ company.address }}</div>
-            </div>
-        {% else %}
-            <!-- No logo, show text only -->
-            <div class="company-info">
-                <div class="company-name">{{ company.name }}</div>
-                <div class="company-address">{{ company.address }}</div>
-            </div>
-        {% endif %}
+        <div class="logo-section">
+            {% if company.logo_with_name %}
+                <img src="{{ url_for('static', filename='images/' + company.logo_with_name) }}" alt="{{ company.name }}">
+            {% elif company.logo %}
+                <img src="{{ url_for('static', filename='images/' + company.logo) }}" alt="Logo">
+                <div class="company-info">
+                    <h3>{{ company.name }}</h3>
+                    <p>{{ company.address }}</p>
+                </div>
+            {% else %}
+                <div class="company-info">
+                    <h3>{{ company.name }}</h3>
+                    <p>{{ company.address }}</p>
+                </div>
+            {% endif %}
+        </div>
+        <div class="company-contact">
+            <strong>{{ company.name }}</strong><br>
+            {{ company.address }}<br>
+            {{ company.phone }} | {{ company.email }}
+        </div>
     </div>
-    <div class="company-contact">
-        <strong>{{ company.name }}</strong><br>
-        {{ company.address }}<br>
-        Phone: {{ company.phone }}<br>
-        Email: {{ company.email }}<br>
-        Website: {{ company.website }}
+
+    <div class="content-body">
+        <div>
+            <div class="ref-date">
+                <strong>Date:</strong> {{ data.offer_date }}
+            </div>
+
+            <div class="subject">
+                <h1>INTERN OFFER LETTER</h1>
+                <p>Ref: INT/{{ data.intern_id or '0000' }}/{{ (data.offer_date or data.timestamp).split()[-1] }}</p>
+            </div>
+
+            <div class="greeting">
+                Dear <strong>{{ data.first_name }}</strong>,
+            </div>
+
+            <div class="offer-text">
+                We are pleased to offer you the position of <span class="highlight">Intern - {{ data.specialization or data.course or 'Intern' }}</span> at 
+                <span class="highlight">{{ company.name }}</span>. We were impressed with your qualifications and believe you will be a valuable addition to our team.
+            </div>
+
+            <!-- DETAILS GRID - EXPANDED -->
+            <div class="details-grid">
+                <div class="row">
+                    <div class="col"><strong>🎓 Qualification:</strong> {{ data.qualification or 'N/A' }}</div>
+                    <div class="col"><strong>🏛️ Institution:</strong> {{ data.college_name or 'N/A' }}</div>
+                </div>
+                <div class="row">
+                    <div class="col"><strong>📚 Course:</strong> {{ data.course or 'N/A' }}</div>
+                    <div class="col"><strong>🔬 Specialization:</strong> {{ data.specialization or 'N/A' }}</div>
+                </div>
+                <div class="row">
+                    <div class="col"><strong>⏱️ Duration:</strong> {{ data.internship_duration }} months</div>
+                    <div class="col"><strong>📅 Joining Date:</strong> {{ data.start_date }}</div>
+                </div>
+                <div class="row">
+                    <div class="col"><strong>📅 Expected End Date:</strong> {{ data.end_date }}</div>
+                    <div class="col"><strong>💰 Stipend:</strong> ₹{{ "{:,.0f}".format(data.stipend) }}/month</div>
+                </div>
+                <div class="row">
+                    <div class="col"><strong>👨‍🏫 Mentor:</strong> {{ data.mentor_name }}</div>
+                    <div class="col"><strong>🕐 Working Hours:</strong> 10:00 AM - 6:00 PM (Mon-Fri)</div>
+                </div>
+                <div class="row">
+                    <div class="col"><strong>📍 Work Location:</strong> {{ company.address }}</div>
+                    <div class="col"><strong>📧 HR Contact:</strong> {{ company.hr_email or 'hr@' + company.email_domain }}</div>
+                </div>
+            </div>
+
+            <!-- RESPONSIBILITIES - EXPANDED -->
+            <div class="responsibilities-section">
+                <h4>📌 Key Responsibilities</h4>
+                <ul class="responsibilities-list">
+                    <li>Assist in software development & testing</li>
+                    <li>Participate in daily stand-up meetings</li>
+                    <li>Complete assigned tasks within deadlines</li>
+                    <li>Document technical specifications</li>
+                    <li>Collaborate with cross-functional teams</li>
+                    <li>Learn and implement new technologies</li>
+                </ul>
+            </div>
+
+            <!-- BENEFITS - EXPANDED -->
+            <div class="benefits-section">
+                <h4>✨ Internship Benefits</h4>
+                <div class="benefits-grid">
+                    <div class="benefit-item"><strong>📚</strong> Hands-on experience</div>
+                    <div class="benefit-item"><strong>👥</strong> Expert mentorship</div>
+                    <div class="benefit-item"><strong>📜</strong> Completion certificate</div>
+                    <div class="benefit-item"><strong>💼</strong> Industry exposure</div>
+                    <div class="benefit-item"><strong>🎯</strong> Letter of Recommendation</div>
+                    <div class="benefit-item"><strong>🏆</strong> Performance-based PPO</div>
+                </div>
+            </div>
+
+            <!-- EXPECTATIONS SECTION - NEW TO FILL SPACE -->
+            <div class="expectations-section">
+                <h4>⭐ What We Expect</h4>
+                <ul class="expectations-list">
+                    <li>Commitment to learning</li>
+                    <li>Timely task completion</li>
+                    <li>Active participation</li>
+                    <li>Professional conduct</li>
+                    <li>Team collaboration</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="first-page-footer">
+            <p>✦ Please turn over for Terms & Conditions and Acceptance ✦</p>
+        </div>
     </div>
 </div>
 
-    <div style="text-align: right; margin-bottom: 20px;">
-        <strong>Date:</strong> {{ data.timestamp }}
-    </div>
-
-    <h2>INTERN OFFER LETTER</h2>
-
-    <div style="margin-bottom: 20px;">
-        <p style="font-size: 16px; margin: 0;"><strong>{{ data.full_name|title }}</strong></p>
-        <p style="margin: 0; color: #666;">Intern ID: {{ data.intern_id if data.intern_id else 'LMSI0000' }}</p>
-    </div>
-
-    <div class="content">
-        <p>Dear <strong>{{ data.first_name }}</strong>,</p>
-        
-        <p>We are pleased to offer you the position of <strong>Intern - {{ data.specialization or data.course or 'Intern' }}</strong> at <strong>{{ company.name }}</strong>. We were impressed with your qualifications and believe you will be a valuable addition to our team.</p>
-        
-        <div class="intern-details">
-            <p><strong>📋 Internship Details:</strong></p>
-            <p>🎓 <strong>Qualification:</strong> {{ data.qualification or 'N/A' }}</p>
-            <p>🏛️ <strong>College/University:</strong> {{ data.college_name or 'N/A' }}</p>
-            <p>📚 <strong>Course:</strong> {{ data.course or 'N/A' }}</p>
-            <p>🔬 <strong>Specialization:</strong> {{ data.specialization or 'N/A' }}</p>
-            <p>⏱️ <strong>Duration:</strong> {{ data.internship_duration }} months</p>
-            <p>📅 <strong>Start Date:</strong> {{ data.start_date }}</p>
-            <p>📅 <strong>End Date:</strong> {{ data.end_date }}</p>
-            <p>💰 <strong>Stipend:</strong> ₹{{ "{:,.0f}".format(data.stipend) }} per month</p>
-            <p>🕐 <strong>Working Hours:</strong> 10:00 AM to 6:00 PM (Monday to Friday)</p>
-            <p>👨‍🏫 <strong>Mentor:</strong> {{ data.mentor_name }} ({{ data.mentor_designation }})</p>
-        </div>
-        
-        <p>During your internship, you will be working on real-world projects, gaining hands-on experience, and learning from our experienced team members. You will be provided with the necessary training and resources to help you succeed.</p>
-        
-        <p>Please confirm your acceptance of this offer by signing the acceptance copy and returning it to us by <strong>{{ data.acceptance_deadline }}</strong>.</p>
-        
-        <p>We look forward to welcoming you to our team and wish you a rewarding internship experience.</p>
-    </div>
-
-    <div class="acceptance-line">
-        <p><strong>I accept the terms and conditions of this internship offer:</strong></p>
-        <div style="display: flex; justify-content: space-between; margin-top: 30px;">
-            <div>
-                <div class="signature-line"></div>
-                <p><strong>_________________________</strong><br>Intern Signature</p>
+<!-- SECOND PAGE -->
+<div class="offer-letter page-break second-page">
+    <div class="content-body">
+        <div>
+            <!-- TERMS & CONDITIONS -->
+            <div class="terms-box">
+                <p><strong>📋 TERMS & CONDITIONS</strong></p>
+                <p>✓ This offer is valid until <strong>{{ data.acceptance_deadline }}</strong>. Please confirm your acceptance by this date.</p>
+                <p>✓ Your internship will commence on <strong>{{ data.start_date }}</strong>. Please report to the HR department by 10:00 AM on the joining date.</p>
+                <p>✓ You are required to carry a copy of this offer letter and valid ID proof (Aadhar/PAN) on the joining day.</p>
+                <p>✓ Any delay in joining must be communicated to the HR department at least 2 days in advance.</p>
+                <p>✓ During the internship period, you are expected to adhere to company policies and maintain confidentiality.</p>
+                <p>✓ Stipend will be processed on the 10th of each month for the previous month's attendance.</p>
+                <p>✓ Upon successful completion, you will receive a Certificate of Internship based on performance evaluation.</p>
+                <p>✓ This internship does not guarantee full-time employment, but high performers may be considered based on business needs.</p>
             </div>
-            <div>
-                <div class="signature-line"></div>
-                <p><strong>_________________________</strong><br>Date</p>
+
+            <!-- ACCEPTANCE -->
+            <div class="acceptance">
+                <p>✓ I accept the terms and conditions of this internship offer and confirm my joining on <strong>{{ data.start_date }}</strong>:</p>
+                <div class="signature-row">
+                    <div class="signature-box">
+                        <div class="signature-line"></div>
+                        <div class="signature-name">_________________________</div>
+                        <div class="signature-title">Intern Signature</div>
+                    </div>
+                    <div class="signature-box">
+                        <div class="signature-line"></div>
+                        <div class="signature-name">_________________________</div>
+                        <div class="signature-title">Date</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COMPANY SIGNATURES -->
+            <div class="signature-row">
+                <div class="signature-box">
+                    {% if company.signature %}
+                        <img src="{{ url_for('static', filename='images/signatures/' + company.signature) }}" style="height: 50px; object-fit: contain;">
+                    {% endif %}
+                    <div class="signature-name">{{ data.hr_name }}</div>
+                    <div class="signature-title">{{ data.hr_designation }}</div>
+                </div>
+                <div class="signature-box">
+                    <div class="signature-line" style="margin-top: 25px;"></div>
+                    <div class="signature-name">For {{ company.name }}</div>
+                    <div class="signature-title">Authorized Signatory</div>
+                </div>
+            </div>
+
+            <!-- ADDITIONAL INFO TO FILL SPACE -->
+            <div class="additional-info">
+                <p><strong>📌 Important Note:</strong> Please carry a copy of this document on your first day for verification.</p>
+                <div class="info-highlight">
+                    <span>📞 HR: {{ company.phone }}</span>
+                    <span>📧 {{ company.hr_email or 'hr@' + company.email_domain }}</span>
+                    <span>📍 {{ company.address }}</span>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="signature-section">
-        <div style="height: 80px;">
-            {% if company.signature %}
-                <img src="{{ request.url_root }}static/images/signatures/{{ company.signature }}" style="height: 80px; object-fit: contain;">
-            {% endif %}
+        <div class="footer-note">
+            *This is a system-generated document. No physical signature required if digitally generated.
         </div>
-        <p>
-            <strong>{{ data.hr_name }}</strong><br>
-            {{ data.hr_designation }}<br>
-            {{ company.name }}
-        </p>
-    </div>
-
-    <div class="footer-note">
-        *This is a system-generated document and does not require physical signature if digitally generated.
     </div>
 </div>

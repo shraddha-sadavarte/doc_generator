@@ -1,338 +1,360 @@
 <style>
-    /* ================= GLOBAL PRINT & A4 SETUP ================= */
     @page {
         size: A4;
-        margin: 0;
+        margin: 1.2cm;
     }
 
     body {
         margin: 0;
-        background: #f4f4f4;
-        font-family: 'Segoe UI', Arial, sans-serif;
+        background: #f0f2f5;
+        font-family: 'Segoe UI', 'Arial', sans-serif;
         -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 
     @media print {
-        body { background: white; }
-        .action-bar { display: none !important; }
+        body {
+            background: white;
+        }
+        .action-bar {
+            display: none !important;
+        }
         .certificate {
-            border: none !important;
             box-shadow: none !important;
             margin: 0 !important;
-            padding: 2cm !important;
-            width: 100%;
-            height: 29.7cm;
+            padding: 0 !important;
         }
     }
 
     /* ================= ACTION BAR ================= */
-    .action-bar {
-        background: white;
-        padding: 15px 0;
-        border-bottom: 1px solid #000;
-    }
-    .action-bar-container {
-        max-width: 1000px;
-        margin: auto;
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        padding: 0 20px;
-    }
-    .btn {
-        padding: 8px 16px;
-        border: 1px solid #000;
-        border-radius: 4px;
-        font-size: 14px;
-        cursor: pointer;
-        background: white;
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        text-decoration: none;
-        color: black;
-    }
+.action-form{
+    margin: 0;
+    padding: 0;
+}
+.action-bar{
+    background:white;
+    padding:15px 0;
+    border-bottom:1px solid #000;
+}
 
-    /* ================= CERTIFICATE CONTAINER ================= */
+.action-bar-container{
+    max-width:1000px;
+    margin:auto;
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    padding:0 20px;
+    flex-wrap: wrap;          /* allows wrapping on small screens */
+}
+
+.btn{
+    padding:10px 18px;
+    border:1px solid #000;
+    border-radius:4px;
+    font-size:14px;
+    cursor:pointer;
+    font-weight:500;
+    background:white;
+    color:black;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    box-sizing: border-box;
+    line-height: 1.4;
+    transition: background-color 0.2s;
+}
+
+.btn:hover{
+    background:#e9e9e9;
+}
+
+/* Override any colored button classes to use the same border‑only style */
+.btn-primary,
+.btn-success,
+.btn-secondary,
+.btn-danger {
+    background: white !important;
+    color: black !important;
+    border:1px solid #000 !important;
+    box-shadow: none !important;
+}
+
+.btn-primary:hover,
+.btn-success:hover,
+.btn-secondary:hover,
+.btn-danger:hover {
+    background:#e9e9e9 !important;
+}
+    @media print { .action-bar { display: none !important; } }
+
     .certificate {
-        background-color: white;
-        width: 21cm;
-        min-height: 29.7cm;
-        margin: 30px auto;
-        padding: 2cm;
-        box-sizing: border-box;
-        position: relative;
-        border: 1px solid #e0e0e0;
-        box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        display: flex;
-        flex-direction: column;
+        max-width: 900px;
+        margin: 25px auto;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        overflow: hidden;
     }
 
-    /* ================= LETTERHEAD ================= */
-    .letter-header {
-        border-bottom: 2px solid #20c997;
-        padding-bottom: 15px;
-        margin-bottom: 25px;
+    /* Header */
+    .cert-header {
+        background: #1e3c2c;
+        padding: 25px 35px;
+        text-align: center;
+        position: relative;
+    }
+
+    .logo-area {
         display: flex;
         justify-content: space-between;
-        align-items: flex-start;
+        align-items: center;
+        margin-bottom: 15px;
     }
 
-    .letter-header img {
-        height: 80px;
-        max-width: 250px;
+    .logo-area img {
+        height: 55px;
         object-fit: contain;
+        background: white;
+        padding: 5px 12px;
+        border-radius: 8px;
     }
 
-    .company-contact {
-        text-align: right;
-        font-size: 12px;
-        color: #444;
-        line-height: 1.4;
-    }
-
-    h2 {
-        text-align: center;
-        color: #20c997;
-        font-size: 28px;
-        margin: 20px 0 10px 0;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-        font-family: 'Times New Roman', serif;
-    }
-
-    .certificate-subtitle {
-        text-align: center;
-        font-size: 18px;
-        color: #666;
-        margin-bottom: 30px;
-        border-bottom: 1px solid #ddd;
-        display: inline-block;
-        padding-bottom: 5px;
-    }
-
-    /* ================= CONTENT AREA ================= */
-    .content {
-        text-align: center;
-        line-height: 1.8;
-        font-size: 16px;
-        color: #333;
-    }
-
-    .recipient-name {
-        font-size: 28px;
-        font-weight: bold;
-        color: #28a745;
-        margin: 30px 0;
-        font-family: 'Times New Roman', serif;
+    .company-name {
+        color: white;
+        font-size: 20px;
+        font-weight: 600;
         letter-spacing: 1px;
     }
 
-    .certificate-text {
-        text-align: justify;
-        margin: 20px 0;
+    .empty-space {
+        width: 80px;
     }
 
-    .internship-details {
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 8px;
-        margin: 20px 0;
-        border-left: 4px solid #20c997;
-        text-align: left;
-    }
-
-    .internship-details p {
-        margin: 8px 0;
-    }
-
-    /* ================= SIGNATURE & FOOTER ================= */
-    .signature-section {
-        margin-top: auto;
-        padding-bottom: 40px;
-        display: flex;
-        justify-content: space-between;
-    }
-
-    .signature {
+    /* Content */
+    .cert-body {
+        padding: 35px 45px 30px;
         text-align: center;
-        width: 45%;
     }
 
-    .signature-line {
-        width: 200px;
-        border-top: 1px solid #333;
-        margin-top: 40px;
-        margin-bottom: 10px;
+    .cert-title {
+        margin-bottom: 25px;
     }
 
-    .footer-note {
-        margin-top: 20px;
-        border-top: 1px solid #eee;
-        padding-top: 10px;
-        font-size: 11px;
+    .cert-title h1 {
+        font-size: 32px;
+        color: #1e3c2c;
+        margin: 0;
+        letter-spacing: 2px;
+        font-weight: 600;
+    }
+
+    .cert-title p {
         color: #888;
+        font-size: 14px;
+        margin: 8px 0 0;
+    }
+
+    .line {
+        width: 60px;
+        height: 2px;
+        background: #c9a53b;
+        margin: 12px auto;
+    }
+
+    .recipient {
+        font-size: 32px;
+        font-weight: 600;
+        color: #1e3c2c;
+        margin: 20px 0;
+        padding: 10px 0;
+        border-top: 1px solid #eee;
+        border-bottom: 1px solid #eee;
+        display: inline-block;
+        font-family: 'Times New Roman', serif;
+    }
+
+    .cert-text {
+        font-size: 15px;
+        line-height: 1.6;
+        color: #444;
+        margin: 20px 0;
+    }
+
+    .details-box {
+        background: #f8f9fa;
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin: 20px 0;
+        display: flex;
+        justify-content: center;
+        gap: 35px;
+        flex-wrap: wrap;
+        border-left: 3px solid #c9a53b;
+    }
+
+    .detail {
+        font-size: 13px;
+    }
+
+    .detail strong {
+        color: #1e3c2c;
+        font-weight: 600;
+    }
+
+    /* Signature */
+    .signature-area {
+        display: flex;
+        justify-content: center;
+        gap: 60px;
+        margin: 35px 0 20px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+    }
+
+    .sign {
         text-align: center;
     }
 
-    .certificate-number {
+    .sign-line {
+        width: 160px;
+        border-top: 1px solid #333;
+        margin: 25px auto 8px;
+    }
+
+    .sign-name {
+        font-weight: 600;
+        font-size: 13px;
+        color: #1e3c2c;
+    }
+
+    .sign-title {
+        font-size: 11px;
+        color: #777;
+    }
+
+    /* Footer */
+    .cert-footer {
+        background: #fafafa;
+        padding: 12px 35px;
         text-align: center;
-        margin-top: 20px;
-        font-size: 12px;
+        border-top: 1px solid #eee;
+        font-size: 10px;
         color: #999;
     }
 
-    .seal {
-        width: 80px;
-        height: 80px;
-        border-radius: 50%;
-        border: 2px solid #20c997;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 20px auto 0;
-        font-size: 10px;
-        color: #20c997;
-        text-align: center;
+    @media (max-width: 700px) {
+        .cert-body {
+            padding: 25px;
+        }
+        .recipient {
+            font-size: 24px;
+        }
+        .details-box {
+            gap: 15px;
+        }
+        .signature-area {
+            gap: 30px;
+            flex-wrap: wrap;
+        }
     }
-    .logo-section {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.company-info {
-    display: flex;
-    flex-direction: column;
-}
-
-.company-name {
-    font-size: 20px;
-    font-weight: bold;
-    color: #28a745; /* Change color per document type */
-}
-
-.company-address {
-    font-size: 11px;
-    color: #666;
-    line-height: 1.3;
-}
 </style>
 
+<!-- Action Bar (hidden in PDF) -->
 <div class="action-bar">
     <div class="action-bar-container">
+        <!-- Download Button (local only) -->
         <form action="{{ url_for('generate') }}" method="POST" class="action-form">
             <input type="hidden" name="upload_to_drive" value="false">
-            <button type="submit" class="btn">📥 Download</button>
+            <button type="submit" class="btn btn-primary">
+                <span class="btn-icon">📥</span>
+                <span class="btn-text">Download</span>
+            </button>
         </form>
-        <form action="{{ url_for('generate') }}" method="POST">
+
+        <!-- Download & Save to Drive -->
+        <form action="{{ url_for('generate') }}" method="POST" class="action-form">
             <input type="hidden" name="upload_to_drive" value="true">
-            <button type="submit" class="btn btn-success">Download & Save</button>
+            <button type="submit" class="btn btn-success">
+                <span class="btn-icon">☁️</span>
+                <span class="btn-text">Download & Save to Drive</span>
+            </button>
         </form>
-        <button type="button" class="btn" onclick="window.print()">🖨️ Print</button>
-        <a href="{{ url_for('admin_dashboard') }}" class="btn">✕ Cancel</a>
+
+        <!-- Print Button -->
+        <button type="button" class="btn btn-secondary" onclick="window.print()">
+            <span class="btn-icon">🖨️</span>
+            <span class="btn-text">Print</span>
+        </button>
+
+        <!-- Cancel Button -->
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-danger">
+            <span class="btn-icon">✕</span>
+            <span class="btn-text">Cancel</span>
+        </a>
     </div>
 </div>
 
 {% include '_watermark.html' %}
 
 <div class="certificate">
-    <div class="letter-header">
-    <div class="logo-section">
-        {% if company.logo_with_name %}
-            <img src="{{ url_for('static', filename='images/' + company.logo_with_name) }}" alt="{{ company.name }}" style="height: 80px; object-fit: contain;">
-        {% elif company.logo %}
-            <img src="{{ url_for('static', filename='images/' + company.logo) }}" alt="Logo" style="height: 60px; object-fit: contain;">
-            <div class="company-info">
-                <div class="company-name">{{ company.name }}</div>
-                <div class="company-address">{{ company.address }}</div>
-            </div>
-        {% else %}
-            <div class="company-info">
-                <div class="company-name">{{ company.name }}</div>
-                <div class="company-address">{{ company.address }}</div>
-            </div>
-        {% endif %}
-    </div>
-    <div class="company-contact">
-        <strong>{{ company.name }}</strong><br>
-        {{ company.address }}<br>
-        Phone: {{ company.phone }}<br>
-        Email: {{ company.email }}<br>
-        Website: {{ company.website }}
-    </div>
-</div>
-    <div style="text-align: right; margin-bottom: 20px;">
-        <strong>Date:</strong> {{ data.timestamp }}
+    <div class="cert-header">
+        <div class="logo-area">
+            {% if company.logo_with_name %}
+                <img src="{{ url_for('static', filename='images/' + company.logo_with_name) }}" alt="{{ company.name }}">
+            {% elif company.logo %}
+                <img src="{{ url_for('static', filename='images/' + company.logo) }}" alt="Logo">
+            {% else %}
+                <div class="empty-space"></div>
+            {% endif %}
+            <div class="company-name">{{ company.name }}</div>
+            <div class="empty-space"></div>
+        </div>
     </div>
 
-    <div style="text-align: center;">
-        <h2>CERTIFICATE OF INTERNSHIP</h2>
-        <div class="certificate-subtitle">This is to certify that</div>
-    </div>
+    <div class="cert-body">
+        <div class="cert-title">
+            <h1>CERTIFICATE OF INTERNSHIP</h1>
+            <div class="line"></div>
+            <p>This is to certify that</p>
+        </div>
 
-    <div class="recipient-name">
-        {{ data.full_name|title }}
-    </div>
+        <div class="recipient">
+            {{ data.full_name|title }}
+        </div>
 
-    <div class="content">
-        <div class="certificate-text">
+        <div class="cert-text">
             has successfully completed the internship program in 
-            <strong>{{ data.specialization or data.course or 'Computer Science' }}</strong> 
-            from <strong>{{ data.start_date }}</strong> to <strong>{{ data.end_date }}</strong> 
-            at <strong>{{ company.name }}</strong>.
+            <strong>{{ data.specialization or data.course or 'Computer Science' }}</strong>
         </div>
-        
-        <div class="internship-details">
-            <p><strong>📋 Internship Details:</strong></p>
-            <p>📅 <strong>Duration:</strong> {{ data.internship_duration }} months</p>
-            <p>🎓 <strong>Qualification:</strong> {{ data.qualification or 'N/A' }}</p>
-            <p>🏛️ <strong>Institution:</strong> {{ data.college_name or 'N/A' }}</p>
-            <p>👨‍🏫 <strong>Mentor:</strong> {{ data.mentor_name }} ({{ data.mentor_designation }})</p>
-            <p>💰 <strong>Stipend:</strong> ₹{{ "{:,.0f}".format(data.stipend) }} per month</p>
+
+        <div class="details-box">
+            <div class="detail"><strong>Duration:</strong> {{ data.internship_duration }} months</div>
+            <div class="detail"><strong>From:</strong> {{ data.start_date }}</div>
+            <div class="detail"><strong>To:</strong> {{ data.end_date }}</div>
+            <div class="detail"><strong>Mentor:</strong> {{ data.mentor_name }}</div>
         </div>
-        
-        <div class="certificate-text">
-            During the internship, <strong>{{ data.first_name }}</strong> demonstrated excellent technical skills, 
-            dedication, and professionalism. They actively contributed to project development 
-            and showed great enthusiasm for learning. Their performance was satisfactory and they 
-            successfully completed all assigned tasks within the stipulated timeframe.
+
+        <div class="cert-text">
+            During the internship, {{ data.first_name }} demonstrated excellent skills, dedication, 
+            and professionalism. We appreciate the contributions and wish all the best for future endeavors.
         </div>
-        
-        <div class="certificate-text">
-            We wish <strong>{{ data.first_name }}</strong> all the very best for their future academic and 
-            professional endeavors.
+
+        <div class="signature-area">
+            <div class="sign">
+                <div class="sign-line"></div>
+                <div class="sign-name">{{ data.hr_name }}</div>
+                <div class="sign-title">{{ data.hr_designation }}</div>
+            </div>
+            <div class="sign">
+                <div class="sign-line"></div>
+                <div class="sign-name">{{ data.mentor_name }}</div>
+                <div class="sign-title">Internship Mentor</div>
+            </div>
         </div>
     </div>
 
-    <div class="signature-section">
-        <div class="signature">
-            <div class="signature-line"></div>
-            <p>
-                <strong>{{ data.hr_name }}</strong><br>
-                {{ data.hr_designation }}<br>
-                {{ company.name }}
-            </p>
-        </div>
-        <div class="signature">
-            <div class="signature-line"></div>
-            <p>
-                <strong>{{ data.mentor_name }}</strong><br>
-                Internship Mentor<br>
-                {{ company.name }}
-            </p>
-        </div>
-    </div>
-
-    <div class="seal">
-        COMPANY<br>SEAL
-    </div>
-
-    <div class="certificate-number">
-        Certificate No: {{ data.certificate_no }}
-    </div>
-
-    <div class="footer-note">
-        *This is a system-generated document and does not require physical signature if digitally generated.
+    <div class="cert-footer">
+        Certificate No: {{ data.certificate_no }} | Issued on: {{ data.timestamp }}
     </div>
 </div>
