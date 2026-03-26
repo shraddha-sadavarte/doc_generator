@@ -1,12 +1,12 @@
 from dotenv import load_dotenv
 import os
 import json
-import traceback
-import re
-import base64
+from xhtml2pdf import pisa
+import io
 import os
 import tempfile
-import subprocess
+import re
+import base64
 
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -18,15 +18,10 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
-import io
 import zipfile
 from flask import send_file, make_response, request
 from googleapiclient.http import MediaIoBaseDownload
 
-try:
-    from weasyprint import HTML
-except:
-    HTML = None
 from flask import redirect, url_for, flash
 from config import COMPANIES
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -534,6 +529,10 @@ def calculate_annual_income_tax(annual_ctc):
 #function for production
 def embed_images_as_base64(html_content):
     """Convert all image URLs to base64 data URIs"""
+    import re
+    import base64
+    import os
+    
     static_folder = app.static_folder
     images_folder = os.path.join(static_folder, 'images')
     signatures_folder = os.path.join(images_folder, 'signatures')
@@ -583,10 +582,8 @@ def embed_images_as_base64(html_content):
     return html_content
 
 def html_to_pdf(html_content, output_path):
-    """Convert HTML to PDF - Production version for Render"""
+    """Convert HTML to PDF using xhtml2pdf (Stable for Render)"""
     try:
-        from weasyprint import HTML
-        
         print(f"📁 Output path: {output_path}")
         print(f"📄 HTML length: {len(html_content)}")
         
@@ -594,19 +591,17 @@ def html_to_pdf(html_content, output_path):
         html_content = embed_images_as_base64(html_content)
         print(f"📸 Images embedded, new length: {len(html_content)}")
         
-        # Create temporary HTML file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
-            f.write(html_content)
-            temp_html = f.name
-        
-        print(f"📄 Temp HTML: {temp_html}")
-        
         # Convert to PDF
-        HTML(filename=temp_html).write_pdf(output_path)
+        with open(output_path, 'wb') as pdf_file:
+            pisa_status = pisa.CreatePDF(
+                io.BytesIO(html_content.encode('UTF-8')),
+                dest=pdf_file,
+                encoding='UTF-8'
+            )
         
-        # Clean up
-        if os.path.exists(temp_html):
-            os.unlink(temp_html)
+        if pisa_status.err:
+            print(f"❌ xhtml2pdf error: {pisa_status.err}")
+            return False
         
         print(f"✅ PDF generated: {output_path}")
         if os.path.exists(output_path):
