@@ -1,13 +1,13 @@
 #!/bin/bash
-# build.sh - Install system dependencies for WeasyPrint on Render
-
 echo "🚀 Installing system dependencies for WeasyPrint..."
 
-# Update package list
-apt-get update
+# Use Python 3.11
+export PYTHON_VERSION=3.11
 
-# Install WeasyPrint dependencies
+# Install system dependencies
+apt-get update
 apt-get install -y \
+    python3.11 \
     python3-pip \
     python3-dev \
     build-essential \
@@ -25,10 +25,11 @@ apt-get install -y \
     libopenjp2-7 \
     libtiff5
 
-# Install Python dependencies
-pip install -r requirements.txt
+# Install pip
+python3.11 -m ensurepip --upgrade
+
+# Install requirements
+python3.11 -m pip install --upgrade pip
+python3.11 -m pip install -r requirements.txt
 
 echo "✅ Build completed!"
-
-# Windows compatibility - make script work anyway
-exit 0
