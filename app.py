@@ -530,11 +530,34 @@ def calculate_annual_income_tax(annual_ctc):
 
 #function for production
 def html_to_pdf(html_content, output_path):
+    """Convert HTML to PDF - Production version for Render"""
     try:
-        HTML(string=html_content).write_pdf(output_path)
+        from weasyprint import HTML
+        import tempfile
+        import os
+        
+        # Create a temporary HTML file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+            f.write(html_content)
+            temp_html = f.name
+        
+        # Convert to PDF
+        HTML(filename=temp_html).write_pdf(output_path)
+        
+        # Clean up temp file
+        if os.path.exists(temp_html):
+            os.unlink(temp_html)
+        
+        print(f"✅ PDF generated successfully: {output_path}")
         return True
+        
+    except ImportError as e:
+        print(f"WeasyPrint not installed: {e}")
+        return False
     except Exception as e:
-        print("WeasyPrint error:", e)
+        print(f"PDF generation error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 #local function
@@ -1752,7 +1775,7 @@ def generate():
             filename = f"Salary_Slip_{month}_{datetime.now().strftime('%Y%m%d')}.pdf"
 
             #always save local file first
-            local_file_path = os.path.join(app.config['     UPLOAD_FOLDER'], filename)
+            local_file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             if html_to_pdf(html, local_file_path):
                 files_generated.append(month)
 
