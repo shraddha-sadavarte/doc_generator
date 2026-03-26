@@ -8,6 +8,8 @@ import io
 import zipfile
 from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
+from weasyprint import HTML, CSS
+from weasyprint.text.fonts import FontConfiguration
 
 # Load environment variables
 load_dotenv()
@@ -511,7 +513,7 @@ def calculate_annual_income_tax(annual_ctc):
     else:
         return 112500 + (taxable_income - 1000000) * 0.3
 
-#function for production
+#production function for pdf generation
 def embed_images_as_base64(html_content):
     """Convert all image URLs to base64 data URIs"""
     static_folder = app.static_folder
@@ -526,11 +528,9 @@ def embed_images_as_base64(html_content):
         
         src = src_match.group(1)
         
-        # Skip if already base64
         if src.startswith('data:'):
             return img_tag
         
-        # Find image path
         if 'signatures' in src:
             filename = src.split('signatures/')[-1]
             abs_path = os.path.join(signatures_folder, filename)
@@ -549,8 +549,6 @@ def embed_images_as_base64(html_content):
                 mime = 'image/jpeg'
             elif ext == 'png':
                 mime = 'image/png'
-            elif ext == 'svg':
-                mime = 'image/svg+xml'
             else:
                 mime = f'image/{ext}'
             
@@ -563,33 +561,37 @@ def embed_images_as_base64(html_content):
     return html_content
 
 def html_to_pdf(html_content, output_path):
-    """Convert HTML to PDF using WeasyPrint"""
+    """Convert HTML to PDF using WeasyPrint 52.5"""
     try:
         print(f"📁 Output path: {output_path}")
         print(f"📄 HTML length: {len(html_content)}")
         
-        # Embed images as base64
+        # Embed images
         html_content = embed_images_as_base64(html_content)
         print(f"📸 Images embedded, new length: {len(html_content)}")
         
-        # Create temporary HTML file
+        # Create temp file
         with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
             f.write(html_content)
             temp_html = f.name
         
         print(f"📄 Temp HTML: {temp_html}")
         
+        # Font configuration
+        font_config = FontConfiguration()
+        
         # Convert to PDF
-        HTML(filename=temp_html).write_pdf(output_path)
+        HTML(filename=temp_html).write_pdf(
+            output_path,
+            font_config=font_config,
+            zoom=1.0
+        )
         
         # Clean up
         if os.path.exists(temp_html):
             os.unlink(temp_html)
         
         print(f"✅ PDF generated: {output_path}")
-        if os.path.exists(output_path):
-            print(f"📁 PDF size: {os.path.getsize(output_path)} bytes")
-        
         return True
         
     except Exception as e:
@@ -597,7 +599,7 @@ def html_to_pdf(html_content, output_path):
         import traceback
         traceback.print_exc()
         return False
-
+    
 # ========== TEST ROUTE ==========
 
 @app.route('/test-pdf-generation')
