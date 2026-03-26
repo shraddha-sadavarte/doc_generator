@@ -276,9 +276,9 @@ body{
     <div class="letter-header">
         <div class="logo-section">
             {% if company.logo_with_name %}
-                <img src="{{ url_for('static', filename='images/' + company.logo_with_name) }}" alt="{{ company.name }}" style="height: 80px; object-fit: contain;">
+                <img src="{{ url_for('static', filename='images/' + company.logo_with_name, _external=True) }}" alt="{{ company.name }}" style="height: 80px; object-fit: contain;">
             {% elif company.logo %}
-                <img src="{{ url_for('static', filename='images/' + company.logo) }}" alt="Logo" style="height: 60px; object-fit: contain;">
+                <img src="{{ url_for('static', filename='images/' + company.logo, _external=True) }}" alt="Logo" style="height: 60px; object-fit: contain;">
                 <div class="company-info">
                     <div class="company-name">{{ company.name }}</div>
                     <div class="company-address">{{ company.address }}</div>

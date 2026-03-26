@@ -17,7 +17,8 @@ import io
 import zipfile
 import subprocess
 import tempfile
-from flask import send_file
+from flask import send_file, make_response, request
+from googleapiclient.http import MediaIoBaseDownload
 
 try:
     from weasyprint import HTML
@@ -35,6 +36,7 @@ from google_auth_oauthlib.flow import Flow
 import pickle
 import uuid
 from num2words import num2words
+from googleapiclient.http import MediaIoBaseDownload
 
 app = Flask(__name__)
 app.secret_key = "super-secret-key"
@@ -331,25 +333,22 @@ def get_employee_email(employee, company):
     return generated_email
 
 def get_google_flow(state=None):
-    """Create and return a Google OAuth flow object"""
-    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-        return None
+    """Create and return Google OAuth2 flow object"""
+    credentials_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'credentials.json')
     
-    # Create flow using client configuration
-    flow = Flow.from_client_config(
-        {
-            "web": {
-                "client_id": GOOGLE_CLIENT_ID,
-                "client_secret": GOOGLE_CLIENT_SECRET,
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [REDIRECT_URI]
-            }
-        },
-        scopes=SCOPES,
-        state=state  # Add this line
+    if not os.path.exists(credentials_path):
+        raise Exception(f'credentials.json not found at {credentials_path}')
+    
+    # Create flow with all required parameters
+    flow = Flow.from_client_secrets_file(
+        credentials_path,
+        scopes=['https://www.googleapis.com/auth/drive.file'],
+        redirect_uri=url_for('oauth2callback', _external=True)
     )
-    flow.redirect_uri = REDIRECT_URI
+    
+    if state:
+        flow.state = state
+    
     return flow
 
 def get_days_in_month(month_name, year):
@@ -1752,45 +1751,38 @@ def generate():
 
             filename = f"Salary_Slip_{month}_{datetime.now().strftime('%Y%m%d')}.pdf"
 
-            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
-                temp_path = tmp_file.name
-
-            if html_to_pdf(html, temp_path):
+            #always save local file first
+            local_file_path = os.path.join(app.config['     UPLOAD_FOLDER'], filename)
+            if html_to_pdf(html, local_file_path):
                 files_generated.append(month)
 
-                if upload_to_drive_flag and employee:
+                #save document record with local path
+                doc = Document(
+                    employee_id=employee.id,
+                    document_type=doc_type,
+                    filename=filename,
+                    file_path=local_file_path,  # Always save local path
+                    month=month,
+                    year=session.get('selected_year', datetime.now().year),
+                    generated_by=session.get('admin_username', 'system'),
+                    drive_file_id=None
+                )
+
+                # Upload to Drive if requested
+                if upload_to_drive_flag:
                     try:
-                        drive_file_id = upload_file_to_drive(temp_path, filename, f"Salary Slips/{month}", employee)
-                        doc = Document(
-                            employee_id=employee.id,
-                            document_type=doc_type,
-                            filename=filename,
-                            file_path=None,
-                            month=month,
-                            year=session.get('selected_year', datetime.now().year),
-                            generated_by=session.get('admin_username', 'system'),
-                            drive_file_id=drive_file_id
-                        )
-                        db.session.add(doc)
+                        drive_file_id = upload_file_to_drive(local_file_path, filename, f"Salary Slips/{month}", employee)
+                        if drive_file_id:
+                            doc.drive_file_id = drive_file_id
                     except Exception as e:
                         print(f"Drive upload error: {e}")
-                else:
-                    doc = Document(
-                        employee_id=employee.id,
-                        document_type=doc_type,
-                        filename=filename,
-                        file_path=None,
-                        month=month,
-                        year=session.get('selected_year', datetime.now().year),
-                        generated_by=session.get('admin_username', 'system'),
-                        drive_file_id=None
-                    )
-                    db.session.add(doc)
-
-                if os.path.exists(temp_path):
-                    os.unlink(temp_path)
+                
+                db.session.add(doc)
             else:
                 failed_months.append(month)
+
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
+                temp_path = tmp_file.name
 
         if files_generated:
             db.session.commit()
@@ -1818,7 +1810,7 @@ def generate():
         paid_days=30,
         month_days=30
     )
-    
+
     clean_form_data = {
         'employee_id': form_data.get('employee_id'),
         'company': company.id,
@@ -1867,13 +1859,10 @@ def generate():
     )
 
     filename = f"{doc_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    # ========== Save local file first ==========
+    local_file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
 
-    with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp_file:
-        temp_path = tmp_file.name
-
-    if not html_to_pdf(html, temp_path):
-        if os.path.exists(temp_path):
-            os.unlink(temp_path)
+    if not html_to_pdf(html, local_file_path):
         flash('Failed to generate PDF', 'danger')
         return redirect(url_for('admin_dashboard'))
 
@@ -1907,7 +1896,7 @@ def generate():
                 'relieving_letter': 'Relieving Letters'
             }
             folder_name = folder_map.get(doc_type, 'Other Documents')
-            drive_file_id = upload_file_to_drive(temp_path, filename, folder_name, employee)
+            drive_file_id = upload_file_to_drive(local_file_path, filename, folder_name, employee)
         except Exception as e:
             print("Drive Upload Error:", e)
 
@@ -1916,16 +1905,13 @@ def generate():
             employee_id=employee.id,
             document_type=doc_type,
             filename=filename,
-            file_path=None,
+            file_path=local_file_path,  # Always save local path
             generated_by=session.get('admin_username', 'system'),
             drive_file_id=drive_file_id
         )
         db.session.add(doc)
 
     db.session.commit()
-
-    if os.path.exists(temp_path):
-        os.unlink(temp_path)
 
     session.pop('form_data', None)
     session.pop('selected_months', None)
@@ -3253,34 +3239,38 @@ def get_drive_service():
     
     # Refresh token if expired
     if credentials.expired and credentials.refresh_token:
-        import google.auth.transport.requests
-        request = google.auth.transport.requests.Request()
+        request = Request()
         credentials.refresh(request)
         
         # Save refreshed credentials
         with open(token_path, 'wb') as token:
             pickle.dump(credentials, token)
+    elif credentials.expired:
+        return None, "Token expired. Please reconnect Google Drive."
     
     service = build('drive', 'v3', credentials=credentials)
     return service, None
 
 def upload_file_to_drive(file_path, filename, folder_name=None, employee=None):
-
+    """Upload file to Google Drive"""
     service, error = get_drive_service()
     if error:
-        raise Exception("Google Drive not connected. Please connect first.")
+        raise Exception(f"Google Drive not connected: {error}")
+    
     try:
         # Use employee details for folder name
         emp_id = employee.employee_id if employee else "unknown"
         emp_name = employee.full_name if employee else "Unknown"
         main_folder_name = f"{emp_id}_{emp_name.replace(' ', '_')}" if employee else "Documents"
-
+        
+        # Create or get main employee folder
         response = service.files().list(
             q=f"name='{main_folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false",
             spaces='drive',
             fields='files(id, name)'
         ).execute()
         folders = response.get('files', [])
+        
         if folders:
             parent_folder_id = folders[0]['id']
         else:
@@ -3294,7 +3284,8 @@ def upload_file_to_drive(file_path, filename, folder_name=None, employee=None):
             if employee:
                 employee.drive_folder_id = parent_folder_id
                 db.session.commit()
-
+        
+        # Create subfolder if specified
         if folder_name:
             response = service.files().list(
                 q=f"name='{folder_name}' and '{parent_folder_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
@@ -3302,6 +3293,7 @@ def upload_file_to_drive(file_path, filename, folder_name=None, employee=None):
                 fields='files(id, name)'
             ).execute()
             subfolders = response.get('files', [])
+            
             if subfolders:
                 target_folder_id = subfolders[0]['id']
             else:
@@ -3314,7 +3306,8 @@ def upload_file_to_drive(file_path, filename, folder_name=None, employee=None):
                 target_folder_id = subfolder.get('id')
         else:
             target_folder_id = parent_folder_id
-
+        
+        # Upload file
         file_metadata = {
             'name': filename,
             'parents': [target_folder_id]
@@ -3327,13 +3320,13 @@ def upload_file_to_drive(file_path, filename, folder_name=None, employee=None):
         ).execute()
         file_id = file.get('id')
         return file_id
-
+        
     except Exception as e:
         import traceback
         print("❌ Exception in upload_file_to_drive:")
         traceback.print_exc()
         raise Exception(f"Drive upload failed: {str(e)}")
-    
+
 def delete_drive_file(file_id):
     """Delete a file from Google Drive by its ID."""
     service, error = get_drive_service()
@@ -3356,7 +3349,6 @@ def get_parent_folder_id(file_id):
     try:
         file = service.files().get(fileId=file_id, fields='parents').execute()
         parents = file.get('parents', [])
-        # Return the first parent (most files have only one parent)
         return parents[0] if parents else None
     except Exception as e:
         print(f"Error getting parent for {file_id}: {e}")
@@ -3368,7 +3360,6 @@ def is_folder_empty(folder_id):
     if error:
         return False
     try:
-        # List items inside the folder
         query = f"'{folder_id}' in parents and trashed=false"
         response = service.files().list(q=query, fields='files(id)').execute()
         files = response.get('files', [])
@@ -3396,46 +3387,83 @@ def delete_drive_folder(folder_id):
 def authorize():
     if not session.get('is_admin'):
         return redirect(url_for('admin_login'))
-
-    try:
-        flow = get_google_flow()
-    except Exception as e:
-        flash(f'Failed to load Google credentials: {str(e)}', 'danger')
-        return redirect(url_for('admin_dashboard'))
-
-    authorization_url, state = flow.authorization_url(
-        access_type='offline',
-        include_granted_scopes='true',
-        prompt='consent'
-    )
     
-    session['oauth_state'] = state
-    return redirect(authorization_url)
+    try:
+        # Create flow with redirect URI
+        credentials_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'credentials.json')
+        
+        if not os.path.exists(credentials_path):
+            flash('credentials.json file not found. Please add it to the project root.', 'danger')
+            return redirect(url_for('admin_dashboard'))
+        
+        # Create flow
+        flow = Flow.from_client_secrets_file(
+            credentials_path,
+            scopes=['https://www.googleapis.com/auth/drive.file'],
+            redirect_uri=url_for('oauth2callback', _external=True)
+        )
+        
+        # Generate authorization URL
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            include_granted_scopes='true',
+            prompt='consent'
+        )
+        
+        # Store state in session
+        session['oauth_state'] = state
+        
+        return redirect(authorization_url)
+        
+    except Exception as e:
+        print(f"Authorization error: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Error connecting to Google Drive: {str(e)}', 'danger')
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/oauth2callback')
 def oauth2callback():
     if 'oauth_state' not in session:
         flash('OAuth session expired. Please try again.', 'danger')
         return redirect(url_for('authorize'))
-
+    
     try:
-        # FIXED: Don't pass redirect_uri parameter
-        flow = get_google_flow(state=session['oauth_state'])
+        # Create flow with the stored state
+        credentials_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'credentials.json')
         
-        # The redirect_uri is already set inside get_google_flow()
+        flow = Flow.from_client_secrets_file(
+            credentials_path,
+            scopes=['https://www.googleapis.com/auth/drive.file'],
+            redirect_uri=url_for('oauth2callback', _external=True),
+            state=session['oauth_state']
+        )
+        
+        # Exchange authorization code for credentials
         flow.fetch_token(authorization_response=request.url)
         credentials = flow.credentials
-    except Exception as e:
-        flash(f'OAuth callback failed: {str(e)}', 'danger')
+        
+        # Save credentials
+        token_path = os.path.join(app.config['GOOGLE_DRIVE_TOKEN_FOLDER'], 'token.pickle')
+        
+        # Create token folder if it doesn't exist
+        os.makedirs(app.config['GOOGLE_DRIVE_TOKEN_FOLDER'], exist_ok=True)
+        
+        with open(token_path, 'wb') as token:
+            pickle.dump(credentials, token)
+        
+        # Clear session state
+        session.pop('oauth_state', None)
+        
+        flash('✅ Successfully connected to Google Drive!', 'success')
         return redirect(url_for('admin_dashboard'))
-
-    token_path = os.path.join(app.config['GOOGLE_DRIVE_TOKEN_FOLDER'], 'token.pickle')
-    with open(token_path, 'wb') as token:
-        pickle.dump(credentials, token)
-    
-    session.pop('oauth_state', None)
-    flash('✅ Successfully connected to Google Drive!', 'success')
-    return redirect(url_for('admin_dashboard'))
+        
+    except Exception as e:
+        print(f"OAuth2 callback error: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Error connecting to Google Drive: {str(e)}', 'danger')
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/disconnect-drive')
 def disconnect_drive():
@@ -3454,11 +3482,30 @@ def disconnect_drive():
 
 @app.context_processor
 def utility_processor():
+    """Make functions available to all templates"""
+    
     def check_drive_connection():
+        """Check if Google Drive is connected"""
         token_path = os.path.join(app.config['GOOGLE_DRIVE_TOKEN_FOLDER'], 'token.pickle')
         return os.path.exists(token_path)
     
-    return dict(check_drive_connection=check_drive_connection)
+    def format_date(date, format='%d %B %Y'):
+        """Format date for templates"""
+        if not date:
+            return ''
+        if isinstance(date, str):
+            try:
+                from datetime import datetime
+                date = datetime.strptime(date, '%Y-%m-%d')
+            except:
+                return date
+        return date.strftime(format)
+    
+    return dict(
+        check_drive_connection=check_drive_connection,
+        format_date=format_date,
+        now=datetime.now()
+    )
 
 #============company routes====================
 @app.route('/admin/companies')
@@ -3730,17 +3777,74 @@ def download_document(doc_id):
         flash('Document not found', 'danger')
         return redirect(request.referrer or url_for('admin_dashboard'))
     
-    # Check if file exists
-    if os.path.exists(document.file_path):
-        return send_file(
-            document.file_path,
-            as_attachment=True,
-            download_name=document.filename,
-            mimetype='application/pdf'
-        )
-    else:
-        flash(f'File not found: {document.filename}', 'danger')
-        return redirect(request.referrer or url_for('admin_dashboard'))
+    # ========== METHOD 1: CHECK LOCAL FILE ==========
+    # Try multiple possible local paths
+    local_paths = [
+        document.file_path,
+        os.path.join(app.config['UPLOAD_FOLDER'], document.filename),
+        os.path.join(app.root_path, 'uploads', document.filename),
+    ]
+    
+    for path in local_paths:
+        if path and os.path.exists(path):
+            try:
+                return send_file(
+                    path,
+                    as_attachment=True,
+                    download_name=document.filename,
+                    mimetype='application/pdf'
+                )
+            except Exception as e:
+                print(f"Error sending local file {path}: {e}")
+                continue
+    
+    # ========== METHOD 2: DOWNLOAD FROM GOOGLE DRIVE ==========
+    if document.drive_file_id:
+        try:
+            service, error = get_drive_service()
+            if error:
+                flash('Failed to connect to Google Drive', 'danger')
+                return redirect(request.referrer or url_for('admin_dashboard'))
+            
+            # Download file from Drive
+            drive_request = service.files().get_media(fileId=document.drive_file_id)
+            file_data = io.BytesIO()
+            downloader = MediaIoBaseDownload(file_data, drive_request)
+            
+            done = False
+            while not done:
+                status, done = downloader.next_chunk()
+            
+            file_data.seek(0)
+            
+            # Save a local copy for future downloads
+            try:
+                local_path = os.path.join(app.config['UPLOAD_FOLDER'], document.filename)
+                with open(local_path, 'wb') as f:
+                    f.write(file_data.getvalue())
+                # Update database with local path
+                file_data.seek(0)
+                document.file_path = local_path
+                db.session.commit()
+                print(f"✅ Saved local copy: {local_path}")
+            except Exception as e:
+                print(f"Could not save local copy: {e}")
+                file_data.seek(0)
+            
+            # Send file as download
+            response = make_response(file_data.read())
+            response.headers['Content-Type'] = 'application/pdf'
+            response.headers['Content-Disposition'] = f'attachment; filename={document.filename}'
+            return response
+            
+        except Exception as e:
+            print(f"Error downloading from Drive: {e}")
+            flash(f'Error downloading from Drive: {str(e)}', 'danger')
+            return redirect(request.referrer or url_for('admin_dashboard'))
+    
+    # ========== FILE NOT FOUND ANYWHERE ==========
+    flash(f'File not found: {document.filename}. The file may have been deleted.', 'danger')
+    return redirect(request.referrer or url_for('admin_dashboard'))
 
 @app.route('/admin/document/<int:doc_id>/delete', methods=['POST'])
 def delete_document(doc_id):

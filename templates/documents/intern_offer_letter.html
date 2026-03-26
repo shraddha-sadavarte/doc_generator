@@ -511,9 +511,9 @@
     <div class="letter-header">
         <div class="logo-section">
             {% if company.logo_with_name %}
-                <img src="{{ url_for('static', filename='images/' + company.logo_with_name) }}" alt="{{ company.name }}">
+                <img src="{{ url_for('static', filename='images/' + company.logo_with_name, _external=True) }}" alt="{{ company.name }}">
             {% elif company.logo %}
-                <img src="{{ url_for('static', filename='images/' + company.logo) }}" alt="Logo">
+                <img src="{{ url_for('static', filename='images/' + company.logo, _external=True) }}" alt="Logo">
                 <div class="company-info">
                     <h3>{{ company.name }}</h3>
                     <p>{{ company.address }}</p>
@@ -663,7 +663,7 @@
             <div class="signature-row">
                 <div class="signature-box">
                     {% if company.signature %}
-                        <img src="{{ url_for('static', filename='images/signatures/' + company.signature) }}" style="height: 50px; object-fit: contain;">
+                        <img src="{{ url_for('static', filename='images/signatures/' + company.signature, _external=True) }}" style="height: 50px; object-fit: contain;">
                     {% endif %}
                     <div class="signature-name">{{ data.hr_name }}</div>
                     <div class="signature-title">{{ data.hr_designation }}</div>

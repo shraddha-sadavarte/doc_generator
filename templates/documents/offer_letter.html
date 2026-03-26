@@ -187,9 +187,9 @@
     <div class="letter-header">
         <div class="logo-section">
             {% if company.logo_with_name %}
-                <img src="{{ url_for('static', filename='images/' + company.logo_with_name) }}" alt="{{ company.name }}" style="height: 80px; object-fit: contain;">
+                <img src="{{ url_for('static', filename='images/' + company.logo_with_name, _external=True) }}" alt="{{ company.name }}" style="height: 80px; object-fit: contain;">
             {% elif company.logo %}
-                <img src="{{ url_for('static', filename='images/' + company.logo) }}" alt="Logo" style="height: 60px; object-fit: contain;">
+                <img src="{{ url_for('static', filename='images/' + company.logo, _external=True) }}" alt="Logo" style="height: 60px; object-fit: contain;">
                 <div class="company-info">
                     <div class="company-name">{{ company.name }}</div>
                     <div class="company-address">{{ company.address }}</div>
@@ -250,6 +250,7 @@
             <li style="margin-bottom: 15px;">
                 <strong style="color: #0d6efd;">Date of Joining</strong><br>
                 You are required to join us on
+                <strong>
                 {% if data.joining_date %}
                     {% if data.joining_date is string %}
                         {{ data.joining_date[-2:] }}/{{ data.joining_date[5:7] }}/{{ data.joining_date[:4] }}
@@ -257,6 +258,7 @@
                         {{ data.joining_date.strftime('%d/%m/%Y') }}
                     {% endif %}
                 {% else %}[Joining Date Not Specified]{% endif %}.
+                </strong>
             </li>
             <li style="margin-bottom: 15px;">
                 <strong style="color: #0d6efd;">Designation</strong><br>
@@ -317,9 +319,9 @@
             <p><strong style="color: #0d6efd;">For {{ company.name }}</strong></p>
             <div style="height: 80px;">
                 {% if company.signature %}
-                    <img src="{{ request.url_root }}static/images/signatures/{{ company.signature }}"
-                         alt="Authorized Signature"
-                         style="height: 100px; max-width: 200px; object-fit: contain;">
+                    <img src="{{ url_for('static', filename='images/signatures/' + company.signature, _external=True) }}"
+                        alt="Authorized Signature"
+                        style="height: 100px; max-width: 200px; object-fit: contain;">
                 {% endif %}
             </div>
             <p style="margin-bottom:0;">
