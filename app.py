@@ -529,14 +529,55 @@ def calculate_annual_income_tax(annual_ctc):
         return 112500 + (taxable_income - 1000000) * 0.3
 
 #function for production
-def html_to_pdf(html_content, output_path):
-    """Convert HTML to PDF - Production version for Render"""
-    try:
-        from weasyprint import HTML
-        import tempfile
-        import os
+def embed_images_as_base64(html_content):
+    """Convert all image URLs to base64 data URIs"""
+    static_folder = app.static_folder
+    images_folder = os.path.join(static_folder, 'images')
+    signatures_folder = os.path.join(images_folder, 'signatures')
+    
+    def replace_image(match):
+        img_tag = match.group(0)
+        src_match = re.search(r'src=["\']([^"\']+)["\']', img_tag)
+        if not src_match:
+            return img_tag
         
-        # Create a temporary HTML file
+        src = src_match.group(1)
+        
+        # Skip if already base64
+        if src.startswith('data:'):
+            return img_tag
+        
+        # Find image path (handle both /static/images/ and static/images/)
+        if 'signatures' in src:
+            filename = src.split('signatures/')[-1]
+            abs_path = os.path.join(signatures_folder, filename)
+        elif 'images' in src:
+            filename = src.split('images/')[-1]
+            abs_path = os.path.join(images_folder, filename)
+        else:
+            return img_tag
+        
+        if os.path.exists(abs_path):
+            with open(abs_path, 'rb') as f:
+                image_data = base64.b64encode(f.read()).decode('utf-8')
+            
+            ext = abs_path.split('.')[-1].lower()
+            mime = 'image/jpeg' if ext in ['jpg', 'jpeg'] else f'image/{ext}'
+            new_src = f'data:{mime};base64,{image_data}'
+            return img_tag.replace(src, new_src)
+        
+        return img_tag
+    
+    html_content = re.sub(r'<img[^>]+>', replace_image, html_content)
+    return html_content
+
+def html_to_pdf(html_content, output_path):
+    """Convert HTML to PDF with embedded images"""
+    try:
+        # Embed images as base64
+        html_content = embed_images_as_base64(html_content)
+        
+        # Create temporary HTML file
         with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
             f.write(html_content)
             temp_html = f.name
@@ -544,18 +585,15 @@ def html_to_pdf(html_content, output_path):
         # Convert to PDF
         HTML(filename=temp_html).write_pdf(output_path)
         
-        # Clean up temp file
+        # Clean up
         if os.path.exists(temp_html):
             os.unlink(temp_html)
         
-        print(f"✅ PDF generated successfully: {output_path}")
+        print(f"✅ PDF generated: {output_path}")
         return True
         
-    except ImportError as e:
-        print(f"WeasyPrint not installed: {e}")
-        return False
     except Exception as e:
-        print(f"PDF generation error: {e}")
+        print(f"PDF error: {e}")
         import traceback
         traceback.print_exc()
         return False
