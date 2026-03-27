@@ -439,9 +439,9 @@
     <div class="letter-header">
         <div class="logo-section">
             {% if company.logo_with_name %}
-                <img src="{{ url_for('static', filename='images/' + company.logo_with_name) }}" alt="{{ company.name }}">
+                <img src="{{ url_for('static', filename='images/' + company.logo_with_name, _external=True) }}" alt="{{ company.name }}">
             {% elif company.logo %}
-                <img src="{{ url_for('static', filename='images/' + company.logo) }}" alt="Logo">
+                <img src="{{ url_for('static', filename='images/' + company.logo, _external=True) }}" alt="Logo">
                 <div class="company-info">
                     <div class="company-name">{{ company.name }}</div>
                     <div class="company-address">{{ company.address }}</div>
@@ -475,7 +475,12 @@
 
     <!-- Date -->
     <div class="date-section">
-        <strong>Date:</strong> {{ now.strftime('%d %B %Y') }}
+        <strong>Date:</strong> 
+        {% if data.document_date %}
+            {{ data.document_date }}
+        {% else %}
+            {{ now.strftime('%d %B %Y') }}
+        {% endif %}
     </div>
 
     <!-- Salutation -->
@@ -491,21 +496,27 @@
         </p>
 
         <p>
-            We are pleased to inform you that your salary has been increased by <strong>Rs. {{ "{:,.0f}".format(data.salary_breakdown['increment_per_month']|float) }} per month</strong>, 
+            We are pleased to inform you that your salary has been increased by <strong>Rs. {{ "{:,.0f}".format(data.salary_breakdown.get('increment_per_month', 0) if data.salary_breakdown else 0) }} per month</strong>, 
             positioned at <strong>{{ data.designation|title }}</strong>. Your employment records are being updated to reflect the
             same. Kindly note that salary appraisal/fitment is a function of a direct one-on-one change for all
             employees. This is based on an individual evaluation, which was done in the appraisal process.
         </p>
 
         <p>
-            <strong>Your revised Cost to Company (CTC) will be Rs. {{ "{:,.0f}".format(data.ctc|float + (data.salary_breakdown['increment_per_month']|float * 12)) }} per annum.</strong>
+            <strong>Your revised Cost to Company (CTC) will be Rs. {{ "{:,.0f}".format(data.ctc|float + ((data.salary_breakdown.get('increment_per_month', 0) if data.salary_breakdown else 0) * 12)) }} per annum.</strong>
         </p>
 
         <p>
             This increment will be effective from 
             <strong>
-                {% set effective_date = now + timedelta(days=30) %}
-                {{ effective_date.strftime('%d %B %Y') }}.
+                {% if data.increment_effective_date_formatted %}
+                    {{ data.increment_effective_date_formatted }}
+                {% elif data.increment_effective_date %}
+                    {{ data.increment_effective_date | format_date('%d %B %Y') }}
+                {% else %}
+                    {% set effective_date = now + timedelta(days=30) %}
+                    {{ effective_date.strftime('%d %B %Y') }}
+                {% endif %}.
             </strong>
         </p>
 
@@ -518,7 +529,7 @@
         </p>
     </div>
 
-    <!-- Salary Breakdown Section -->
+    <!-- Salary Breakdown Section - Only show if salary_breakdown exists -->
     {% if data.salary_breakdown %}
     <div class="salary-breakdown">
         <h4>Revised Salary Breakdown</h4>
@@ -576,7 +587,7 @@
     <div class="signature-section">
         <div class="signature-image">
             {% if company.signature %}
-                <img src="{{ url_for('static', filename='images/signatures/' + company.signature) }}" 
+                <img src="{{ url_for('static', filename='images/signatures/' + company.signature, _external=True) }}" 
                  alt="Authorized Signature"
                  style="height: 100px; max-width: 200px; object-fit: contain;">
             {% endif %}

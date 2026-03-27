@@ -1,7 +1,7 @@
 <!-- templates/_watermark.html -->
 {% if watermark_logo %}
 <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: center; pointer-events: none; z-index: 9999; opacity: 0.1;">
-    <img src="{{ url_for('static', filename='images/' + watermark_logo) }}" 
+    <img src="{{ url_for('static', filename='images/' + watermark_logo, _external=True) }}" 
          alt="Watermark" 
          style="width: 70%; height: 70%; object-fit: contain; transform: rotate(-20deg);">
 </div>

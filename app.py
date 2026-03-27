@@ -1,72 +1,88 @@
-import os
-import re
-import base64
-import tempfile
-import pickle
-import json
-import io
-import zipfile
-from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
-from weasyprint import HTML
+import os
+import json
+import traceback
 
-# Load environment variables
 load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Set OAuth environment variables
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
-
-# Flask imports
-from flask import Flask, flash, jsonify, render_template, request, redirect, url_for, session, send_file, make_response, send_from_directory
+from flask import Flask, flash, jsonify, render_template, request, redirect, url_for, session, send_file, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from werkzeug.utils import secure_filename
+from datetime import datetime, date, timedelta
+import io
+import zipfile
+import subprocess
+import tempfile
+from flask import send_file, make_response, request
+from googleapiclient.http import MediaIoBaseDownload
+
+try:
+    from weasyprint import HTML
+except:
+    HTML = None
+from flask import redirect, url_for, flash
+from config import COMPANIES
 from werkzeug.security import generate_password_hash, check_password_hash
-
-# Google imports
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import Flow
-
-# PDF imports
-from weasyprint import HTML
-from num2words import num2words
 from humanize import intword
+from google.oauth2 import service_account
+from googleapiclient.discovery import build  
+from googleapiclient.http import MediaFileUpload  
+from google.oauth2.credentials import Credentials 
+from google_auth_oauthlib.flow import Flow  
+import pickle
+import uuid
+from num2words import num2words
+from googleapiclient.http import MediaIoBaseDownload
 
-# Database URL
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-# Initialize Flask app
 app = Flask(__name__)
 app.secret_key = "super-secret-key"
 
-# Database configuration
 if DATABASE_URL:
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 else:
+    # Local development – use MySQL
     app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://LiteCode:LiteCode%400804@localhost/lc_lms'
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, "generated_docs")
+# Google Drive Configuration
 app.config['GOOGLE_DRIVE_TOKEN_FOLDER'] = os.path.join(app.root_path, "tokens")
-
-# Create required directories
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['GOOGLE_DRIVE_TOKEN_FOLDER'], exist_ok=True)
-os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], "employee_documents"), exist_ok=True)
-os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], "profiles"), exist_ok=True)
 
-# Google OAuth Configuration
+# Google OAuth Configuration - Use environment variables directly
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
 REDIRECT_URI = os.getenv('OAUTH_REDIRECT_URI', 
     'https://doc-generator-z2b2.onrender.com/oauth2callback' if os.getenv('RENDER') else 'http://localhost:5000/oauth2callback')
 
-# Initialize database
+if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+    print("Warning: Google OAuth credentials not found in environment variables")
+    # You can add fallback logic here if needed
+else:
+    # Create client config from environment variables
+    client_config = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "project_id": os.getenv('GOOGLE_PROJECT_ID', ''),
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "redirect_uris": [REDIRECT_URI]
+    }
+
+SCOPES = ['https://www.googleapis.com/auth/drive.file']
+os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], "employee_documents"), exist_ok=True)
+os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], "profiles"), exist_ok=True)
+
+
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 #Admin model
 class Admin(db.Model):
@@ -512,6 +528,15 @@ def calculate_annual_income_tax(annual_ctc):
     else:
         return 112500 + (taxable_income - 1000000) * 0.3
 
+@app.template_filter('get')
+def get_filter(dictionary, key, default=''):
+    """Safely get value from dictionary"""
+    if dictionary is None:
+        return default
+    if isinstance(dictionary, dict):
+        return dictionary.get(key, default)
+    return default
+
 #production function for pdf generation
 def embed_images_as_base64(html_content):
     """Convert all image URLs to base64 data URIs"""
@@ -604,8 +629,7 @@ def html_to_pdf(html_content, output_path):
         traceback.print_exc()
         return False
 
-# ========== TEST ROUTE ==========
-
+#test route
 @app.route('/test-pdf-generation')
 def test_pdf_generation():
     """Test PDF generation with debugging"""
@@ -641,86 +665,33 @@ def test_pdf_generation():
         import traceback
         return f"Error: {str(e)}<br><pre>{traceback.format_exc()}</pre>", 500
 
-# #local function
+#local function
 # def html_to_pdf(html_content, output_path):
-#     """Convert HTML to PDF using WeasyPrint (Local testing)"""
-    
-#     import tempfile
-#     import subprocess
-#     import os
-#     from datetime import datetime
-    
-#     print("=" * 60)
-#     print(f"🔍 PDF GENERATION STARTED at {datetime.now()}")
-#     print("=" * 60)
-    
 #     # Path to the standalone WeasyPrint executable (for local Windows)
 #     weasyprint_path = os.path.join(app.root_path, 'weasyprint', 'weasyprint.exe')
-#     print(f"📁 WeasyPrint path: {weasyprint_path}")
-#     print(f"📁 WeasyPrint exists: {os.path.exists(weasyprint_path)}")
     
-#     # Create temp HTML file
 #     with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
 #         f.write(html_content)
 #         temp_html_path = f.name
-    
-#     print(f"📄 Temp HTML file: {temp_html_path}")
-#     print(f"📄 HTML size: {len(html_content)} characters")
-    
-#     # Save temp HTML for debugging
-#     debug_html_path = output_path.replace('.pdf', '_debug.html')
-#     with open(debug_html_path, 'w', encoding='utf-8') as f:
-#         f.write(html_content)
-#     print(f"🐛 Debug HTML saved: {debug_html_path}")
 
 #     try:
-#         print(f"🔄 Running WeasyPrint command...")
-#         print(f"   Command: {weasyprint_path} {temp_html_path} {output_path}")
-        
 #         result = subprocess.run(
 #             [weasyprint_path, temp_html_path, output_path],
 #             capture_output=True,
 #             text=True,
-#             timeout=60  # Increased timeout
+#             timeout=30
 #         )
-        
-#         print(f"📊 Return code: {result.returncode}")
-        
 #         if result.returncode == 0:
-#             print(f"✅ PDF generated successfully: {output_path}")
-#             if os.path.exists(output_path):
-#                 print(f"📁 PDF size: {os.path.getsize(output_path)} bytes")
 #             return True
 #         else:
-#             print("❌ WeasyPrint error:")
-#             print(f"   stderr: {result.stderr}")
-#             print(f"   stdout: {result.stdout}")
+#             print("WeasyPrint error:", result.stderr)
 #             return False
-            
-#     except subprocess.TimeoutExpired:
-#         print("❌ WeasyPrint timeout after 60 seconds")
-#         return False
-#     except FileNotFoundError:
-#         print(f"❌ WeasyPrint executable not found at: {weasyprint_path}")
-#         print("   Please check if weasyprint is installed correctly")
-#         return False
 #     except Exception as e:
-#         print(f"❌ WeasyPrint exception: {e}")
-#         import traceback
-#         traceback.print_exc()
+#         print("WeasyPrint exception:", e)
 #         return False
 #     finally:
-#         # Clean up temp file
 #         if os.path.exists(temp_html_path):
-#             try:
-#                 os.unlink(temp_html_path)
-#                 print(f"🧹 Cleaned up: {temp_html_path}")
-#             except:
-#                 pass
-        
-#         print("=" * 60)
-#         print("🔍 PDF GENERATION ENDED")
-#         print("=" * 60)
+#             os.unlink(temp_html_path)
 
 @app.template_filter('humanize')
 def humanize_filter(value):
@@ -768,7 +739,7 @@ def preview():
     selected_months = session.get('selected_months', [])
     per_month_values = session.get('per_month_values', {})
     month_days_values = session.get('month_days_values', {})
-    member_type = session.get('member_type', 'employee')  # Get member type
+    member_type = session.get('member_type', 'employee')
 
     if 'document_type' not in form_data:
         flash('Document type is missing!', 'danger')
@@ -871,108 +842,104 @@ def preview():
             watermark_logo=company.logo,
             now=datetime.now()
         )
-    # ========== END RESIGNATION ACCEPTANCE HANDLER ==========
-
+    
     # ========== INTERN DOCUMENTS HANDLER ==========
     if form_data.get('document_type') in ['intern_offer_letter', 'certificate_of_internship']:
-        # Get intern from database
-        intern_id = form_data.get('intern_id')
-        intern = None
-        if intern_id:
-            intern = Intern.query.get(intern_id)
+        # Check if we have preview data in session (from generate_intern_document)
+        data = session.get('intern_preview_data')
         
-        # Get company
-        company_id = form_data.get('company')
-        company = None
-        if company_id:
-            try:
-                company = Company.query.get(int(company_id))
-            except (ValueError, TypeError):
-                company = None
-        
-        if not intern:
-            flash('Intern not found', 'danger')
-            return redirect(url_for('admin_dashboard'))
-        
-        if not company:
-            flash('Company not found', 'danger')
-            return redirect(url_for('admin_dashboard'))
-        
-        # Prepare data for template
-        name_parts = intern.full_name.split() if intern.full_name else ['']
-        first_name = name_parts[0] if name_parts else ''
-        
-        end_date = intern.end_date
-        if not end_date and intern.start_date:
-            end_date = intern.start_date + timedelta(days=intern.internship_duration * 30)
-        
-        company_domain = get_company_domain(company)
-        
-        # ========== DATE CALCULATIONS ==========
-        if intern.start_date:
-            # Convert to date if it's a datetime object
-            if isinstance(intern.start_date, datetime):
-                start_date = intern.start_date.date()
+        # If no preview data, get from database
+        if not data:
+            intern_id = form_data.get('intern_id')
+            intern = None
+            if intern_id:
+                intern = Intern.query.get(intern_id)
+            
+            # Get company
+            company_id = form_data.get('company')
+            company = None
+            if company_id:
+                try:
+                    company = Company.query.get(int(company_id))
+                except (ValueError, TypeError):
+                    company = None
+            
+            if not intern:
+                flash('Intern not found', 'danger')
+                return redirect(url_for('admin_dashboard'))
+            
+            if not company:
+                flash('Company not found', 'danger')
+                return redirect(url_for('admin_dashboard'))
+            
+            # Prepare data for template
+            name_parts = intern.full_name.split() if intern.full_name else ['']
+            first_name = name_parts[0] if name_parts else ''
+            
+            end_date = intern.end_date
+            if not end_date and intern.start_date:
+                end_date = intern.start_date + timedelta(days=intern.internship_duration * 30)
+            
+            company_domain = get_company_domain(company)
+            
+            # ========== DATE CALCULATIONS ==========
+            if intern.start_date:
+                if isinstance(intern.start_date, datetime):
+                    start_date = intern.start_date.date()
+                else:
+                    start_date = intern.start_date
+                offer_date = start_date - timedelta(days=5)
+                formatted_offer_date = offer_date.strftime('%d %B %Y')
+                formatted_joining_date = start_date.strftime('%d %B %Y')
+                acceptance_deadline = start_date + timedelta(days=5)
+                formatted_acceptance_deadline = acceptance_deadline.strftime('%d %B %Y')
             else:
-                start_date = intern.start_date
-            offer_date = start_date - timedelta(days=5)
-            formatted_offer_date = offer_date.strftime('%d %B %Y')
+                formatted_joining_date = 'To be confirmed'
+                formatted_offer_date = datetime.now().strftime('%d %B %Y')
+                formatted_acceptance_deadline = (datetime.now() + timedelta(days=5)).strftime('%d %B %Y')
             
-            formatted_joining_date = start_date.strftime('%d %B %Y')
-            print(f"📅 Using joining date: {formatted_joining_date}")
+            data = {
+                'timestamp': datetime.now().strftime('%d %B %Y'),
+                'full_name': intern.full_name,
+                'first_name': first_name,
+                'email': intern.email,
+                'address': intern.address,
+                'qualification': intern.qualification,
+                'college_name': intern.college_name,
+                'course': intern.course,
+                'specialization': intern.specialization,
+                'internship_duration': intern.internship_duration,
+                'start_date': formatted_joining_date,
+                'end_date': end_date.strftime('%d %B %Y') if end_date else 'TBD',
+                'stipend': intern.stipend,
+                'mentor_name': intern.mentor_name or company.hr_name,
+                'mentor_designation': intern.mentor_designation or company.hr_designation,
+                'hr_name': company.hr_name or 'HR Department',
+                'hr_designation': company.hr_designation or 'HR Manager',
+                'company_name': company.name,
+                'company_domain': company_domain,
+                'intern_id': intern.intern_id,
+                'certificate_no': f"CERT-{intern.intern_id}-{datetime.now().year}",
+                'offer_date': formatted_offer_date,
+                'acceptance_deadline': formatted_acceptance_deadline,
+                'joining_date': formatted_joining_date
+            }
             
-            # Acceptance deadline (5 days after joining date)
-            acceptance_deadline = start_date + timedelta(days=5)
-            formatted_acceptance_deadline = acceptance_deadline.strftime('%d %B %Y')
-        else:
-            # If no start date, use current date
-            formatted_joining_date = 'To be confirmed'
-            formatted_offer_date = datetime.now().strftime('%d %B %Y')
-            formatted_acceptance_deadline = (datetime.now() + timedelta(days=5)).strftime('%d %B %Y')
-            print(f"⚠️ No start date found")
+            # Store in session for future use
+            session['intern_preview_data'] = data
         
-        print(f"📅 Offer Date: {formatted_offer_date}")
-        print(f"📅 Joining Date: {formatted_joining_date}")
-        print(f"📅 Acceptance Deadline: {formatted_acceptance_deadline}")
-        # ========== END DATE CALCULATIONS ==========
-        
-        data = {
-            'timestamp': datetime.now().strftime('%d %B %Y'),
-            'full_name': intern.full_name,
-            'first_name': first_name,
-            'email': intern.email,
-            'address': intern.address,
-            'qualification': intern.qualification,
-            'college_name': intern.college_name,
-            'course': intern.course,
-            'specialization': intern.specialization,
-            'internship_duration': intern.internship_duration,
-            'start_date': formatted_joining_date,
-            'end_date': end_date.strftime('%d %B %Y') if end_date else 'TBD',
-            'stipend': intern.stipend,
-            'mentor_name': intern.mentor_name or company.hr_name,
-            'mentor_designation': intern.mentor_designation or company.hr_designation,
-            'hr_name': company.hr_name or 'HR Department',
-            'hr_designation': company.hr_designation or 'HR Manager',
-            'company_name': company.name,
-            'company_domain': company_domain,
-            'intern_id': intern.intern_id,
-            'certificate_no': f"CERT-{intern.intern_id}-{datetime.now().year}",
-            'offer_date': formatted_offer_date,
-            'acceptance_deadline': formatted_acceptance_deadline,
-            'joining_date': formatted_joining_date
-        }
+        # Get company for watermark
+        company = Company.query.get(form_data.get('company')) if form_data.get('company') else None
         
         return render_template(
             f'documents/{form_data.get("document_type")}.html',
             data=data,
             company=company,
-            watermark_logo=company.logo,
+            watermark_logo=company.logo if company else None,
             now=datetime.now()
         )
-    # ========== END INTERN DOCUMENTS HANDLER ==========
-
-    # ... rest of your existing preview code ...
+    
+    # ========== OFFER AND SALARY DOCUMENTS ==========
     if form_data.get('joining_date'):
         date_before = get_previous_workday(form_data['joining_date'], 8)
         form_data['date_before'] = date_before
@@ -1198,7 +1165,6 @@ def preview_document(doc_type):
 
     # ========== RESIGNATION ACCEPTANCE HANDLER ==========
     if doc_type == 'resignation_acceptance':
-        # ... existing resignation acceptance code ...
         employee_id = form_data.get('employee_id')
         employee = None
         if employee_id:
@@ -1230,13 +1196,11 @@ def preview_document(doc_type):
         
         name_parts = employee.full_name.split() if employee.full_name else ['']
         first_name = name_parts[0] if name_parts else ''
-        last_name = name_parts[-1] if len(name_parts) > 1 else ''
         
         company_domain = get_company_domain(company)
         hr_email = get_hr_email(company)
         employee_email = get_employee_email(employee, company)
         
-        # Format resignation_date
         formatted_resignation_date = ""
         if employee.resignation_date:
             if isinstance(employee.resignation_date, datetime):
@@ -1244,7 +1208,6 @@ def preview_document(doc_type):
             else:
                 formatted_resignation_date = employee.resignation_date.strftime('%d %B %Y')
         
-        # Format acceptance_date
         formatted_acceptance_date = ""
         if employee.resignation_acceptance_date:
             if isinstance(employee.resignation_acceptance_date, datetime):
@@ -1252,7 +1215,6 @@ def preview_document(doc_type):
             else:
                 formatted_acceptance_date = employee.resignation_acceptance_date.strftime('%d %B %Y')
         
-        # If acceptance_date is not set, calculate it
         if not formatted_acceptance_date and employee.resignation_date:
             if isinstance(employee.resignation_date, datetime):
                 calc_date = employee.resignation_date.date() + timedelta(days=3)
@@ -1284,113 +1246,105 @@ def preview_document(doc_type):
             watermark_logo=company.logo,
             now=datetime.now()
         )
-    # ========== END RESIGNATION ACCEPTANCE HANDLER ==========
 
-   # ========== INTERN DOCUMENTS HANDLER ==========
+    # ========== INTERN DOCUMENTS HANDLER ==========
     if doc_type in ['intern_offer_letter', 'certificate_of_internship']:
-        # Get intern from database
-        intern_id = form_data.get('intern_id')
-        intern = None
-        if intern_id:
-            intern = Intern.query.get(intern_id)
+        # Check if we have preview data in session
+        data = session.get('intern_preview_data')
         
-        # Get company
-        company_id = form_data.get('company')
-        company = None
-        if company_id:
-            try:
-                company = Company.query.get(int(company_id))
-            except (ValueError, TypeError):
-                company = None
-        
-        if not intern:
-            flash('Intern not found', 'danger')
-            return redirect(url_for('admin_dashboard'))
-        
-        if not company:
-            flash('Company not found', 'danger')
-            return redirect(url_for('admin_dashboard'))
-        
-        # Prepare data for template
-        name_parts = intern.full_name.split() if intern.full_name else ['']
-        first_name = name_parts[0] if name_parts else ''
-        
-        end_date = intern.end_date
-        if not end_date and intern.start_date:
-            end_date = intern.start_date + timedelta(days=intern.internship_duration * 30)
-        
-        company_domain = get_company_domain(company)
-        
-        # ========== DATE CALCULATIONS FOR OFFER LETTER ==========
-        if intern.start_date:
-            # Convert to date if it's a datetime object
-            if isinstance(intern.start_date, datetime):
-                start_date = intern.start_date.date()
+        # If no preview data, get from database
+        if not data:
+            intern_id = form_data.get('intern_id')
+            intern = None
+            if intern_id:
+                intern = Intern.query.get(intern_id)
+            
+            company_id = form_data.get('company')
+            company = None
+            if company_id:
+                try:
+                    company = Company.query.get(int(company_id))
+                except (ValueError, TypeError):
+                    company = None
+            
+            if not intern:
+                flash('Intern not found', 'danger')
+                return redirect(url_for('admin_dashboard'))
+            
+            if not company:
+                flash('Company not found', 'danger')
+                return redirect(url_for('admin_dashboard'))
+            
+            # Calculate data
+            name_parts = intern.full_name.split() if intern.full_name else ['']
+            first_name = name_parts[0] if name_parts else ''
+            
+            end_date = intern.end_date
+            if not end_date and intern.start_date:
+                end_date = intern.start_date + timedelta(days=intern.internship_duration * 30)
+            
+            company_domain = get_company_domain(company)
+            
+            if intern.start_date:
+                if isinstance(intern.start_date, datetime):
+                    start_date = intern.start_date.date()
+                else:
+                    start_date = intern.start_date
+                offer_date = start_date - timedelta(days=5)
+                formatted_offer_date = offer_date.strftime('%d %B %Y')
+                formatted_joining_date = start_date.strftime('%d %B %Y')
+                acceptance_deadline = start_date + timedelta(days=5)
+                formatted_acceptance_deadline = acceptance_deadline.strftime('%d %B %Y')
             else:
-                start_date = intern.start_date
-        offer_date = start_date - timedelta(days=5)
-        formatted_offer_date = offer_date.strftime('%d %B %Y')
-        acceptance_deadline = start_date + timedelta(days=5)
-        formatted_acceptance_deadline = acceptance_deadline.strftime('%d %B %Y')
+                formatted_joining_date = 'To be confirmed'
+                formatted_offer_date = datetime.now().strftime('%d %B %Y')
+                formatted_acceptance_deadline = (datetime.now() + timedelta(days=5)).strftime('%d %B %Y')
+            
+            data = {
+                'timestamp': datetime.now().strftime('%d %B %Y'),
+                'full_name': intern.full_name,
+                'first_name': first_name,
+                'email': intern.email,
+                'address': intern.address,
+                'qualification': intern.qualification,
+                'college_name': intern.college_name,
+                'course': intern.course,
+                'specialization': intern.specialization,
+                'internship_duration': intern.internship_duration,
+                'start_date': formatted_joining_date,
+                'end_date': end_date.strftime('%d %B %Y') if end_date else 'TBD',
+                'stipend': intern.stipend,
+                'mentor_name': intern.mentor_name or company.hr_name,
+                'mentor_designation': intern.mentor_designation or company.hr_designation,
+                'hr_name': company.hr_name or 'HR Department',
+                'hr_designation': company.hr_designation or 'HR Manager',
+                'company_name': company.name,
+                'company_domain': company_domain,
+                'intern_id': intern.intern_id,
+                'certificate_no': f"CERT-{intern.intern_id}-{datetime.now().year}",
+                'offer_date': formatted_offer_date,
+                'acceptance_deadline': formatted_acceptance_deadline,
+                'joining_date': formatted_joining_date
+            }
         
-        # IMPORTANT: Use the actual start date from database - DO NOT CHANGE IT
-        if intern.start_date:
-            formatted_joining_date = intern.start_date.strftime('%d %B %Y')
-            print(f"✅ Using intern's actual start date: {formatted_joining_date}")
-        else:
-            # Only if no start date is set (should not happen)
-            formatted_joining_date = 'To be confirmed'
-            print(f"⚠️ No start date found for intern {intern.full_name}")
-        
-        print(f"📅 Intern start_date from DB: {intern.start_date}")
-        print(f"📅 Offer Date: {formatted_offer_date}")
-        print(f"📅 Joining Date: {formatted_joining_date}")
-        # ========== END DATE CALCULATIONS ==========
-        
-        data = {
-            'timestamp': datetime.now().strftime('%d %B %Y'),
-            'full_name': intern.full_name,
-            'first_name': first_name,
-            'email': intern.email,
-            'address': intern.address,
-            'qualification': intern.qualification,
-            'college_name': intern.college_name,
-            'course': intern.course,
-            'specialization': intern.specialization,
-            'internship_duration': intern.internship_duration,
-            'start_date': formatted_joining_date,  # Use the actual start date
-            'end_date': end_date.strftime('%d %B %Y') if end_date else 'TBD',
-            'stipend': intern.stipend,
-            'mentor_name': intern.mentor_name or company.hr_name,
-            'mentor_designation': intern.mentor_designation or company.hr_designation,
-            'hr_name': company.hr_name or 'HR Department',
-            'hr_designation': company.hr_designation or 'HR Manager',
-            'company_name': company.name,
-            'company_domain': company_domain,
-            'intern_id': intern.intern_id,
-            'certificate_no': f"CERT-{intern.intern_id}-{datetime.now().year}",
-            'offer_date': formatted_offer_date,
-            'acceptance_deadline': formatted_acceptance_deadline,
-            'joining_date': formatted_joining_date
-        }
+        # Get company for watermark
+        company = Company.query.get(form_data.get('company')) if form_data.get('company') else None
         
         return render_template(
             f'documents/{doc_type}.html',
             data=data,
             company=company,
-            watermark_logo=company.logo,
+            watermark_logo=company.logo if company else None,
             now=datetime.now()
         )
-    # ========== END INTERN DOCUMENTS HANDLER ==========
 
-    # ... rest of your existing preview_document code ...
+    # ========== OTHER DOCUMENTS ==========
     form_data = convert_dates(form_data)
 
     if form_data.get('joining_date'):
         date_before = get_previous_workday(form_data['joining_date'], 8)
         form_data['date_before'] = date_before
 
-    # Get company ID from form data
     company_id = form_data.get('company')
     if company_id:
         try:
@@ -1404,11 +1358,9 @@ def preview_document(doc_type):
         flash('Company not found.', 'danger')
         return redirect(url_for('admin_dashboard'))
 
-    # Get base values
     ctc = float(form_data.get('ctc') or 0)
     increment_per_month = float(form_data.get('increment_per_month') or 0)
     
-    # Calculate components
     components = calculate_salary_components(
         ctc=ctc,
         increment_per_month=increment_per_month,
@@ -1416,7 +1368,6 @@ def preview_document(doc_type):
         month_days=30
     )
     
-    # Update form_data with calculated values
     form_data.update({
         'basic': components['basic'],
         'hra': components['hra'],
@@ -1452,7 +1403,6 @@ def preview_document(doc_type):
     form_data['monthly_ctc_after_increment'] = round((ctc / 12) + increment_per_month)
     form_data['formatted_joining_date'] = format_date(form_data.get('joining_date'))
 
-    # Resignation and relieving dates
     resignation_date = form_data.get('resignation_date')
     if resignation_date:
         form_data['formatted_resignation_date'] = format_date(resignation_date)
@@ -1465,7 +1415,6 @@ def preview_document(doc_type):
         form_data['formatted_resignation_date'] = None
         form_data['relieving_date'] = None
 
-    # Month label for preview
     month_label = None
     if doc_type in ['salary_slip'] and selected_months:
         m = selected_months[0].strip()
@@ -1583,7 +1532,7 @@ def generate():
             'employee_email': employee_email,
             'company_name': company.name,
             'company_domain': company_domain,
-            'hr_email':hr_email,
+            'hr_email': hr_email,
             'acceptance_date': formatted_acceptance_date,  
             'resignation_date': formatted_resignation_date,
             'relieving_date': employee.relieving_date.strftime('%d %B %Y'),
@@ -1635,14 +1584,14 @@ def generate():
         
         flash(f'✅ Resignation acceptance letter generated successfully for {employee.full_name}!', 'success')
         return redirect(url_for('admin_dashboard'))
-    # ========== END RESIGNATION ACCEPTANCE HANDLER ==========
-
+    
     # ========== INTERN DOCUMENTS HANDLER ==========
     if doc_type in ['intern_offer_letter', 'certificate_of_internship']:
-        # Get intern
+        # Get intern from session
+        intern_id = form_data.get('intern_id')
         intern = None
-        if 'intern_id' in form_data:
-            intern = Intern.query.get(form_data.get('intern_id'))
+        if intern_id:
+            intern = Intern.query.get(intern_id)
         
         if not intern:
             flash('Intern not found', 'danger')
@@ -1661,65 +1610,61 @@ def generate():
             flash('Company not found', 'danger')
             return redirect(url_for('admin_dashboard'))
         
-        # Prepare data for template
-        name_parts = intern.full_name.split() if intern.full_name else ['']
-        first_name = name_parts[0] if name_parts else ''
+        # Get preview data from session or calculate
+        data = session.get('intern_preview_data')
         
-        end_date = intern.end_date
-        if not end_date and intern.start_date:
-            end_date = intern.start_date + timedelta(days=intern.internship_duration * 30)
-        
-        company_domain = get_company_domain(company)
-        
-        # ========== DATE CALCULATIONS ==========
-        if intern.start_date:
-            # Convert to date if it's a datetime object
-            if isinstance(intern.start_date, datetime):
-                start_date = intern.start_date.date()
+        if not data:
+            # Calculate fresh data
+            name_parts = intern.full_name.split() if intern.full_name else ['']
+            first_name = name_parts[0] if name_parts else ''
+            
+            end_date = intern.end_date
+            if not end_date and intern.start_date:
+                end_date = intern.start_date + timedelta(days=intern.internship_duration * 30)
+            
+            company_domain = get_company_domain(company)
+            
+            if intern.start_date:
+                if isinstance(intern.start_date, datetime):
+                    start_date = intern.start_date.date()
+                else:
+                    start_date = intern.start_date
+                offer_date = start_date - timedelta(days=5)
+                formatted_offer_date = offer_date.strftime('%d %B %Y')
+                formatted_joining_date = start_date.strftime('%d %B %Y')
+                acceptance_deadline = start_date + timedelta(days=5)
+                formatted_acceptance_deadline = acceptance_deadline.strftime('%d %B %Y')
             else:
-                start_date = intern.start_date
-        offer_date = start_date - timedelta(days=5)
-        formatted_offer_date = offer_date.strftime('%d %B %Y')
-        
-        # Use the actual start date from database (whether past or future)
-        if intern.start_date:
-            formatted_joining_date = intern.start_date.strftime('%d %B %Y')
-            print(f"📅 Using joining date: {formatted_joining_date}")
-        else:
-            formatted_joining_date = 'To be confirmed'
-            print(f"⚠️ No start date found")
-        
-        # Acceptance deadline (5 days after offer date)
-        acceptance_deadline = start_date + timedelta(days=5)
-        formatted_acceptance_deadline = acceptance_deadline.strftime('%d %B %Y')
-        # ========== END DATE CALCULATIONS ==========
-        
-        data = {
-            'timestamp': datetime.now().strftime('%d %B %Y'),
-            'full_name': intern.full_name,
-            'first_name': first_name,
-            'email': intern.email,
-            'address': intern.address,
-            'qualification': intern.qualification,
-            'college_name': intern.college_name,
-            'course': intern.course,
-            'specialization': intern.specialization,
-            'internship_duration': intern.internship_duration,
-            'start_date': formatted_joining_date,
-            'end_date': end_date.strftime('%d %B %Y') if end_date else 'TBD',
-            'stipend': intern.stipend,
-            'mentor_name': intern.mentor_name or company.hr_name,
-            'mentor_designation': intern.mentor_designation or company.hr_designation,
-            'hr_name': company.hr_name or 'HR Department',
-            'hr_designation': company.hr_designation or 'HR Manager',
-            'company_name': company.name,
-            'company_domain': company_domain,
-            'intern_id': intern.intern_id,
-            'certificate_no': f"CERT-{intern.intern_id}-{datetime.now().year}",
-            'offer_date': formatted_offer_date,
-            'acceptance_deadline': formatted_acceptance_deadline,
-            'joining_date': formatted_joining_date
-        }
+                formatted_joining_date = 'To be confirmed'
+                formatted_offer_date = datetime.now().strftime('%d %B %Y')
+                formatted_acceptance_deadline = (datetime.now() + timedelta(days=5)).strftime('%d %B %Y')
+            
+            data = {
+                'timestamp': datetime.now().strftime('%d %B %Y'),
+                'full_name': intern.full_name,
+                'first_name': first_name,
+                'email': intern.email,
+                'address': intern.address,
+                'qualification': intern.qualification,
+                'college_name': intern.college_name,
+                'course': intern.course,
+                'specialization': intern.specialization,
+                'internship_duration': intern.internship_duration,
+                'start_date': formatted_joining_date,
+                'end_date': end_date.strftime('%d %B %Y') if end_date else 'TBD',
+                'stipend': intern.stipend,
+                'mentor_name': intern.mentor_name or company.hr_name,
+                'mentor_designation': intern.mentor_designation or company.hr_designation,
+                'hr_name': company.hr_name or 'HR Department',
+                'hr_designation': company.hr_designation or 'HR Manager',
+                'company_name': company.name,
+                'company_domain': company_domain,
+                'intern_id': intern.intern_id,
+                'certificate_no': f"CERT-{intern.intern_id}-{datetime.now().year}",
+                'offer_date': formatted_offer_date,
+                'acceptance_deadline': formatted_acceptance_deadline,
+                'joining_date': formatted_joining_date
+            }
         
         # Generate HTML
         html_content = render_template(f'documents/{doc_type}.html', data=data, company=company)
@@ -1795,11 +1740,11 @@ def generate():
         
         # Clear session data
         session.pop('form_data', None)
+        session.pop('intern_preview_data', None)
         session.pop('selected_months', None)
         
         flash(f'✅ {doc_type.replace("_", " ").title()} generated successfully for {intern.full_name}!', 'success')
         return redirect(url_for('admin_dashboard', tab='document_generator'))
-    # ========== END INTERN DOCUMENTS HANDLER ==========
 
     # ------------------------- FIND EMPLOYEE -------------------------
     employee = None
@@ -1836,6 +1781,11 @@ def generate():
     if doc_type == 'increment_letter' and 'pending_increment' in session:
         should_update_increment = True
         pending = session['pending_increment']
+        # Add document date to form_data for template
+        if pending and 'document_date' in pending:
+            form_data['document_date'] = pending['document_date']
+        if pending and 'effective_date_formatted' in pending:
+            form_data['increment_effective_date_formatted'] = pending['effective_date_formatted']
 
     # Retrieve per‑month values from session
     per_month_values = session.get('per_month_values', {})
@@ -1918,7 +1868,7 @@ def generate():
                     employee_id=employee.id,
                     document_type=doc_type,
                     filename=filename,
-                    file_path=local_file_path,  # Always save local path
+                    file_path=local_file_path,
                     month=month,
                     year=session.get('selected_year', datetime.now().year),
                     generated_by=session.get('admin_username', 'system'),
@@ -1999,7 +1949,10 @@ def generate():
         'bank_details': form_data.get('bank_details', {}),
         'worked_days': 30,
         'lop': 0,
-        'paid_days': 30
+        'paid_days': 30,
+        # Add document date for increment letter
+        'document_date': form_data.get('document_date'),
+        'increment_effective_date_formatted': form_data.get('increment_effective_date_formatted')
     }
 
     emp = Employee.query.filter_by(employee_id=form_data.get('employee_id')).first()
@@ -2062,7 +2015,7 @@ def generate():
             employee_id=employee.id,
             document_type=doc_type,
             filename=filename,
-            file_path=local_file_path,  # Always save local path
+            file_path=local_file_path,
             generated_by=session.get('admin_username', 'system'),
             drive_file_id=drive_file_id
         )
@@ -2331,6 +2284,30 @@ def admin_generate_document(emp_id, doc_type):
 
             increment_amount = float(request.form.get('increment_amount', 0))
             effective_date = request.form.get('effective_date')
+            
+            # ========== CALCULATE DOCUMENT DATE (30 days before effective date) ==========
+            if effective_date:
+                try:
+                    effective_date_obj = datetime.strptime(effective_date, '%Y-%m-%d').date()
+                    # Calculate document date (30 days before effective date)
+                    document_date_obj = effective_date_obj - timedelta(days=30)
+                    document_date = document_date_obj.strftime('%d %B %Y')
+                    # Store both dates
+                    effective_date_formatted = effective_date_obj.strftime('%d %B %Y')
+                    effective_date_str = effective_date
+                except Exception as e:
+                    print(f"Date parsing error: {e}")
+                    effective_date_obj = datetime.now().date()
+                    document_date_obj = effective_date_obj - timedelta(days=30)
+                    document_date = document_date_obj.strftime('%d %B %Y')
+                    effective_date_formatted = effective_date_obj.strftime('%d %B %Y')
+                    effective_date_str = effective_date_obj.strftime('%Y-%m-%d')
+            else:
+                effective_date_obj = datetime.now().date()
+                document_date_obj = effective_date_obj - timedelta(days=30)
+                document_date = document_date_obj.strftime('%d %B %Y')
+                effective_date_formatted = effective_date_obj.strftime('%d %B %Y')
+                effective_date_str = effective_date_obj.strftime('%Y-%m-%d')
 
             if increment_amount <= 0:
                 flash('Increment amount must be greater than zero.', 'danger')
@@ -2338,7 +2315,11 @@ def admin_generate_document(emp_id, doc_type):
 
             session['pending_increment'] = {
                 'amount': increment_amount,
-                'effective_date': effective_date,
+                'effective_date': effective_date_str,
+                'effective_date_obj': effective_date_obj,
+                'effective_date_formatted': effective_date_formatted,
+                'document_date': document_date,
+                'document_date_obj': document_date_obj,
                 'employee_id': employee.id,
                 'old_ctc': employee.ctc
             }
@@ -2359,10 +2340,15 @@ def admin_generate_document(emp_id, doc_type):
             net_salary = gross_salary - professional_tax
 
             salary_breakdown = {
-                'basic': basic, 'hra': hra, 'conveyance': conveyance,
-                'medical': medical, 'telephone': telephone,
-                'special_allowance': special_allowance, 'professional_tax': professional_tax,
-                'gross_salary': gross_salary, 'net_salary': net_salary,
+                'basic': basic, 
+                'hra': hra, 
+                'conveyance': conveyance,
+                'medical': medical, 
+                'telephone': telephone,
+                'special_allowance': special_allowance, 
+                'professional_tax': professional_tax,
+                'gross_salary': gross_salary, 
+                'net_salary': net_salary,
                 'increment_per_month': increment_amount
             }
 
@@ -2379,7 +2365,10 @@ def admin_generate_document(emp_id, doc_type):
                 'ctc': employee.ctc,
                 'increment_per_month': increment_amount,
                 'salary_breakdown': salary_breakdown,
-                'increment_effective_date': effective_date,
+                'increment_effective_date': effective_date_str,
+                'increment_effective_date_formatted': effective_date_formatted,
+                'document_date': document_date,
+                'document_date_obj': document_date_obj,
                 'joining_date': employee.joining_date.strftime('%Y-%m-%d') if employee.joining_date else None,
                 'resignation_date': employee.resignation_date.strftime('%Y-%m-%d') if employee.resignation_date else None,
                 'bank_details': {
@@ -2451,7 +2440,7 @@ def admin_generate_document(emp_id, doc_type):
 
         # Collect per‑month values and store actual days in month
         per_month_values = {}
-        month_days_values = {}  # New dict to store actual days in each month
+        month_days_values = {}
 
         for month in selected_months:
             month_key = month.lower()
@@ -2479,7 +2468,7 @@ def admin_generate_document(emp_id, doc_type):
             month_days_values[month] = actual_days_in_month
 
         session['per_month_values'] = per_month_values
-        session['month_days_values'] = month_days_values  # Store in session
+        session['month_days_values'] = month_days_values
 
         if not selected_months:
             flash('Please select at least one month.', 'danger')
@@ -2498,7 +2487,7 @@ def admin_generate_document(emp_id, doc_type):
             ctc=float(employee.ctc),
             increment_per_month=0,
             paid_days=first_month_values['paid'],
-            month_days=first_month_days  # Use actual days in month!
+            month_days=first_month_days
         )
         
         # Generate amount in words
@@ -2542,7 +2531,7 @@ def admin_generate_document(emp_id, doc_type):
             'worked_days': first_month_values['worked'],
             'lop': first_month_values['lop'],
             'paid_days': first_month_values['paid'],
-            'month_days': first_month_days,  # Add actual month days
+            'month_days': first_month_days,
             
             # Dates
             'joining_date': employee.joining_date.strftime('%Y-%m-%d') if employee.joining_date else None,
@@ -2736,16 +2725,31 @@ def generate_intern_document(intern_id, doc_type):
         
         company = intern.company
         
-        # Prepare data
+        # Prepare data for template
         name_parts = intern.full_name.split() if intern.full_name else ['']
         first_name = name_parts[0] if name_parts else ''
         
-        # Calculate end date if not set
         end_date = intern.end_date
         if not end_date and intern.start_date:
             end_date = intern.start_date + timedelta(days=intern.internship_duration * 30)
         
         company_domain = get_company_domain(company)
+        
+        # ========== DATE CALCULATIONS ==========
+        if intern.start_date:
+            if isinstance(intern.start_date, datetime):
+                start_date = intern.start_date.date()
+            else:
+                start_date = intern.start_date
+            offer_date = start_date - timedelta(days=5)
+            formatted_offer_date = offer_date.strftime('%d %B %Y')
+            formatted_joining_date = start_date.strftime('%d %B %Y')
+            acceptance_deadline = start_date + timedelta(days=5)
+            formatted_acceptance_deadline = acceptance_deadline.strftime('%d %B %Y')
+        else:
+            formatted_joining_date = 'To be confirmed'
+            formatted_offer_date = datetime.now().strftime('%d %B %Y')
+            formatted_acceptance_deadline = (datetime.now() + timedelta(days=5)).strftime('%d %B %Y')
         
         data = {
             'timestamp': datetime.now().strftime('%d %B %Y'),
@@ -2758,7 +2762,7 @@ def generate_intern_document(intern_id, doc_type):
             'course': intern.course,
             'specialization': intern.specialization,
             'internship_duration': intern.internship_duration,
-            'start_date': intern.start_date.strftime('%d %B %Y') if intern.start_date else 'TBD',
+            'start_date': formatted_joining_date,
             'end_date': end_date.strftime('%d %B %Y') if end_date else 'TBD',
             'stipend': intern.stipend,
             'mentor_name': intern.mentor_name or company.hr_name,
@@ -2766,93 +2770,33 @@ def generate_intern_document(intern_id, doc_type):
             'hr_name': company.hr_name or 'HR Department',
             'hr_designation': company.hr_designation or 'HR Manager',
             'company_name': company.name,
+            'company_domain': company_domain,
+            'intern_id': intern.intern_id,
             'certificate_no': f"CERT-{intern.intern_id}-{datetime.now().year}",
-            'acceptance_deadline': (datetime.now() + timedelta(days=5)).strftime('%d %B %Y')
+            'offer_date': formatted_offer_date,
+            'acceptance_deadline': formatted_acceptance_deadline,
+            'joining_date': formatted_joining_date
         }
         
-        # Generate HTML
-        html_content = render_template(f'documents/{doc_type}.html', data=data, company=company)
+        # ========== Store in session and redirect to preview ==========
+        session['form_data'] = {
+            'document_type': doc_type,
+            'intern_id': intern.id,
+            'company': intern.company_id,
+            'member_type': 'intern'
+        }
         
-        # Create PDF
-        filename = f"{doc_type}_{intern.intern_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        # Store preview data in session
+        session['intern_preview_data'] = data
         
-        if not html_to_pdf(html_content, file_path):
-            flash('Failed to generate PDF document', 'danger')
-            return redirect(url_for('admin_dashboard', tab='document_generator'))
-        
-        # Save document record
-        document = InternDocument(
-            intern_id=intern.id,
-            document_type=doc_type,
-            filename=filename,
-            file_path=file_path,
-            generated_by=session.get('admin_username', 'admin'),
-            generated_at=datetime.now()
-        )
-        db.session.add(document)
-        db.session.commit()
-        
-        # Upload to Google Drive if connected
-        token_path = os.path.join(app.config['GOOGLE_DRIVE_TOKEN_FOLDER'], 'token.pickle')
-        if os.path.exists(token_path):
-            try:
-                # Create drive folder structure for interns
-                service, error = get_drive_service()
-                if not error:
-                    # Create intern folder
-                    intern_folder_name = f"{intern.intern_id}_{intern.full_name.replace(' ', '_')}"
-                    folder_response = service.files().list(
-                        q=f"name='{intern_folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false",
-                        spaces='drive', fields='files(id)'
-                    ).execute()
-                    folders = folder_response.get('files', [])
-                    if folders:
-                        parent_folder_id = folders[0]['id']
-                    else:
-                        file_metadata = {'name': intern_folder_name, 'mimeType': 'application/vnd.google-apps.folder'}
-                        folder = service.files().create(body=file_metadata, fields='id').execute()
-                        parent_folder_id = folder.get('id')
-                    
-                    # Create document type folder
-                    doc_folder_map = {
-                        'intern_offer_letter': 'Offer Letters',
-                        'certificate_of_internship': 'Certificates'
-                    }
-                    folder_name = doc_folder_map.get(doc_type, 'Documents')
-                    
-                    folder_response = service.files().list(
-                        q=f"name='{folder_name}' and '{parent_folder_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
-                        spaces='drive', fields='files(id)'
-                    ).execute()
-                    subfolders = folder_response.get('files', [])
-                    if subfolders:
-                        target_folder_id = subfolders[0]['id']
-                    else:
-                        file_metadata = {'name': folder_name, 'mimeType': 'application/vnd.google-apps.folder', 'parents': [parent_folder_id]}
-                        subfolder = service.files().create(body=file_metadata, fields='id').execute()
-                        target_folder_id = subfolder.get('id')
-                    
-                    # Upload file
-                    media = MediaFileUpload(file_path, mimetype='application/pdf', resumable=True)
-                    file = service.files().create(
-                        body={'name': filename, 'parents': [target_folder_id]},
-                        media_body=media,
-                        fields='id'
-                    ).execute()
-                    document.drive_file_id = file.get('id')
-                    db.session.commit()
-            except Exception as e:
-                print(f"Drive upload failed: {e}")
-        
-        flash(f'✅ {doc_type.replace("_", " ").title()} generated successfully for {intern.full_name}!', 'success')
-        return redirect(url_for('admin_dashboard', tab='document_generator'))
+        # Redirect to preview_document
+        return redirect(url_for('preview_document', doc_type=doc_type))
         
     except Exception as e:
         print(f"Error: {str(e)}")
         import traceback
         traceback.print_exc()
-        flash(f'Error generating document: {str(e)}', 'danger')
+        flash(f'Error: {str(e)}', 'danger')
         return redirect(url_for('admin_dashboard', tab='document_generator'))
 
 #view employee details and documents

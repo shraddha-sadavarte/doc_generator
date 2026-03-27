@@ -34,10 +34,9 @@
         </a>
     </div>
 </div>
+
 <style>
-
 /* ================= GLOBAL ================= */
-
 body{
     margin:0;
     background:#f4f4f4;
@@ -72,7 +71,7 @@ body{
     justify-content:flex-end;
     gap:10px;
     padding:0 20px;
-    flex-wrap: wrap;          /* allows wrapping on small screens */
+    flex-wrap: wrap;
 }
 
 .btn{
@@ -97,7 +96,7 @@ body{
     background:#e9e9e9;
 }
 
-/* Override any colored button classes to use the same border‑only style */
+/* Override any colored button classes */
 .btn-primary,
 .btn-success,
 .btn-secondary,
@@ -114,17 +113,21 @@ body{
 .btn-danger:hover {
     background:#e9e9e9 !important;
 }
-    @media print { .action-bar { display: none !important; } }
-    @media print {
-        .letter-header{
-            display: flex;
-            gap: 40px;
-            justify-content: flex-start;
-            align-items: flex-start;
-        }
-    }
-/* ================= SALARY SLIP CONTAINER ================= */
 
+@media print { 
+    .action-bar { display: none !important; } 
+}
+
+@media print {
+    .letter-header{
+        display: flex;
+        gap: 40px;
+        justify-content: flex-start;
+        align-items: flex-start;
+    }
+}
+
+/* ================= SALARY SLIP CONTAINER ================= */
 .salary-slip{
     max-width:900px;
     margin:30px auto;
@@ -134,7 +137,6 @@ body{
 }
 
 /* ================= LETTERHEAD ================= */
-
 .letter-header{
     display:flex;
     justify-content:space-between;
@@ -144,22 +146,40 @@ body{
     margin-bottom:20px;
 }
 
-.letterhead img{
-    height:70px;
+.logo-section {
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
-.company-info{
-    text-align:right;
-    font-size:13px;
-    color:#000;
+.company-info {
+    display: flex;
+    flex-direction: column;
 }
 
-.company-info strong{
-    font-size:15px;
+.company-name {
+    font-size: 20px;
+    font-weight: bold;
+    color: #28a745;
+}
+
+.company-address {
+    font-size: 11px;
+    color: #666;
+    line-height: 1.3;
+}
+
+.company-contact {
+    text-align: right;
+    font-size: 13px;
+    color: #000;
+}
+
+.company-contact strong {
+    font-size: 15px;
 }
 
 /* ================= TITLE ================= */
-
 .month-title{
     text-align:center;
     font-size:20px;
@@ -169,8 +189,13 @@ body{
     text-transform:uppercase;
 }
 
-/* ================= EMPLOYEE TABLE ================= */
+/* ================= MONTH NAVIGATION ================= */
+.month-navigation {
+    margin-bottom: 20px;
+    text-align: center;
+}
 
+/* ================= EMPLOYEE DETAILS ================= */
 .employee-details{
     margin-bottom:25px;
 }
@@ -193,7 +218,6 @@ body{
 }
 
 /* ================= SALARY TABLE ================= */
-
 .salary-table{
     width:100%;
     border-collapse:collapse;
@@ -224,7 +248,6 @@ body{
 }
 
 /* ================= NET SALARY ================= */
-
 .net-salary{
     text-align:right;
     margin-top:20px;
@@ -242,30 +265,10 @@ body{
 
 .footer-note{
     text-align: center;
+    margin-top: 30px;
+    font-size: 12px;
+    color: #777;
 }
-     .logo-section {
-        display: flex;
-        align-items: center;
-        gap: 15px;
-    }
-
-    .company-info {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .company-name {
-        font-size: 20px;
-        font-weight: bold;
-        color: #28a745; /* Change color per document type */
-    }
-
-    .company-address {
-        font-size: 11px;
-        color: #666;
-        line-height: 1.3;
-    }
-
 </style>
 
 <!-- Watermark -->
@@ -276,9 +279,9 @@ body{
     <div class="letter-header">
         <div class="logo-section">
             {% if company.logo_with_name %}
-                <img src="{{ url_for('static', filename='images/' + company.logo_with_name) }}" alt="{{ company.name }}" style="height: 80px; object-fit: contain;">
+                <img src="{{ url_for('static', filename='images/' + company.logo_with_name, _external=True) }}" alt="{{ company.name }}" style="height: 80px; object-fit: contain;">
             {% elif company.logo %}
-                <img src="{{ url_for('static', filename='images/' + company.logo) }}" alt="Logo" style="height: 60px; object-fit: contain;">
+                <img src="{{ url_for('static', filename='images/' + company.logo, _external=True) }}" alt="Logo" style="height: 60px; object-fit: contain;">
                 <div class="company-info">
                     <div class="company-name">{{ company.name }}</div>
                     <div class="company-address">{{ company.address }}</div>
@@ -321,39 +324,39 @@ body{
     <div class="employee-details">
         <table>
             <tr>
-                <td class="label">Code</td>
-                <td>{{ data.employee_id }}</td>
+                <td class="label">Employee ID</td>
+                <td>{{ data.employee_id or 'N/A' }}</td>
                 <td class="label">Department</td>
                 <td>{{ data.department or 'Information Technology (IT) Department' }}</td>
             </tr>
             <tr>
                 <td class="label">Name</td>
-                <td>{{ data.full_name }}</td>
+                <td>{{ data.full_name or 'N/A' }}</td>
                 <td class="label">PAN Card</td>
                 <td>{{ data.pan_no or 'N/A' }}</td>
             </tr>
             <tr>
                 <td class="label">Designation</td>
-                <td>{{ data.designation }}</td>
+                <td>{{ data.designation or 'N/A' }}</td>
                 <td class="label">Worked Days</td>
-                <td>{{ data.worked_days or 30 }}</td>
+                <td>{{ data.worked_days|default(30) }}</td>
             </tr>
             <tr>
                 <td class="label">Date of Joining</td>
-                <td>{{ data.joining_date.strftime('%d/%m/%Y') if data.joining_date else '' }}</td>
+                <td>{{ data.joining_date.strftime('%d/%m/%Y') if data.joining_date else 'N/A' }}</td>
                 <td class="label">LOP</td>
-                <td>{{ data.lop or 0 }}</td>
+                <td>{{ data.lop|default(0) }}</td>
             </tr>
             <tr>
                 <td class="label">Gender</td>
                 <td>{{ data.gender or 'Male' }}</td>
                 <td class="label">Paid Days</td>
-                <td>{{ data.paid_days or 30 }}</td>
+                <td>{{ data.paid_days|default(30) }}</td>
             </tr>
         </table>
     </div>
 
-        <!-- SALARY TABLE -->
+    <!-- SALARY TABLE -->
     <table class="salary-table">
         <thead>
             <tr>
@@ -409,13 +412,13 @@ body{
         </tbody>
     </table>
 
-<div class="net-salary">
-    NET Salary : Rs. {{ "{:,.0f}".format(data.net_salary | default(0)) }}/-
-</div>
+    <div class="net-salary">
+        NET Salary : Rs. {{ "{:,.0f}".format(data.net_salary|default(0)) }}/-
+    </div>
 
-<div class="words">
-    Net Payable in Words : {{ data.words | default('Zero Only') }}
-</div>
+    <div class="words">
+        Net Payable in Words : {{ data.words|default('Zero Only') }}
+    </div>
 
     <!-- FOOTER NOTE -->
     <div class="footer-note">
