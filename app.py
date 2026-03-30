@@ -663,13 +663,8 @@ def html_to_pdf(html_content, output_path):
         
         print(f"📄 Temp HTML: {temp_html}")
         
-        # Convert to PDF with memory optimization
-        HTML(filename=temp_html).write_pdf(
-            output_path,
-            zoom=0.85,  # Slightly reduce zoom for faster rendering
-            optimize_size=('fonts', 'images'),  # Optimize for size
-            font_config=None  # Disable font config for speed
-        )
+        # Convert to PDF - REMOVED unsupported parameters
+        HTML(filename=temp_html).write_pdf(output_path)
         
         # Clean up
         if os.path.exists(temp_html):
@@ -686,7 +681,7 @@ def html_to_pdf(html_content, output_path):
         import traceback
         traceback.print_exc()
         return False
-
+    
 # #test route
 # @app.route('/test-pdf-generation')
 # def test_pdf_generation():
