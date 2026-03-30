@@ -574,9 +574,6 @@ def embed_images_as_base64(html_content):
     images_folder = os.path.join(static_folder, 'images')
     signatures_folder = os.path.join(images_folder, 'signatures')
     
-    print(f"🔍 Static folder: {static_folder}")
-    print(f"🔍 Images folder exists: {os.path.exists(images_folder)}")
-    
     image_cache = {}
     
     def replace_image(match):
@@ -587,21 +584,17 @@ def embed_images_as_base64(html_content):
         
         src = src_match.group(1)
         
-        # Skip if already base64
-        if src.startswith('data:'):
+        if src.startswith('data:') or src.startswith('http://') or src.startswith('https://'):
             return img_tag
         
-        # Check cache
         if src in image_cache:
             return img_tag.replace(src, image_cache[src])
         
         abs_path = None
         
-        # Find image path
         if src.startswith('/static/'):
             relative_path = src.replace('/static/', '')
             abs_path = os.path.join(static_folder, relative_path)
-            print(f"  🔍 Looking for: {abs_path}")
         elif 'signatures' in src:
             filename = src.split('signatures/')[-1]
             abs_path = os.path.join(signatures_folder, filename)
@@ -626,36 +619,27 @@ def embed_images_as_base64(html_content):
                 
                 new_src = f'data:{mime};base64,{image_data}'
                 image_cache[src] = new_src
-                print(f"  ✅ Embedded: {src}")
                 return img_tag.replace(src, new_src)
-            except Exception as e:
-                print(f"  ❌ Error embedding {src}: {e}")
+            except:
                 return img_tag
-        else:
-            print(f"  ❌ Image not found: {abs_path}")
         
         return img_tag
     
     html_content = re.sub(r'<img[^>]+>', replace_image, html_content)
     return html_content
 
+
 def html_to_pdf(html_content, output_path):
-    """Convert HTML to PDF using WeasyPrint 52.0"""
+    """Convert HTML to PDF using WeasyPrint (Python library)"""
     try:
         print(f"📁 Output path: {output_path}")
         print(f"📄 HTML length: {len(html_content)}")
-        
-        # Save debug HTML (optional)
-        debug_path = output_path.replace('.pdf', '_debug.html')
-        with open(debug_path, 'w', encoding='utf-8') as f:
-            f.write(html_content)
-        print(f"🐛 Debug HTML saved: {debug_path}")
         
         # Embed images as base64
         html_content = embed_images_as_base64(html_content)
         print(f"📸 Images embedded")
         
-        # Create temp file
+        # Create temp HTML file
         with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
             f.write(html_content)
             temp_html = f.name
