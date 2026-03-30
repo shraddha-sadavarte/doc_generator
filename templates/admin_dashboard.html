@@ -635,7 +635,7 @@
                 </a>
             </li>
             <li class="{{ 'active' if active_tab == 'payments' else '' }}">
-                <a href="{{ url_for('admin_dashboard', tab='payments') }}">
+                <a href="{{ url_for('view_payments') }}">
                     <i class="fas fa-credit-card"></i>
                     <span>Payments</span>
                     <span class="badge-count">{{ pending_payments }}</span>
@@ -680,6 +680,11 @@
                         <i class="fab fa-google-drive"></i> Connect Google Drive
                     </a>
                 {% endif %}
+                <!-- NEW: Create Payment Button -->
+                <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#createPaymentModal">
+                    <i class="fas fa-plus-circle"></i> Create Payment
+                </button>
+                
                 <span class="text-muted">{{ now.strftime('%d %B %Y') }}</span>
             </div>
         </div>
@@ -784,12 +789,28 @@
                     <div class="payment-table">
                         <table class="table">
                             <thead>
-                                <tr><th>Status</th><th>Count</th><th>Amount</th></tr>
+                                90
+                                    <th>Status</th>
+                                    <th>Count</th>
+                                    <th>Amount</th>
+                                </tr>
                             </thead>
                             <tbody>
-                                <tr><td><span class="payment-status payment-paid">Paid</span></td><td>{{ paid_count }}</td><td>₹{{ "{:,.0f}".format(paid_amount) }}</td></tr>
-                                <tr><td><span class="payment-status payment-pending">Pending</span></td><td>{{ pending_count }}</td><td>₹{{ "{:,.0f}".format(pending_amount) }}</td></tr>
-                                <tr><td><span class="payment-status payment-overdue">Overdue</span></td><td>{{ overdue_count }}</td><td>₹{{ "{:,.0f}".format(overdue_amount) }}</td></tr>
+                                <tr>
+                                    <td><span class="payment-status payment-paid">Paid</span></td>
+                                    <td>{{ paid_count }}</td>
+                                    <td>₹{{ "{:,.0f}".format(paid_amount) }}</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="payment-status payment-pending">Pending</span></td>
+                                    <td>{{ pending_count }}</td>
+                                    <td>₹{{ "{:,.0f}".format(pending_amount) }}</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="payment-status payment-overdue">Overdue</span></td>
+                                    <td>{{ overdue_count }}</td>
+                                    <td>₹{{ "{:,.0f}".format(overdue_amount) }}</td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
@@ -816,372 +837,402 @@
             </div>
             
             <!-- Employee Form -->
-            <form method="POST" action="{{ url_for('add_employee') }}" enctype="multipart/form-data" id="employeeForm">
-                <div class="row">
-                    <!-- Personal Information -->
-                    <div class="col-12">
-                        <h5 class="text-primary">Personal Information</h5>
-                        <hr>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Full Name *</label>
-                        <input type="text" name="full_name" class="form-control" required>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" name="email" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Phone</label>
-                        <input type="text" name="phone" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Gender</label>
-                        <select name="gender" class="form-select">
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Aadhar Number</label>
-                        <input type="text" name="aadhar_no" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">PAN Number</label>
-                        <input type="text" name="pan_no" class="form-control">
-                    </div>
-                    
-                    <div class="col-12 mb-3">
-                        <label class="form-label">Address</label>
-                        <textarea name="address" class="form-control" rows="2"></textarea>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Profile Photo</label>
-                        <input type="file" name="profile_image" class="form-control" accept="image/*">
-                    </div>
-                    
-                    <!-- Employment Information (Employee Only) -->
-                    <div class="col-12 employee-only mt-3">
-                        <h5 class="text-primary">Employment Information</h5>
-                        <hr>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3 employee-only">
-                        <label class="form-label">Company *</label>
-                        <select name="company_id" class="form-select" required>
-                            <option value="">Select Company</option>
-                            {% for company in companies %}
-                            <option value="{{ company.id }}">{{ company.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3 employee-only">
-                        <label class="form-label">Designation *</label>
-                        <input type="text" name="designation" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3 employee-only">
-                        <label class="form-label">Department</label>
-                        <input type="text" name="department" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-4 mb-3 employee-only">
-                        <label class="form-label">CTC (Annual)</label>
-                        <input type="number" name="ctc" class="form-control" step="0.01">
-                    </div>
-                    
-                    <div class="col-md-4 mb-3 employee-only">
-                        <label class="form-label">Increment per Month</label>
-                        <input type="number" name="increment_per_month" class="form-control" step="0.01">
-                    </div>
-                    
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Status</label>
-                        <select name="status" class="form-select">
-                            <option value="active">Active</option>
-                            <option value="resigned">Resigned</option>
-                            <option value="terminated">Terminated</option>
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Joining Date</label>
-                        <input type="date" name="joining_date" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Resignation Date</label>
-                        <input type="date" name="resignation_date" class="form-control">
-                    </div>
-                    
-                    <!-- Intern Information (Intern Only) -->
-                    <div class="col-12 intern-only mt-3" style="display: none;">
-                        <h5 class="text-success">Internship Information</h5>
-                        <hr>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3 intern-only" style="display: none;">
-                        <label class="form-label">Qualification</label>
-                        <input type="text" name="qualification" class="form-control" placeholder="e.g., B.Tech, MCA">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3 intern-only" style="display: none;">
-                        <label class="form-label">College/University Name</label>
-                        <input type="text" name="college_name" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3 intern-only" style="display: none;">
-                        <label class="form-label">Course</label>
-                        <input type="text" name="course" class="form-control" placeholder="e.g., Computer Science">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3 intern-only" style="display: none;">
-                        <label class="form-label">Specialization</label>
-                        <input type="text" name="specialization" class="form-control" placeholder="e.g., Web Development">
-                    </div>
-                    
-                    <div class="col-md-4 mb-3 intern-only" style="display: none;">
-                        <label class="form-label">Internship Duration (months)</label>
-                        <input type="number" name="internship_duration" class="form-control" value="3">
-                    </div>
-                    
-                    <div class="col-md-4 mb-3 intern-only" style="display: none;">
-                        <label class="form-label">Stipend (per month)</label>
-                        <input type="number" name="stipend" class="form-control" step="0.01">
-                    </div>
-                    
-                    <div class="col-md-4 mb-3 intern-only" style="display: none;">
-                        <label class="form-label">Start Date</label>
-                        <input type="date" name="start_date" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3 intern-only" style="display: none;">
-                        <label class="form-label">Mentor Name</label>
-                        <input type="text" name="mentor_name" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3 intern-only" style="display: none;">
-                        <label class="form-label">Mentor Designation</label>
-                        <input type="text" name="mentor_designation" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-12 mb-3 intern-only" style="display: none;">
-                        <label class="form-label">Company</label>
-                        <select name="company_id" class="form-select">
-                            <option value="">Select Company</option>
-                            {% for company in companies %}
-                            <option value="{{ company.id }}">{{ company.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <!-- Bank Details -->
-                    <div class="col-12 mt-3">
-                        <h5 class="text-primary">Bank Details</h5>
-                        <hr>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Account Holder Name</label>
-                        <input type="text" name="account_holder" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Account Number</label>
-                        <input type="text" name="account_number" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Bank Name</label>
-                        <input type="text" name="bank_name" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Branch</label>
-                        <input type="text" name="branch" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">IFSC Code</label>
-                        <input type="text" name="ifsc_code" class="form-control">
-                    </div>
-                </div>
-                
-                <div class="mt-4">
-                    <button type="submit" class="btn-submit" id="submitBtn">Save Employee</button>
-                    <a href="{{ url_for('admin_dashboard', tab='members') }}" class="btn btn-secondary">Cancel</a>
-                </div>
-            </form>
-            
-            <!-- Intern Form (Separate) -->
-            <form method="POST" action="{{ url_for('add_intern') }}" enctype="multipart/form-data" id="internForm" style="display: none;">
-                <div class="row">
-                    <!-- Personal Information -->
-                    <div class="col-12">
-                        <h5 class="text-primary">Personal Information</h5>
-                        <hr>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Full Name *</label>
-                        <input type="text" name="full_name" class="form-control" required>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" name="email" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Phone</label>
-                        <input type="text" name="phone" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Gender</label>
-                        <select name="gender" class="form-select">
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Aadhar Number</label>
-                        <input type="text" name="aadhar_no" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">PAN Number</label>
-                        <input type="text" name="pan_no" class="form-control">
-                    </div>
-                    
-                    <div class="col-12 mb-3">
-                        <label class="form-label">Address</label>
-                        <textarea name="address" class="form-control" rows="2"></textarea>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Profile Photo</label>
-                        <input type="file" name="profile_image" class="form-control" accept="image/*">
-                    </div>
-                    
-                    <!-- Intern Information -->
-                    <div class="col-12 mt-3">
-                        <h5 class="text-success">Internship Information</h5>
-                        <hr>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Qualification</label>
-                        <input type="text" name="qualification" class="form-control" placeholder="e.g., B.Tech, MCA">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">College/University Name</label>
-                        <input type="text" name="college_name" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Course</label>
-                        <input type="text" name="course" class="form-control" placeholder="e.g., Computer Science">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Specialization</label>
-                        <input type="text" name="specialization" class="form-control" placeholder="e.g., Web Development">
-                    </div>
-                    
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Internship Duration (months)</label>
-                        <input type="number" name="internship_duration" class="form-control" value="3">
-                    </div>
-                    
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Stipend (per month)</label>
-                        <input type="number" name="stipend" class="form-control" step="0.01">
-                    </div>
-                    
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Start Date</label>
-                        <input type="date" name="start_date" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Mentor Name</label>
-                        <input type="text" name="mentor_name" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Mentor Designation</label>
-                        <input type="text" name="mentor_designation" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-12 mb-3">
-                        <label class="form-label">Status</label>
-                        <select name="status" class="form-select">
-                            <option value="active">Active</option>
-                            <option value="completed">Completed</option>
-                            <option value="terminated">Terminated</option>
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-12 mb-3">
-                        <label class="form-label">Company</label>
-                        <select name="company_id" class="form-select" required>
-                            <option value="">Select Company</option>
-                            {% for company in companies %}
-                            <option value="{{ company.id }}">{{ company.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <!-- Bank Details -->
-                    <div class="col-12 mt-3">
-                        <h5 class="text-primary">Bank Details</h5>
-                        <hr>
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Account Holder Name</label>
-                        <input type="text" name="account_holder" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-6 mb-3">
-                        <label class="form-label">Account Number</label>
-                        <input type="text" name="account_number" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Bank Name</label>
-                        <input type="text" name="bank_name" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Branch</label>
-                        <input type="text" name="branch" class="form-control">
-                    </div>
-                    
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">IFSC Code</label>
-                        <input type="text" name="ifsc_code" class="form-control">
-                    </div>
-                </div>
-                
-                <div class="mt-4">
-                    <button type="submit" class="btn-submit">Save Intern</button>
-                    <a href="{{ url_for('admin_dashboard', tab='members') }}" class="btn btn-secondary">Cancel</a>
-                </div>
-            </form>
+<form method="POST" action="{{ url_for('add_employee') }}" enctype="multipart/form-data" id="employeeForm" onsubmit="return validateEmployeeForm()">
+    <div class="row">
+        <!-- Personal Information -->
+        <div class="col-12">
+            <h5 class="text-primary">Personal Information</h5>
+            <hr>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Full Name *</label>
+            <input type="text" name="full_name" id="emp_full_name" class="form-control" required>
+            <div class="invalid-feedback">Please enter full name (at least 3 characters)</div>
+            <small class="text-muted">Enter complete name as per official records</small>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" id="emp_email" class="form-control" pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$">
+            <div class="invalid-feedback">Please enter a valid email address</div>
+            <small class="text-muted">Company email or personal email</small>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Phone</label>
+            <input type="tel" name="phone" id="emp_phone" class="form-control" pattern="[0-9]{10}">
+            <div class="invalid-feedback">Please enter a valid 10-digit mobile number</div>
+            <small class="text-muted">10-digit mobile number</small>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Gender</label>
+            <select name="gender" class="form-select">
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Aadhar Number</label>
+            <input type="text" name="aadhar_no" id="emp_aadhar" class="form-control" pattern="[0-9]{12}">
+            <div class="invalid-feedback">Please enter a valid 12-digit Aadhar number</div>
+            <small class="text-muted">12-digit Aadhar number</small>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">PAN Number</label>
+            <input type="text" name="pan_no" id="emp_pan" class="form-control" pattern="[A-Z]{5}[0-9]{4}[A-Z]{1}">
+            <div class="invalid-feedback">Please enter a valid PAN number (e.g., ABCDE1234F)</div>
+            <small class="text-muted">10-character PAN number</small>
+        </div>
+        
+        <div class="col-12 mb-3">
+            <label class="form-label">Address</label>
+            <textarea name="address" id="emp_address" class="form-control" rows="2" maxlength="500"></textarea>
+            <div class="invalid-feedback">Address cannot exceed 500 characters</div>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Profile Photo</label>
+            <input type="file" name="profile_image" id="emp_profile_image" class="form-control" accept="image/jpeg,image/png,image/jpg">
+            <div class="invalid-feedback">Please upload a valid image file (JPG, PNG, max 2MB)</div>
+            <small class="text-muted">Max size: 2MB. Allowed formats: JPG, PNG</small>
+        </div>
+        
+        <!-- Employment Information (Employee Only) -->
+        <div class="col-12 employee-only mt-3">
+            <h5 class="text-primary">Employment Information</h5>
+            <hr>
+        </div>
+        
+        <div class="col-md-6 mb-3 employee-only">
+            <label class="form-label">Company *</label>
+            <select name="company_id" id="emp_company" class="form-select" required>
+                <option value="">Select Company</option>
+                {% for company in companies %}
+                <option value="{{ company.id }}">{{ company.name }}</option>
+                {% endfor %}
+            </select>
+            <div class="invalid-feedback">Please select a company</div>
+        </div>
+        
+        <div class="col-md-6 mb-3 employee-only">
+            <label class="form-label">Designation *</label>
+            <input type="text" name="designation" id="emp_designation" class="form-control" required>
+            <div class="invalid-feedback">Please enter designation</div>
+        </div>
+        
+        <div class="col-md-6 mb-3 employee-only">
+            <label class="form-label">Department</label>
+            <input type="text" name="department" class="form-control">
+        </div>
+        
+        <div class="col-md-4 mb-3 employee-only">
+            <label class="form-label">CTC (Annual)</label>
+            <input type="number" name="ctc" id="emp_ctc" class="form-control" step="0.01" min="0">
+            <div class="invalid-feedback">CTC must be a positive number</div>
+            <small class="text-muted">Annual Cost to Company in INR</small>
+        </div>
+        
+        <div class="col-md-4 mb-3 employee-only">
+            <label class="form-label">Increment per Month</label>
+            <input type="number" name="increment_per_month" id="emp_increment" class="form-control" step="0.01" min="0">
+            <div class="invalid-feedback">Increment amount must be positive</div>
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <label class="form-label">Status</label>
+            <select name="status" class="form-select">
+                <option value="active">Active</option>
+                <option value="resigned">Resigned</option>
+                <option value="terminated">Terminated</option>
+            </select>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Joining Date</label>
+            <input type="date" name="joining_date" id="emp_joining_date" class="form-control">
+            <div class="invalid-feedback">Joining date cannot be in the future</div>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Resignation Date</label>
+            <input type="date" name="resignation_date" id="emp_resignation_date" class="form-control">
+            <div class="invalid-feedback">Resignation date must be after joining date</div>
+        </div>
+        
+        <!-- Intern Information (Intern Only) -->
+        <div class="col-12 intern-only mt-3" style="display: none;">
+            <h5 class="text-success">Internship Information</h5>
+            <hr>
+        </div>
+        
+        <div class="col-md-6 mb-3 intern-only" style="display: none;">
+            <label class="form-label">Qualification</label>
+            <input type="text" name="qualification" class="form-control" placeholder="e.g., B.Tech, MCA">
+        </div>
+        
+        <div class="col-md-6 mb-3 intern-only" style="display: none;">
+            <label class="form-label">College/University Name</label>
+            <input type="text" name="college_name" class="form-control">
+        </div>
+        
+        <div class="col-md-6 mb-3 intern-only" style="display: none;">
+            <label class="form-label">Course</label>
+            <input type="text" name="course" class="form-control" placeholder="e.g., Computer Science">
+        </div>
+        
+        <div class="col-md-6 mb-3 intern-only" style="display: none;">
+            <label class="form-label">Specialization</label>
+            <input type="text" name="specialization" class="form-control" placeholder="e.g., Web Development">
+        </div>
+        
+        <div class="col-md-4 mb-3 intern-only" style="display: none;">
+            <label class="form-label">Internship Duration (months)</label>
+            <input type="number" name="internship_duration" class="form-control" value="3" min="1" max="24">
+            <div class="invalid-feedback">Duration must be between 1 and 24 months</div>
+        </div>
+        
+        <div class="col-md-4 mb-3 intern-only" style="display: none;">
+            <label class="form-label">Stipend (per month)</label>
+            <input type="number" name="stipend" class="form-control" step="0.01" min="0">
+        </div>
+        
+        <div class="col-md-4 mb-3 intern-only" style="display: none;">
+            <label class="form-label">Start Date</label>
+            <input type="date" name="start_date" id="intern_start_date" class="form-control">
+        </div>
+        
+        <div class="col-md-6 mb-3 intern-only" style="display: none;">
+            <label class="form-label">Mentor Name</label>
+            <input type="text" name="mentor_name" class="form-control">
+        </div>
+        
+        <div class="col-md-6 mb-3 intern-only" style="display: none;">
+            <label class="form-label">Mentor Designation</label>
+            <input type="text" name="mentor_designation" class="form-control">
+        </div>
+        
+        <div class="col-md-12 mb-3 intern-only" style="display: none;">
+            <label class="form-label">Company</label>
+            <select name="company_id" class="form-select" required>
+                <option value="">Select Company</option>
+                {% for company in companies %}
+                <option value="{{ company.id }}">{{ company.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <!-- Bank Details -->
+        <div class="col-12 mt-3">
+            <h5 class="text-primary">Bank Details</h5>
+            <hr>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Account Holder Name</label>
+            <input type="text" name="account_holder" class="form-control">
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Account Number</label>
+            <input type="text" name="account_number" id="account_number" class="form-control" pattern="[0-9]{9,18}">
+            <div class="invalid-feedback">Account number should be 9-18 digits</div>
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <label class="form-label">Bank Name</label>
+            <input type="text" name="bank_name" class="form-control">
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <label class="form-label">Branch</label>
+            <input type="text" name="branch" class="form-control">
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <label class="form-label">IFSC Code</label>
+            <input type="text" name="ifsc_code" id="ifsc_code" class="form-control" pattern="[A-Z]{4}0[A-Z0-9]{6}">
+            <div class="invalid-feedback">Please enter a valid IFSC code (e.g., SBIN0001234)</div>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <button type="submit" class="btn-submit" id="submitBtn">Save Employee</button>
+        <a href="{{ url_for('admin_dashboard', tab='members') }}" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+
+<!-- Intern Form (Separate) -->
+<form method="POST" action="{{ url_for('add_intern') }}" enctype="multipart/form-data" id="internForm" style="display: none;" onsubmit="return validateInternForm()">
+    <div class="row">
+        <!-- Personal Information -->
+        <div class="col-12">
+            <h5 class="text-primary">Personal Information</h5>
+            <hr>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Full Name *</label>
+            <input type="text" name="full_name" id="intern_full_name" class="form-control" required>
+            <div class="invalid-feedback">Please enter full name (at least 3 characters)</div>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" id="intern_email" class="form-control" pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$">
+            <div class="invalid-feedback">Please enter a valid email address</div>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Phone</label>
+            <input type="tel" name="phone" id="intern_phone" class="form-control" pattern="[0-9]{10}">
+            <div class="invalid-feedback">Please enter a valid 10-digit mobile number</div>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Gender</label>
+            <select name="gender" class="form-select">
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Aadhar Number</label>
+            <input type="text" name="aadhar_no" id="intern_aadhar" class="form-control" pattern="[0-9]{12}">
+            <div class="invalid-feedback">Please enter a valid 12-digit Aadhar number</div>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">PAN Number</label>
+            <input type="text" name="pan_no" id="intern_pan" class="form-control" pattern="[A-Z]{5}[0-9]{4}[A-Z]{1}">
+            <div class="invalid-feedback">Please enter a valid PAN number (e.g., ABCDE1234F)</div>
+        </div>
+        
+        <div class="col-12 mb-3">
+            <label class="form-label">Address</label>
+            <textarea name="address" class="form-control" rows="2"></textarea>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Profile Photo</label>
+            <input type="file" name="profile_image" class="form-control" accept="image/jpeg,image/png,image/jpg">
+            <small class="text-muted">Max size: 2MB. Allowed formats: JPG, PNG</small>
+        </div>
+        
+        <!-- Intern Information -->
+        <div class="col-12 mt-3">
+            <h5 class="text-success">Internship Information</h5>
+            <hr>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Qualification</label>
+            <input type="text" name="qualification" class="form-control" placeholder="e.g., B.Tech, MCA">
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">College/University Name</label>
+            <input type="text" name="college_name" class="form-control">
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Course</label>
+            <input type="text" name="course" class="form-control" placeholder="e.g., Computer Science">
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Specialization</label>
+            <input type="text" name="specialization" class="form-control" placeholder="e.g., Web Development">
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <label class="form-label">Internship Duration (months)</label>
+            <input type="number" name="internship_duration" class="form-control" value="3" min="1" max="24">
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <label class="form-label">Stipend (per month)</label>
+            <input type="number" name="stipend" class="form-control" step="0.01" min="0">
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <label class="form-label">Start Date</label>
+            <input type="date" name="start_date" id="intern_start_date" class="form-control">
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Mentor Name</label>
+            <input type="text" name="mentor_name" class="form-control">
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Mentor Designation</label>
+            <input type="text" name="mentor_designation" class="form-control">
+        </div>
+        
+        <div class="col-md-12 mb-3">
+            <label class="form-label">Status</label>
+            <select name="status" class="form-select">
+                <option value="active">Active</option>
+                <option value="completed">Completed</option>
+                <option value="terminated">Terminated</option>
+            </select>
+        </div>
+        
+        <div class="col-md-12 mb-3">
+            <label class="form-label">Company</label>
+            <select name="company_id" class="form-select" required>
+                <option value="">Select Company</option>
+                {% for company in companies %}
+                <option value="{{ company.id }}">{{ company.name }}</option>
+                {% endfor %}
+            </select>
+            <div class="invalid-feedback">Please select a company</div>
+        </div>
+        
+        <!-- Bank Details -->
+        <div class="col-12 mt-3">
+            <h5 class="text-primary">Bank Details</h5>
+            <hr>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Account Holder Name</label>
+            <input type="text" name="account_holder" class="form-control">
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Account Number</label>
+            <input type="text" name="account_number" class="form-control" pattern="[0-9]{9,18}">
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <label class="form-label">Bank Name</label>
+            <input type="text" name="bank_name" class="form-control">
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <label class="form-label">Branch</label>
+            <input type="text" name="branch" class="form-control">
+        </div>
+        
+        <div class="col-md-4 mb-3">
+            <label class="form-label">IFSC Code</label>
+            <input type="text" name="ifsc_code" class="form-control" pattern="[A-Z]{4}0[A-Z0-9]{6}">
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <button type="submit" class="btn-submit">Save Intern</button>
+        <a href="{{ url_for('admin_dashboard', tab='members') }}" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
         </div>
         
         <script>
@@ -1205,6 +1256,312 @@
             employeeType.addEventListener('change', toggleForms);
             internType.addEventListener('change', toggleForms);
             toggleForms();
+
+                // Employee Form Validation
+                function validateEmployeeForm() {
+                    let isValid = true;
+                    
+                    // Full Name validation
+                    const fullName = document.getElementById('emp_full_name');
+                    if (fullName && fullName.value.trim().length < 3) {
+                        fullName.classList.add('is-invalid');
+                        isValid = false;
+                    } else if (fullName) {
+                        fullName.classList.remove('is-invalid');
+                    }
+                    
+                    // Email validation
+                    const email = document.getElementById('emp_email');
+                    if (email && email.value) {
+                        const emailPattern = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
+                        if (!emailPattern.test(email.value)) {
+                            email.classList.add('is-invalid');
+                            isValid = false;
+                        } else {
+                            email.classList.remove('is-invalid');
+                        }
+                    }
+                    
+                    // Phone validation
+                    const phone = document.getElementById('emp_phone');
+                    if (phone && phone.value) {
+                        const phonePattern = /^[0-9]{10}$/;
+                        if (!phonePattern.test(phone.value)) {
+                            phone.classList.add('is-invalid');
+                            isValid = false;
+                        } else {
+                            phone.classList.remove('is-invalid');
+                        }
+                    }
+                    
+                    // Aadhar validation
+                    const aadhar = document.getElementById('emp_aadhar');
+                    if (aadhar && aadhar.value) {
+                        const aadharPattern = /^[0-9]{12}$/;
+                        if (!aadharPattern.test(aadhar.value)) {
+                            aadhar.classList.add('is-invalid');
+                            isValid = false;
+                        } else {
+                            aadhar.classList.remove('is-invalid');
+                        }
+                    }
+                    
+                    // PAN validation
+                    const pan = document.getElementById('emp_pan');
+                    if (pan && pan.value) {
+                        const panPattern = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+                        if (!panPattern.test(pan.value.toUpperCase())) {
+                            pan.classList.add('is-invalid');
+                            isValid = false;
+                        } else {
+                            pan.classList.remove('is-invalid');
+                        }
+                    }
+                    
+                    // Company validation (only if employee form is visible)
+                    const company = document.getElementById('emp_company');
+                    if (company && company.style.display !== 'none') {
+                        if (!company.value) {
+                            company.classList.add('is-invalid');
+                            isValid = false;
+                        } else {
+                            company.classList.remove('is-invalid');
+                        }
+                    }
+                    
+                    // Designation validation
+                    const designation = document.getElementById('emp_designation');
+                    if (designation && designation.style.display !== 'none') {
+                        if (!designation.value.trim()) {
+                            designation.classList.add('is-invalid');
+                            isValid = false;
+                        } else {
+                            designation.classList.remove('is-invalid');
+                        }
+                    }
+                    
+                    // CTC validation
+                    const ctc = document.getElementById('emp_ctc');
+                    if (ctc && ctc.value && parseFloat(ctc.value) < 0) {
+                        ctc.classList.add('is-invalid');
+                        isValid = false;
+                    } else if (ctc) {
+                        ctc.classList.remove('is-invalid');
+                    }
+                    
+                    // Joining Date validation
+                    const joiningDate = document.getElementById('emp_joining_date');
+                    if (joiningDate && joiningDate.value) {
+                        const selectedDate = new Date(joiningDate.value);
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        if (selectedDate > today) {
+                            joiningDate.classList.add('is-invalid');
+                            isValid = false;
+                        } else {
+                            joiningDate.classList.remove('is-invalid');
+                        }
+                    }
+                    
+                    // Resignation Date validation
+                    const resignationDate = document.getElementById('emp_resignation_date');
+                    if (resignationDate && resignationDate.value && joiningDate && joiningDate.value) {
+                        const resignDate = new Date(resignationDate.value);
+                        const joinDate = new Date(joiningDate.value);
+                        if (resignDate < joinDate) {
+                            resignationDate.classList.add('is-invalid');
+                            isValid = false;
+                        } else {
+                            resignationDate.classList.remove('is-invalid');
+                        }
+                    }
+                    
+                    // Account Number validation
+                    const accountNumber = document.getElementById('account_number');
+                    if (accountNumber && accountNumber.value) {
+                        const accPattern = /^[0-9]{9,18}$/;
+                        if (!accPattern.test(accountNumber.value)) {
+                            accountNumber.classList.add('is-invalid');
+                            isValid = false;
+                        } else {
+                            accountNumber.classList.remove('is-invalid');
+                        }
+                    }
+                    
+                    // IFSC Code validation
+                    const ifscCode = document.getElementById('ifsc_code');
+                    if (ifscCode && ifscCode.value) {
+                        const ifscPattern = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+                        if (!ifscPattern.test(ifscCode.value.toUpperCase())) {
+                            ifscCode.classList.add('is-invalid');
+                            isValid = false;
+                        } else {
+                            ifscCode.classList.remove('is-invalid');
+                        }
+                    }
+                    
+                    // Profile Image validation
+                    const profileImage = document.getElementById('emp_profile_image');
+                    if (profileImage && profileImage.files.length > 0) {
+                        const file = profileImage.files[0];
+                        const maxSize = 2 * 1024 * 1024; // 2MB
+                        const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+                        
+                        if (file.size > maxSize) {
+                            alert('Profile image must be less than 2MB');
+                            profileImage.classList.add('is-invalid');
+                            isValid = false;
+                        } else if (!allowedTypes.includes(file.type)) {
+                            alert('Only JPG and PNG images are allowed');
+                            profileImage.classList.add('is-invalid');
+                            isValid = false;
+                        } else {
+                            profileImage.classList.remove('is-invalid');
+                        }
+                    }
+                    
+                    if (!isValid) {
+                        alert('Please correct the errors in the form before submitting.');
+                    }
+                    
+                    return isValid;
+                }
+                
+                // Intern Form Validation
+                function validateInternForm() {
+                    let isValid = true;
+                    
+                    // Full Name validation
+                    const fullName = document.getElementById('intern_full_name');
+                    if (fullName && fullName.value.trim().length < 3) {
+                        fullName.classList.add('is-invalid');
+                        isValid = false;
+                    } else if (fullName) {
+                        fullName.classList.remove('is-invalid');
+                    }
+                    
+                    // Email validation
+                    const email = document.getElementById('intern_email');
+                    if (email && email.value) {
+                        const emailPattern = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/;
+                        if (!emailPattern.test(email.value)) {
+                            email.classList.add('is-invalid');
+                            isValid = false;
+                        } else {
+                            email.classList.remove('is-invalid');
+                        }
+                    }
+                    
+                    // Phone validation
+                    const phone = document.getElementById('intern_phone');
+                    if (phone && phone.value) {
+                        const phonePattern = /^[0-9]{10}$/;
+                        if (!phonePattern.test(phone.value)) {
+                            phone.classList.add('is-invalid');
+                            isValid = false;
+                        } else {
+                            phone.classList.remove('is-invalid');
+                        }
+                    }
+                    
+                    // Aadhar validation
+                    const aadhar = document.getElementById('intern_aadhar');
+                    if (aadhar && aadhar.value) {
+                        const aadharPattern = /^[0-9]{12}$/;
+                        if (!aadharPattern.test(aadhar.value)) {
+                            aadhar.classList.add('is-invalid');
+                            isValid = false;
+                        } else {
+                            aadhar.classList.remove('is-invalid');
+                        }
+                    }
+                    
+                    // PAN validation
+                    const pan = document.getElementById('intern_pan');
+                    if (pan && pan.value) {
+                        const panPattern = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+                        if (!panPattern.test(pan.value.toUpperCase())) {
+                            pan.classList.add('is-invalid');
+                            isValid = false;
+                        } else {
+                            pan.classList.remove('is-invalid');
+                        }
+                    }
+                    
+                    // Company validation for intern
+                    const company = document.querySelector('#internForm select[name="company_id"]');
+                    if (company && !company.value) {
+                        company.classList.add('is-invalid');
+                        isValid = false;
+                    } else if (company) {
+                        company.classList.remove('is-invalid');
+                    }
+                    
+                    // Internship Duration validation
+                    const duration = document.querySelector('#internForm input[name="internship_duration"]');
+                    if (duration && duration.value) {
+                        const durValue = parseInt(duration.value);
+                        if (durValue < 1 || durValue > 24) {
+                            duration.classList.add('is-invalid');
+                            isValid = false;
+                        } else {
+                            duration.classList.remove('is-invalid');
+                        }
+                    }
+                    
+                    if (!isValid) {
+                        alert('Please correct the errors in the form before submitting.');
+                    }
+                    
+                    return isValid;
+                }
+                
+                // Real-time validation for employee form
+                document.addEventListener('DOMContentLoaded', function() {
+                    // Add input event listeners for real-time validation
+                    const inputs = ['emp_full_name', 'emp_email', 'emp_phone', 'emp_aadhar', 'emp_pan', 'emp_ctc', 'emp_joining_date', 'emp_resignation_date', 'account_number', 'ifsc_code'];
+                    
+                    inputs.forEach(id => {
+                        const element = document.getElementById(id);
+                        if (element) {
+                            element.addEventListener('input', function() {
+                                this.classList.remove('is-invalid');
+                            });
+                        }
+                    });
+                    
+                    // Add change event for date validation
+                    const joiningDate = document.getElementById('emp_joining_date');
+                    const resignationDate = document.getElementById('emp_resignation_date');
+                    
+                    if (joiningDate) {
+                        joiningDate.addEventListener('change', function() {
+                            if (resignationDate && resignationDate.value) {
+                                const joinDate = new Date(this.value);
+                                const resignDate = new Date(resignationDate.value);
+                                if (resignDate < joinDate) {
+                                    resignationDate.classList.add('is-invalid');
+                                } else {
+                                    resignationDate.classList.remove('is-invalid');
+                                }
+                            }
+                        });
+                    }
+                    
+                    if (resignationDate) {
+                        resignationDate.addEventListener('change', function() {
+                            if (joiningDate && joiningDate.value) {
+                                const joinDate = new Date(joiningDate.value);
+                                const resignDate = new Date(this.value);
+                                if (resignDate < joinDate) {
+                                    this.classList.add('is-invalid');
+                                } else {
+                                    this.classList.remove('is-invalid');
+                                }
+                            }
+                        });
+                    }
+                });
         </script>
         {% endif %}
 
@@ -1349,7 +1706,9 @@
             <div class="member-list" id="memberSelectList">
                 {% for item in employees %}
                 <div class="member-select-item {% if selected_member_id == item.employee.id and selected_member_type == 'employee' %}selected{% endif %}" 
-                     onclick="selectMember('{{ item.employee.id }}', 'employee')" data-id="{{ item.employee.id }}" data-type="employee">
+                    onclick="selectMember('{{ item.employee.id }}', 'employee')" 
+                    data-id="{{ item.employee.id }}" 
+                    data-type="employee">
                     <h5>{{ item.employee.full_name }}</h5>
                     <p>{{ item.employee.designation }} | {{ item.employee.employee_id }}</p>
                     <small class="text-muted">Company: {{ item.employee.company.name if item.employee.company else 'Not Assigned' }}</small>
@@ -1359,7 +1718,9 @@
                 {% endfor %}
                 {% for intern in interns %}
                 <div class="member-select-item {% if selected_member_id == intern.id and selected_member_type == 'intern' %}selected{% endif %}" 
-                     onclick="selectMember('{{ intern.id }}', 'intern')" data-id="{{ intern.id }}" data-type="intern">
+                    onclick="selectMember('{{ intern.id }}', 'intern')" 
+                    data-id="{{ intern.id }}" 
+                    data-type="intern">
                     <h5>{{ intern.full_name }}</h5>
                     <p>{{ intern.qualification or 'Intern' }} | {{ intern.intern_id }}</p>
                     <small class="text-muted">Company: {{ intern.company.name if intern.company else 'Not Assigned' }}</small>
@@ -1370,29 +1731,57 @@
             </div>
         </div>
 
+        <!-- Step 2: Show only if a member is selected -->
         {% if selected_member_id %}
         <div class="member-selector">
             <h4 style="margin-bottom:20px;">Step 2: Select Document Type</h4>
             
             {% if selected_member_type == 'employee' %}
             <div class="document-type-grid">
-                <div class="document-type-card" onclick="generateDocument('{{ selected_member_id }}', 'offer_letter', 'employee')"><i class="fas fa-file-alt"></i><h6>Offer Letter</h6></div>
-                <div class="document-type-card" onclick="generateDocument('{{ selected_member_id }}', 'salary_slip', 'employee')"><i class="fas fa-money-bill-wave"></i><h6>Salary Slip</h6></div>
-                <div class="document-type-card" onclick="generateDocument('{{ selected_member_id }}', 'experience_letter', 'employee')"><i class="fas fa-graduation-cap"></i><h6>Experience Letter</h6></div>
-                <div class="document-type-card" onclick="generateDocument('{{ selected_member_id }}', 'increment_letter', 'employee')"><i class="fas fa-chart-line"></i><h6>Increment Letter</h6></div>
-                <div class="document-type-card" onclick="generateDocument('{{ selected_member_id }}', 'relieving_letter', 'employee')"><i class="fas fa-door-open"></i><h6>Relieving Letter</h6></div>
-                <div class="document-type-card" onclick="generateDocument('{{ selected_member_id }}', 'resignation_acceptance', 'employee')"><i class="fas fa-envelope-open-text"></i><h6>Resignation Acceptance</h6></div>
+                <div class="document-type-card" onclick="generateDocument('{{ selected_member_id }}', 'offer_letter', 'employee')">
+                    <i class="fas fa-file-alt"></i>
+                    <h6>Offer Letter</h6>
+                </div>
+                <div class="document-type-card" onclick="generateDocument('{{ selected_member_id }}', 'salary_slip', 'employee')">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <h6>Salary Slip</h6>
+                </div>
+                <div class="document-type-card" onclick="generateDocument('{{ selected_member_id }}', 'experience_letter', 'employee')">
+                    <i class="fas fa-graduation-cap"></i>
+                    <h6>Experience Letter</h6>
+                </div>
+                <div class="document-type-card" onclick="generateDocument('{{ selected_member_id }}', 'increment_letter', 'employee')">
+                    <i class="fas fa-chart-line"></i>
+                    <h6>Increment Letter</h6>
+                </div>
+                <div class="document-type-card" onclick="generateDocument('{{ selected_member_id }}', 'relieving_letter', 'employee')">
+                    <i class="fas fa-door-open"></i>
+                    <h6>Relieving Letter</h6>
+                </div>
+                <div class="document-type-card" onclick="generateDocument('{{ selected_member_id }}', 'resignation_acceptance', 'employee')">
+                    <i class="fas fa-envelope-open-text"></i>
+                    <h6>Resignation Acceptance</h6>
+                </div>
             </div>
             {% else %}
             <div class="document-type-grid">
-                <div class="document-type-card" onclick="generateDocument('{{ selected_member_id }}', 'intern_offer_letter', 'intern')"><i class="fas fa-file-contract"></i><h6>Intern Offer Letter</h6></div>
-                <div class="document-type-card" onclick="generateDocument('{{ selected_member_id }}', 'certificate_of_internship', 'intern')"><i class="fas fa-award"></i><h6>Certificate of Internship</h6></div>
+                <div class="document-type-card" onclick="generateDocument('{{ selected_member_id }}', 'intern_offer_letter', 'intern')">
+                    <i class="fas fa-file-contract"></i>
+                    <h6>Intern Offer Letter</h6>
+                </div>
+                <div class="document-type-card" onclick="generateDocument('{{ selected_member_id }}', 'certificate_of_internship', 'intern')">
+                    <i class="fas fa-award"></i>
+                    <h6>Certificate of Internship</h6>
+                </div>
             </div>
             {% endif %}
         </div>
+        {% endif %}
 
         <script>
             function selectMember(memberId, memberType) {
+                console.log("Selecting member:", memberId, memberType);
+                // Redirect to same page with member_id and member_type parameters
                 window.location.href = "{{ url_for('admin_dashboard', tab='document_generator') }}" + "&member_id=" + memberId + "&member_type=" + memberType;
             }
 
@@ -1400,19 +1789,10 @@
                 if (memberType === 'employee') {
                     if (docType === 'salary_slip') {
                         window.location.href = "{{ url_for('admin_generate_document', emp_id=0, doc_type='salary_slip') }}".replace('0', memberId);
-                    } else {
-                        const form = document.createElement('form');
-                        form.method = 'POST';
-                        form.action = "{{ url_for('admin_generate_document', emp_id=0, doc_type='') }}".replace('0', memberId) + docType;
-                        form.target = '_blank';
-                        const companyInput = document.createElement('input');
-                        companyInput.type = 'hidden';
-                        companyInput.name = 'company';
-                        companyInput.value = 'company1';
-                        form.appendChild(companyInput);
-                        document.body.appendChild(form);
-                        form.submit();
-                        document.body.removeChild(form);
+                    } 
+                    else {
+                        // For all other documents, go to company selection
+                        window.location.href = "{{ url_for('select_company_for_doc', emp_id=0, doc_type='') }}".replace('0', memberId) + docType;
                     }
                 } else {
                     // Intern document generation
@@ -1421,52 +1801,206 @@
             }
         </script>
         {% endif %}
-        {% endif %}
+        
+        <!-- Create Payment Modal - Only for Employees -->
+        <div class="modal fade" id="createPaymentModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-plus-circle me-2"></i>Create New Payment
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" action="{{ url_for('create_payment') }}">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Select Employee *</label>
+                                <select name="employee_id" class="form-select" required>
+                                    <option value="">-- Select Employee --</option>
+                                    {% for item in employees %}
+                                    <option value="{{ item.employee.id }}">
+                                        {{ item.employee.full_name }} ({{ item.employee.employee_id }}) - {{ item.employee.designation }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">Select employee to create payment record</small>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Document Type</label>
+                                    <select name="document_type" class="form-select">
+                                        <option value="">-- Select Document --</option>
+                                        <option value="offer_letter">📄 Offer Letter</option>
+                                        <option value="experience_letter">🎓 Experience Letter</option>
+                                        <option value="increment_letter">📈 Increment Letter</option>
+                                        <option value="relieving_letter">🚪 Relieving Letter</option>
+                                        <option value="salary_slip">💰 Salary Slip</option>
+                                        <option value="resignation_acceptance">📧 Resignation Acceptance</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Amount (₹) *</label>
+                                    <input type="number" name="amount" class="form-control" step="0.01" required placeholder="Enter amount">
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Due Date</label>
+                                    <input type="date" name="due_date" class="form-control">
+                                    <small class="text-muted">Optional: Set deadline for payment</small>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Status</label>
+                                    <select name="status" class="form-select">
+                                        <option value="Pending">Pending</option>
+                                        <option value="Partial">Partial</option>
+                                        <option value="Paid">Paid</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Notes (Optional)</label>
+                                <textarea name="notes" class="form-control" rows="2" placeholder="Add any additional notes about this payment..."></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-1"></i> Create Payment
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
 
         <!-- Payments Tab -->
         {% if active_tab == 'payments' %}
         <div class="payment-table">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Employee</th>
-                        <th>Company</th>
-                        <th>Document Type</th>
-                        <th>Amount</th>
-                        <th>Paid</th>
-                        <th>Due</th>
-                        <th>Status</th>
-                        <th>Paid Date</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for payment in payments %}
-                    <tr>
-                        <td><strong>{{ payment.employee_name }}</strong><br><small>{{ payment.employee_id }}</small></td>
-                        <td><small>{{ payment.company_name or 'N/A' }}</small></td>
-                        <td>{{ payment.document_type }}</td>
-                        <td>₹{{ "{:,.0f}".format(payment.amount) }}</td>
-                        <td>₹{{ "{:,.0f}".format(payment.paid_amt) }}</td>
-                        <td>₹{{ "{:,.0f}".format(payment.due_amount) }}</td>
-                        <td><span class="payment-status payment-{{ payment.status_class }}">{{ payment.status }}</span></td>
-                        <td>{{ payment.paid_date }}</td>
-                        <td>
-                            {% if payment.status != 'Paid' %}
-                            <button class="pay-btn" onclick="processPayment('{{ payment.id }}')">
-                                Mark as Paid
-                            </button>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Employee</th>
+                            <th>Document Type</th>
+                            <th>Amount (₹)</th>
+                            <th>Paid (₹)</th>
+                            <th>Due (₹)</th>
+                            <th>Status</th>
+                            <th>Payment Date</th>
+                            <th>Due Date</th>
+                            <th>Actions</th>
+                        </thead>
+                        <tbody>
+                            {% for payment in payments %}
+                            <tr>
+                                <td class="text-center">{{ payment.id }}</td>
+                                <td>
+                                    <strong>{{ payment.employee_name }}</strong><br>
+                                    <small class="text-muted">{{ payment.employee_id }}</small>
+                                </td>
+                                <td>{{ payment.document_type }}</td>
+                                <td class="text-end">₹{{ "{:,.0f}".format(payment.amount) }}</td>
+                                <td class="text-end text-success">₹{{ "{:,.0f}".format(payment.paid_amt) }}</td>
+                                <td class="text-end text-danger">₹{{ "{:,.0f}".format(payment.due_amount) }}</td>
+                                <td>
+                                    <span class="badge bg-{{ payment.status_class }}">
+                                        {{ payment.status }}
+                                    </span>
+                                </td>
+                                <td>{{ payment.payment_date }}</td>
+                                <td>{{ payment.due_date }}</td>
+                                <td class="text-nowrap">
+                                    <div class="btn-group btn-group-sm gap-1">
+                                        <button class="btn btn-info" onclick="viewPayment('{{ payment.id }}')" title="View Details">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        {% if payment.status != 'Paid' %}
+                                        <button class="btn btn-success" onclick="showAddPaymentModal(`{{ payment.id }}`)" title="Add Payment">
+                                            <i class="fas fa-money-bill"></i>
+                                        </button>
+                                        <button class="btn btn-primary" onclick="markAsPaid(`{{ payment.id }}`)" title="Mark as Paid">
+                                            <i class="fas fa-check-circle"></i>
+                                        </button>
+                                        {% endif %}
+                                        <button class="btn btn-warning" onclick="showEditAmountModal(`{{ payment.id }}`, `{{ payment.amount }}`)" title="Edit Amount">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-danger" onclick="deletePayment(`{{ payment.id }}`)" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
                             {% else %}
-                            <button class="pay-btn" disabled>Paid</button>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr><td colspan="9" class="text-center">No payment records found</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+                            <tr>
+                                <td colspan="10" class="text-center py-4">
+                                    <i class="fas fa-credit-card fa-2x text-muted mb-2 d-block"></i>
+                                    No payment records found
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Add Payment Modal -->
+            <div class="modal fade" id="addPaymentModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header bg-info text-white">
+                            <h5 class="modal-title"><i class="fas fa-money-bill"></i> Add Payment</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form method="POST" id="addPaymentForm">
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Payment Amount (₹)</label>
+                                    <input type="number" name="payment_amount" class="form-control" step="0.01" required placeholder="Enter amount to pay">
+                                    <small class="text-muted">Enter the amount being paid now</small>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-info">Add Payment</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Amount Modal -->
+            <div class="modal fade" id="editAmountModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header bg-warning">
+                            <h5 class="modal-title"><i class="fas fa-edit"></i> Edit Payment Amount</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form method="POST" id="editAmountForm">
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Total Amount (₹)</label>
+                                    <input type="number" name="amount" class="form-control" step="0.01" required>
+                                    <small class="text-muted">Update the total amount due for this payment</small>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-warning">Update Amount</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
         {% endif %}
     </div>
 </div>
@@ -1506,20 +2040,57 @@
         filterMembers();
     }
 
-    function processPayment(paymentId) {
-        if (confirm('Mark this payment as paid?')) {
+    // View payment details
+    function viewPayment(paymentId) {
+        window.location.href = "{{ url_for('view_payment', payment_id=0) }}".replace('0', paymentId);
+    }
+    
+    // Show Add Payment modal
+    function showAddPaymentModal(paymentId) {
+        const form = document.getElementById('addPaymentForm');
+        form.action = "{{ url_for('add_payment', payment_id=0) }}".replace('0', paymentId);
+        new bootstrap.Modal(document.getElementById('addPaymentModal')).show();
+    }
+    
+    // Mark as paid with confirmation
+    function markAsPaid(paymentId) {
+        if (confirm('Are you sure you want to mark this payment as FULLY PAID?')) {
             fetch('/admin/process-payment/' + paymentId, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             })
             .then(response => {
-                if (response.ok) { location.reload(); }
-                else { alert('Error processing payment'); }
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Error processing payment');
+                }
             })
             .catch(error => {
                 console.error('Error:', error);
                 alert('Error processing payment');
             });
+        }
+    }
+    
+    // Show Edit Amount modal
+    function showEditAmountModal(paymentId, currentAmount) {
+        const form = document.getElementById('editAmountForm');
+        form.action = "{{ url_for('update_payment_amount', payment_id=0) }}".replace('0', paymentId);
+        form.querySelector('input[name="amount"]').value = currentAmount;
+        new bootstrap.Modal(document.getElementById('editAmountModal')).show();
+    }
+    
+    // Delete payment with confirmation
+    function deletePayment(paymentId) {
+        if (confirm('Are you sure you want to DELETE this payment record? This action cannot be undone.')) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = "{{ url_for('delete_payment', payment_id=0) }}".replace('0', paymentId);
+            document.body.appendChild(form);
+            form.submit();
         }
     }
 

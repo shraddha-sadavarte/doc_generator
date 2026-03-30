@@ -78,9 +78,20 @@
                         <hr>
                     </div>
                     
+                    <!-- ========== FIX: ADD COMPANY SELECTION FOR EMPLOYEE ========== -->
+                    <div class="col-md-6 mb-3 employee-only">
+                        <label class="form-label">Company *</label>
+                        <select name="company_id" class="form-select" required>
+                            <option value="">-- Select Company --</option>
+                            {% for company in companies %}
+                            <option value="{{ company.id }}">{{ company.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
                     <div class="col-md-6 mb-3 employee-only">
                         <label class="form-label">Designation *</label>
-                        <input type="text" name="designation" class="form-control">
+                        <input type="text" name="designation" class="form-control" required>
                     </div>
                     
                     <div class="col-md-6 mb-3 employee-only">
@@ -168,6 +179,16 @@
                         <input type="text" name="mentor_designation" class="form-control">
                     </div>
                     
+                    <div class="col-md-12 mb-3 intern-only" style="display: none;">
+                        <label class="form-label">Company</label>
+                        <select name="company_id" class="form-select">
+                            <option value="">-- Select Company --</option>
+                            {% for company in companies %}
+                            <option value="{{ company.id }}">{{ company.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
                     <!-- Bank Details -->
                     <div class="col-12 mt-3">
                         <h5 class="text-primary">Bank Details</h5>
@@ -220,7 +241,6 @@
         if (employeeType.checked) {
             employeeFields.forEach(field => field.style.display = 'block');
             internFields.forEach(field => field.style.display = 'none');
-            document.querySelector('.employee-only h5').style.display = 'block';
         } else {
             employeeFields.forEach(field => field.style.display = 'none');
             internFields.forEach(field => field.style.display = 'block');
@@ -229,6 +249,7 @@
     
     employeeType.addEventListener('change', toggleFormFields);
     internType.addEventListener('change', toggleFormFields);
+    toggleFormFields();
     
     // Set end date based on start date and duration
     document.querySelector('input[name="start_date"]')?.addEventListener('change', function() {

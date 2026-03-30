@@ -121,7 +121,8 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 3rem;
+        flex-wrap: wrap;
+        gap: 20px;
     }
     .letter-body { position: relative; z-index: 1; }
     h2, h4 { color: #0d6efd; }
@@ -158,6 +159,14 @@
         display: flex;
         align-items: center;
         gap: 15px;
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .logo-section img {
+        height: 70px;
+        max-width: 180px;
+        object-fit: contain;
     }
 
     .company-info {
@@ -169,12 +178,46 @@
         font-size: 20px;
         font-weight: bold;
         color: #28a745; /* Change color per document type */
+        margin: 0;
     }
 
     .company-address {
         font-size: 11px;
         color: #666;
         line-height: 1.3;
+        margin: 3px 0 0;
+    }
+
+    .company-contact {
+        text-align: right;
+        font-size: 11px;
+        color: #444;
+        line-height: 1.5;
+        flex-shrink: 0;
+        min-width: 200px;
+    }
+
+    .company-contact strong {
+        font-size: 13px;
+        display: block;
+        margin-bottom: 4px;
+    }
+
+    @media (max-width: 600px) {
+        .letter-header {
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .logo-section {
+            justify-content: center;
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .company-contact {
+            text-align: center;
+        }
     }
 </style>
 

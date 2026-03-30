@@ -1,13 +1,17 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container py-4">
+<div class="container-fluid py-4">
     <div class="row">
-        <div class="col-md-4">
+        <!-- Left Column - Profile and Bank Details -->
+        <div class="col-lg-4 col-md-12 mb-4">
             <!-- Profile Card -->
             <div class="card shadow mb-4">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">Intern Profile</h5>
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h5 class="mb-0"><i class="fas fa-user-circle me-2"></i>Intern Profile</h5>
+                    <button class="btn btn-sm btn-light" onclick="toggleEditMode()">
+                        <i class="fas fa-edit me-1"></i> Edit
+                    </button>
                 </div>
                 <div class="card-body text-center">
                     {% if intern.profile_image %}
@@ -19,139 +23,305 @@
                             {{ intern.full_name[:1] }}
                         </div>
                     {% endif %}
-                    <h4>{{ intern.full_name }}</h4>
-                    <p class="text-muted">{{ intern.intern_id }}</p>
-                    <span class="badge {% if intern.status == 'active' %}bg-success{% elif intern.status == 'completed' %}bg-info{% else %}bg-danger{% endif %}">
-                        {{ intern.status|upper }}
-                    </span>
+                    
+                    <!-- View Mode -->
+                    <div id="viewMode">
+                        <h4 id="display_full_name">{{ intern.full_name }}</h4>
+                        <p class="text-muted">{{ intern.intern_id }}</p>
+                        <span class="badge {% if intern.status == 'active' %}bg-success{% elif intern.status == 'completed' %}bg-info{% else %}bg-danger{% endif %} px-3 py-2">
+                            {{ intern.status|upper }}
+                        </span>
+                    </div>
+                    
+                    <!-- Edit Mode (Hidden) -->
+                    <form id="editMode" method="POST" action="{{ url_for('update_intern', intern_id=intern.id) }}" style="display: none;">
+                        <div class="mb-2">
+                            <input type="text" name="full_name" class="form-control form-control-sm" value="{{ intern.full_name }}" required>
+                        </div>
+                        <div class="mb-2">
+                            <select name="status" class="form-select form-select-sm">
+                                <option value="active" {% if intern.status == 'active' %}selected{% endif %}>Active</option>
+                                <option value="completed" {% if intern.status == 'completed' %}selected{% endif %}>Completed</option>
+                                <option value="terminated" {% if intern.status == 'terminated' %}selected{% endif %}>Terminated</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-success">Save Changes</button>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="toggleEditMode()">Cancel</button>
+                    </form>
                 </div>
                 <div class="card-body">
-                    <div class="info-row">
-                        <span class="info-label">📧 Email:</span>
-                        <span class="info-value">{{ intern.email or 'N/A' }}</span>
+                    <!-- View Mode -->
+                    <div id="viewModeInfo">
+                        <div class="info-row">
+                            <span class="info-label">📧 Email:</span>
+                            <span class="info-value" id="display_email">{{ intern.email or 'N/A' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">📞 Phone:</span>
+                            <span class="info-value" id="display_phone">{{ intern.phone or 'N/A' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">👤 Gender:</span>
+                            <span class="info-value" id="display_gender">{{ intern.gender or 'N/A' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">🏢 Company:</span>
+                            <span class="info-value">{{ company.name if company else 'N/A' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">📍 Address:</span>
+                            <span class="info-value" id="display_address">{{ intern.address or 'N/A' }}</span>
+                        </div>
                     </div>
-                    <div class="info-row">
-                        <span class="info-label">📞 Phone:</span>
-                        <span class="info-value">{{ intern.phone or 'N/A' }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">👤 Gender:</span>
-                        <span class="info-value">{{ intern.gender or 'N/A' }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">🏢 Company:</span>
-                        <span class="info-value">{{ company.name if company else 'N/A' }}</span>
-                    </div>
+                    
+                    <!-- Edit Mode Info -->
+                    <form id="editModeInfo" method="POST" action="{{ url_for('update_intern', intern_id=intern.id) }}" style="display: none;">
+                        <div class="mb-2">
+                            <label class="form-label small">Email</label>
+                            <input type="email" name="email" class="form-control form-control-sm" value="{{ intern.email or '' }}">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Phone</label>
+                            <input type="text" name="phone" class="form-control form-control-sm" value="{{ intern.phone or '' }}">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Gender</label>
+                            <select name="gender" class="form-select form-select-sm">
+                                <option value="Male" {% if intern.gender == 'Male' %}selected{% endif %}>Male</option>
+                                <option value="Female" {% if intern.gender == 'Female' %}selected{% endif %}>Female</option>
+                                <option value="Other" {% if intern.gender == 'Other' %}selected{% endif %}>Other</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Company</label>
+                            <select name="company_id" class="form-select form-select-sm">
+                                <option value="">Select Company</option>
+                                {% for comp in companies %}
+                                <option value="{{ comp.id }}" {% if intern.company_id == comp.id %}selected{% endif %}>{{ comp.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Address</label>
+                            <textarea name="address" class="form-control form-control-sm" rows="2">{{ intern.address or '' }}</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-success">Save Changes</button>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="toggleEditMode()">Cancel</button>
+                    </form>
                 </div>
             </div>
 
             <!-- Bank Details Card -->
             <div class="card shadow">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0">Bank Details</h5>
+                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h5 class="mb-0"><i class="fas fa-university me-2"></i>Bank Details</h5>
+                    <button class="btn btn-sm btn-light" onclick="toggleBankEditMode()">
+                        <i class="fas fa-edit me-1"></i> Edit
+                    </button>
                 </div>
                 <div class="card-body">
-                    <div class="info-row">
-                        <span class="info-label">Account Holder:</span>
-                        <span class="info-value">{{ intern.account_holder or 'N/A' }}</span>
+                    <!-- View Mode -->
+                    <div id="bankViewMode">
+                        <div class="info-row">
+                            <span class="info-label">Account Holder:</span>
+                            <span class="info-value">{{ intern.account_holder or 'N/A' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Account Number:</span>
+                            <span class="info-value">{{ intern.account_number or 'N/A' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Bank Name:</span>
+                            <span class="info-value">{{ intern.bank_name or 'N/A' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">IFSC Code:</span>
+                            <span class="info-value">{{ intern.ifsc_code or 'N/A' }}</span>
+                        </div>
                     </div>
-                    <div class="info-row">
-                        <span class="info-label">Account Number:</span>
-                        <span class="info-value">{{ intern.account_number or 'N/A' }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">Bank Name:</span>
-                        <span class="info-value">{{ intern.bank_name or 'N/A' }}</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="info-label">IFSC Code:</span>
-                        <span class="info-value">{{ intern.ifsc_code or 'N/A' }}</span>
-                    </div>
+                    
+                    <!-- Edit Mode -->
+                    <form id="bankEditMode" method="POST" action="{{ url_for('update_intern_bank', intern_id=intern.id) }}" style="display: none;">
+                        <div class="mb-2">
+                            <label class="form-label small">Account Holder</label>
+                            <input type="text" name="account_holder" class="form-control form-control-sm" value="{{ intern.account_holder or '' }}">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Account Number</label>
+                            <input type="text" name="account_number" class="form-control form-control-sm" value="{{ intern.account_number or '' }}">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Bank Name</label>
+                            <input type="text" name="bank_name" class="form-control form-control-sm" value="{{ intern.bank_name or '' }}">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">IFSC Code</label>
+                            <input type="text" name="ifsc_code" class="form-control form-control-sm" value="{{ intern.ifsc_code or '' }}">
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-success">Save Changes</button>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="toggleBankEditMode()">Cancel</button>
+                    </form>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-8">
+        <div class="col-lg-8 col-md-12">
             <!-- Internship Details -->
             <div class="card shadow mb-4">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">Internship Details</h5>
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h5 class="mb-0"><i class="fas fa-graduation-cap me-2"></i>Internship Details</h5>
+                    <button class="btn btn-sm btn-light" onclick="toggleInternshipEditMode()">
+                        <i class="fas fa-edit me-1"></i> Edit
+                    </button>
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="info-row">
-                                <span class="info-label">🎓 Qualification:</span>
-                                <span class="info-value">{{ intern.qualification or 'N/A' }}</span>
+                    <!-- View Mode -->
+                    <div id="internshipViewMode">
+                        <div class="row">
+                            <div class="col-sm-6">
+                                <div class="info-row">
+                                    <span class="info-label">🎓 Qualification:</span>
+                                    <span class="info-value" id="display_qualification">{{ intern.qualification or 'N/A' }}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">🏛️ College:</span>
+                                    <span class="info-value" id="display_college">{{ intern.college_name or 'N/A' }}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">📚 Course:</span>
+                                    <span class="info-value" id="display_course">{{ intern.course or 'N/A' }}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">🔬 Specialization:</span>
+                                    <span class="info-value" id="display_specialization">{{ intern.specialization or 'N/A' }}</span>
+                                </div>
                             </div>
-                            <div class="info-row">
-                                <span class="info-label">🏛️ College:</span>
-                                <span class="info-value">{{ intern.college_name or 'N/A' }}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">📚 Course:</span>
-                                <span class="info-value">{{ intern.course or 'N/A' }}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">🔬 Specialization:</span>
-                                <span class="info-value">{{ intern.specialization or 'N/A' }}</span>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="info-row">
-                                <span class="info-label">📅 Start Date:</span>
-                                <span class="info-value">{{ intern.start_date.strftime('%d %B %Y') if intern.start_date else 'N/A' }}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">📅 End Date:</span>
-                                <span class="info-value">{{ intern.end_date.strftime('%d %B %Y') if intern.end_date else 'N/A' }}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">⏱️ Duration:</span>
-                                <span class="info-value">{{ intern.internship_duration }} months</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">💰 Stipend:</span>
-                                <span class="info-value">₹{{ "{:,.0f}".format(intern.stipend) }}/month</span>
+                            <div class="col-sm-6">
+                                <div class="info-row">
+                                    <span class="info-label">📅 Start Date:</span>
+                                    <span class="info-value" id="display_start_date">{{ intern.start_date.strftime('%d %B %Y') if intern.start_date else 'N/A' }}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">📅 End Date:</span>
+                                    <span class="info-value" id="display_end_date">{{ intern.end_date.strftime('%d %B %Y') if intern.end_date else 'N/A' }}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">⏱️ Duration:</span>
+                                    <span class="info-value" id="display_duration">{{ intern.internship_duration }} months</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">💰 Stipend:</span>
+                                    <span class="info-value" id="display_stipend">₹{{ "{:,.0f}".format(intern.stipend) }}/month</span>
+                                </div>
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Edit Mode -->
+                    <form id="internshipEditMode" method="POST" action="{{ url_for('update_intern', intern_id=intern.id) }}" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <label class="form-label small">Qualification</label>
+                                    <input type="text" name="qualification" class="form-control form-control-sm" value="{{ intern.qualification or '' }}">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small">College/University</label>
+                                    <input type="text" name="college_name" class="form-control form-control-sm" value="{{ intern.college_name or '' }}">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small">Course</label>
+                                    <input type="text" name="course" class="form-control form-control-sm" value="{{ intern.course or '' }}">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small">Specialization</label>
+                                    <input type="text" name="specialization" class="form-control form-control-sm" value="{{ intern.specialization or '' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <label class="form-label small">Start Date</label>
+                                    <input type="date" name="start_date" class="form-control form-control-sm" value="{{ intern.start_date.strftime('%Y-%m-%d') if intern.start_date else '' }}">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small">End Date</label>
+                                    <input type="date" name="end_date" class="form-control form-control-sm" value="{{ intern.end_date.strftime('%Y-%m-%d') if intern.end_date else '' }}">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small">Duration (months)</label>
+                                    <input type="number" name="internship_duration" class="form-control form-control-sm" value="{{ intern.internship_duration }}">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small">Stipend (per month)</label>
+                                    <input type="number" name="stipend" class="form-control form-control-sm" step="0.01" value="{{ intern.stipend }}">
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-success">Save Changes</button>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="toggleInternshipEditMode()">Cancel</button>
+                    </form>
                 </div>
             </div>
 
             <!-- Mentor Details -->
             <div class="card shadow mb-4">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">Mentor Details</h5>
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h5 class="mb-0"><i class="fas fa-chalkboard-user me-2"></i>Mentor Details</h5>
+                    <button class="btn btn-sm btn-light" onclick="toggleMentorEditMode()">
+                        <i class="fas fa-edit me-1"></i> Edit
+                    </button>
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="info-row">
-                                <span class="info-label">👨‍🏫 Mentor Name:</span>
-                                <span class="info-value">{{ intern.mentor_name or 'N/A' }}</span>
+                    <!-- View Mode -->
+                    <div id="mentorViewMode">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <span class="info-label">👨‍🏫 Mentor Name:</span>
+                                    <span class="info-value">{{ intern.mentor_name or 'N/A' }}</span>
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="info-row">
-                                <span class="info-label">💼 Designation:</span>
-                                <span class="info-value">{{ intern.mentor_designation or 'N/A' }}</span>
+                            <div class="col-md-6">
+                                <div class="info-row">
+                                    <span class="info-label">💼 Designation:</span>
+                                    <span class="info-value">{{ intern.mentor_designation or 'N/A' }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Edit Mode -->
+                    <form id="mentorEditMode" method="POST" action="{{ url_for('update_intern', intern_id=intern.id) }}" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <label class="form-label small">Mentor Name</label>
+                                    <input type="text" name="mentor_name" class="form-control form-control-sm" value="{{ intern.mentor_name or '' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-2">
+                                    <label class="form-label small">Designation</label>
+                                    <input type="text" name="mentor_designation" class="form-control form-control-sm" value="{{ intern.mentor_designation or '' }}">
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-success">Save Changes</button>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="toggleMentorEditMode()">Cancel</button>
+                    </form>
                 </div>
             </div>
 
-            <!-- Documents Section -->
+            <!-- Documents Section - Fixed -->
             <div class="card shadow">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">📄 Generated Documents</h5>
+                    <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>Generated Documents</h5>
                 </div>
                 <div class="card-body">
                     {% if documents %}
                     <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
+                        <table class="table table-hover table-striped">
+                            <thead class="table-light">
                                 <tr>
                                     <th>Document Type</th>
                                     <th>Generated Date</th>
@@ -162,36 +332,41 @@
                                 {% for doc in documents %}
                                 <tr>
                                     <td>
-                                        <span class="badge bg-primary">{{ doc.document_type.replace('_', ' ').title() }}</span>
+                                        <span class="badge bg-primary px-3 py-2">
+                                            <i class="fas fa-file-pdf me-1"></i>
+                                            {{ doc.document_type.replace('_', ' ').title() }}
+                                        </span>
                                     </td>
-                                    <td>{{ doc.generated_at.strftime('%d %B %Y') }}</td>
                                     <td>
-                                        <!-- Download Button -->
-                                        <a href="{{ url_for('download_document', doc_id=doc.id) }}" 
-                                           class="btn btn-sm btn-success" 
-                                           title="Download Document">
-                                            <i class="fas fa-download"></i> Download
-                                        </a>
-                                        
-                                        <!-- View on Drive Button (if available) -->
-                                        {% if doc.drive_file_id %}
-                                        <a href="https://drive.google.com/file/d/{{ doc.drive_file_id }}/view" 
-                                           class="btn btn-sm btn-info" 
-                                           target="_blank" 
-                                           title="View on Google Drive">
-                                            <i class="fab fa-google-drive"></i> View
-                                        </a>
-                                        {% endif %}
-                                        
-                                        <!-- Delete Button -->
-                                        <form action="{{ url_for('delete_document', doc_id=doc.id) }}" 
-                                              method="POST" 
-                                              style="display:inline;"
-                                              onsubmit="return confirm('Are you sure you want to delete this document?');">
-                                            <button type="submit" class="btn btn-sm btn-danger" title="Delete Document">
-                                                <i class="fas fa-trash"></i> Delete
-                                            </button>
-                                        </form>
+                                        <i class="far fa-calendar-alt me-1"></i>
+                                        {{ doc.generated_at.strftime('%d %B %Y') }}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{{ url_for('download_document', doc_id=doc.id) }}" 
+                                               class="btn btn-success" 
+                                               title="Download Document">
+                                                <i class="fas fa-download"></i> Download
+                                            </a>
+                                            
+                                            {% if doc.drive_file_id %}
+                                            <a href="https://drive.google.com/file/d/{{ doc.drive_file_id }}/view" 
+                                               class="btn btn-info" 
+                                               target="_blank" 
+                                               title="View on Google Drive">
+                                                <i class="fab fa-google-drive"></i> View
+                                            </a>
+                                            {% endif %}
+                                            
+                                            <form action="{{ url_for('delete_document', doc_id=doc.id) }}" 
+                                                  method="POST" 
+                                                  style="display:inline;"
+                                                  onsubmit="return confirm('Are you sure you want to delete this document? This action cannot be undone.');">
+                                                <button type="submit" class="btn btn-danger" title="Delete Document">
+                                                    <i class="fas fa-trash"></i> Delete
+                                                </button>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -199,25 +374,32 @@
                         </table>
                     </div>
                     {% else %}
-                    <p class="text-muted text-center">No documents generated yet.</p>
+                    <div class="text-center py-4">
+                        <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No documents generated yet.</p>
+                        <a href="{{ url_for('admin_dashboard', tab='document_generator', member_id=intern.id, member_type='intern') }}" 
+                           class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus-circle me-1"></i> Generate First Document
+                        </a>
+                    </div>
                     {% endif %}
                 </div>
             </div>
 
             <!-- Action Buttons -->
-            <div class="mt-4 d-flex gap-2">
+            <div class="mt-4 d-flex flex-wrap gap-2">
                 <a href="{{ url_for('admin_dashboard', tab='document_generator', member_id=intern.id, member_type='intern') }}" 
                    class="btn btn-success">
-                    <i class="fas fa-file-pdf"></i> Generate Documents
+                    <i class="fas fa-file-pdf me-1"></i> Generate Documents
                 </a>
                 <form action="{{ url_for('delete_intern', intern_id=intern.id) }}" method="POST" 
-                      onsubmit="return confirm('Are you sure you want to delete this intern?');" style="display: inline;">
+                      onsubmit="return confirm('Are you sure you want to delete this intern? This action cannot be undone.');" style="display: inline;">
                     <button type="submit" class="btn btn-danger">
-                        <i class="fas fa-trash"></i> Delete Intern
+                        <i class="fas fa-trash me-1"></i> Delete Intern
                     </button>
                 </form>
                 <a href="{{ url_for('admin_dashboard', tab='members') }}" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                    <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
                 </a>
             </div>
         </div>
@@ -230,13 +412,19 @@
         justify-content: space-between;
         padding: 8px 0;
         border-bottom: 1px solid #f0f0f0;
+        flex-wrap: wrap;
+        gap: 5px;
     }
     .info-label {
         font-weight: 600;
         color: #6c757d;
+        min-width: 120px;
     }
     .info-value {
         color: #333;
+        font-weight: 500;
+        text-align: right;
+        word-break: break-word;
     }
     .gap-2 {
         gap: 10px;
@@ -246,15 +434,159 @@
     }
     .badge {
         font-size: 12px;
-        padding: 5px 10px;
+        padding: 6px 12px;
     }
     .btn-sm {
-        padding: 5px 10px;
+        padding: 5px 12px;
         font-size: 12px;
-        margin-right: 5px;
     }
     .btn-sm i {
-        margin-right: 3px;
+        margin-right: 4px;
+    }
+    .btn-group .btn {
+        margin-right: 5px;
+    }
+    .btn-group .btn:last-child {
+        margin-right: 0;
+    }
+    
+    /* Responsive Styles */
+    @media (max-width: 768px) {
+        .info-row {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .info-value {
+            text-align: left;
+            width: 100%;
+        }
+        .info-label {
+            min-width: auto;
+        }
+        .btn-group {
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .btn-group .btn {
+            margin-right: 0;
+        }
+        .table-responsive {
+            margin: 0 -15px;
+            width: calc(100% + 30px);
+        }
+        .card-header {
+            flex-direction: column;
+            align-items: flex-start !important;
+        }
+        .card-header button {
+            width: 100%;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .btn-group .btn {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        .card-body {
+            padding: 1rem;
+        }
+    }
+    
+    /* Print Styles */
+    @media print {
+        .btn, .btn-group, .card-header button, .action-buttons {
+            display: none !important;
+        }
+        .card {
+            box-shadow: none !important;
+            border: 1px solid #ddd;
+        }
+        .info-row {
+            break-inside: avoid;
+        }
     }
 </style>
+
+<script>
+    // Toggle personal info edit mode
+    function toggleEditMode() {
+        const viewMode = document.getElementById('viewMode');
+        const editMode = document.getElementById('editMode');
+        const viewModeInfo = document.getElementById('viewModeInfo');
+        const editModeInfo = document.getElementById('editModeInfo');
+        
+        if (viewMode.style.display === 'none') {
+            viewMode.style.display = 'block';
+            editMode.style.display = 'none';
+            viewModeInfo.style.display = 'block';
+            editModeInfo.style.display = 'none';
+        } else {
+            viewMode.style.display = 'none';
+            editMode.style.display = 'block';
+            viewModeInfo.style.display = 'none';
+            editModeInfo.style.display = 'block';
+        }
+    }
+    
+    // Toggle bank details edit mode
+    function toggleBankEditMode() {
+        const bankViewMode = document.getElementById('bankViewMode');
+        const bankEditMode = document.getElementById('bankEditMode');
+        
+        if (bankViewMode.style.display === 'none') {
+            bankViewMode.style.display = 'block';
+            bankEditMode.style.display = 'none';
+        } else {
+            bankViewMode.style.display = 'none';
+            bankEditMode.style.display = 'block';
+        }
+    }
+    
+    // Toggle internship details edit mode
+    function toggleInternshipEditMode() {
+        const internshipViewMode = document.getElementById('internshipViewMode');
+        const internshipEditMode = document.getElementById('internshipEditMode');
+        
+        if (internshipViewMode.style.display === 'none') {
+            internshipViewMode.style.display = 'block';
+            internshipEditMode.style.display = 'none';
+        } else {
+            internshipViewMode.style.display = 'none';
+            internshipEditMode.style.display = 'block';
+        }
+    }
+    
+    // Toggle mentor details edit mode
+    function toggleMentorEditMode() {
+        const mentorViewMode = document.getElementById('mentorViewMode');
+        const mentorEditMode = document.getElementById('mentorEditMode');
+        
+        if (mentorViewMode.style.display === 'none') {
+            mentorViewMode.style.display = 'block';
+            mentorEditMode.style.display = 'none';
+        } else {
+            mentorViewMode.style.display = 'none';
+            mentorEditMode.style.display = 'block';
+        }
+    }
+    
+    // Responsive table handling
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add responsive classes to tables
+        const tables = document.querySelectorAll('.table');
+        tables.forEach(table => {
+            if (!table.closest('.table-responsive')) {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'table-responsive';
+                table.parentNode.insertBefore(wrapper, table);
+                wrapper.appendChild(table);
+            }
+        });
+    });
+</script>
 {% endblock %}

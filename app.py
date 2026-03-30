@@ -16,6 +16,7 @@ from datetime import datetime, date, timedelta
 import io
 import zipfile
 import subprocess
+from flask import jsonify
 import tempfile
 from flask import send_file, make_response, request
 from googleapiclient.http import MediaIoBaseDownload
@@ -98,8 +99,10 @@ class Admin(db.Model):
         return check_password_hash(self.password_hash, password)
 
 class IncrementHistory(db.Model):
+    __tablename__ = 'increment_history'
+    
     id = db.Column(db.Integer, primary_key=True)
-    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id', ondelete='CASCADE'), nullable=False)
     
     old_ctc = db.Column(db.Float, nullable=False)
     increment_amount = db.Column(db.Float, nullable=False)
@@ -109,7 +112,8 @@ class IncrementHistory(db.Model):
     generated_at = db.Column(db.DateTime, default=datetime.utcnow)
     generated_by = db.Column(db.String(100))
     
-    employee = db.relationship('Employee', backref='increment_history')
+    # Relationship with cascade delete
+    employee = db.relationship('Employee', backref=db.backref('increment_history', cascade='all, delete-orphan'))
 
 #employee model
 class Employee(db.Model):
@@ -124,18 +128,17 @@ class Employee(db.Model):
     pan_no = db.Column(db.String(20), unique=True)
     designation = db.Column(db.String(100))
     department = db.Column(db.String(100))
-    drive_folder_id = db.Column(db.String(100), nullable=True)  # To store Google Drive folder ID for employee documents
-    # ctc is now a computed property; base_ctc stores the starting value
+    drive_folder_id = db.Column(db.String(100), nullable=True)
     base_ctc = db.Column(db.Float, default=0)
     joining_date = db.Column(db.Date, nullable=True)
     resignation_date = db.Column(db.Date, nullable=True)
-    status = db.Column(db.String(20), default='active')  # active, resigned, terminated
-    profile_image = db.Column(db.String(200), nullable=True)  # For employee photo
+    status = db.Column(db.String(20), default='active')
+    profile_image = db.Column(db.String(200), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
-    resignation_email_content = db.Column(db.Text, nullable=True)  # To store resignation email content for resignation acceptance letter
-    resignation_datetime = db.Column(db.DateTime, nullable=True)  # To store resignation email date and time for resignation acceptance letter
-    relieving_date = db.Column(db.Date, nullable=True)  # To store calculated relieving date for resignation acceptance letter
+    resignation_email_content = db.Column(db.Text, nullable=True)
+    resignation_datetime = db.Column(db.DateTime, nullable=True)
+    relieving_date = db.Column(db.Date, nullable=True)
     company_id = db.Column(db.Integer, db.ForeignKey('company.id'), nullable=True)
     company = db.relationship('Company', backref='employees')
     resignation_acceptance_date = db.Column(db.Date, nullable=True)
@@ -148,8 +151,8 @@ class Employee(db.Model):
     ifsc_code = db.Column(db.String(20))
     
     # Relationships
-    documents = db.relationship('Document', backref='employee', lazy=True)
-    #increment_history = db.relationship('IncrementHistory', backref='employee', lazy=True)
+    documents = db.relationship('Document', backref='employee', lazy=True, cascade='all, delete-orphan')
+    # increment_history relationship is defined in IncrementHistory model
 
     @property
     def ctc(self):
@@ -157,7 +160,7 @@ class Employee(db.Model):
         total_increment = sum([inc.increment_amount for inc in self.increment_history])
         base = self.base_ctc if self.base_ctc is not None else 0
         return base + (total_increment * 12)
-    
+
 # Document Model to Track Generated Documents
 class Document(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -175,10 +178,17 @@ class Payment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
     document_id = db.Column(db.Integer, db.ForeignKey('document.id'), nullable=True)
+    document_type = db.Column(db.String(100), nullable=True)
     amount = db.Column(db.Float, default=0)          # total amount due
     paid_amt = db.Column(db.Float, default=0)        # amount actually paid
+    due_amount = db.Column(db.Float, default=0)      # amount still due
     overdue_amount = db.Column(db.Float, default=0)  # amount overdue (if any)
-    paid_date = db.Column(db.Date, nullable=True)    # when payment was made
+    status = db.Column(db.String(50), default='Pending')  # Pending, Partial, Paid, Overdue
+    payment_date = db.Column(db.Date, nullable=True)     # when payment was made
+    due_date = db.Column(db.Date, nullable=True)         # due date for payment
+    notes = db.Column(db.Text, nullable=True)            # payment notes
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
     
     employee = db.relationship('Employee', backref='payments')
     document = db.relationship('Document', backref='payment')
@@ -528,6 +538,26 @@ def calculate_annual_income_tax(annual_ctc):
     else:
         return 112500 + (taxable_income - 1000000) * 0.3
 
+#==========payment helper functions===========
+def calculate_due_amount(self):
+        """Calculate due amount"""
+        self.due_amount = self.amount - self.paid_amt
+        return self.due_amount
+
+def update_status(self):
+        """Update payment status based on paid amount"""
+        if self.paid_amt >= self.amount:
+            self.status = 'Paid'
+        elif self.paid_amt > 0:
+            self.status = 'Partial'
+        else:
+            self.status = 'Pending'
+        
+        # Check for overdue
+        if self.due_date and datetime.now().date() > self.due_date and self.status != 'Paid':
+            self.status = 'Overdue'
+            self.overdue_amount = self.due_amount
+
 @app.template_filter('get')
 def get_filter(dictionary, key, default=''):
     """Safely get value from dictionary"""
@@ -538,160 +568,160 @@ def get_filter(dictionary, key, default=''):
     return default
 
 #production function for pdf generation
-def embed_images_as_base64(html_content):
-    """Convert all image URLs to base64 data URIs"""
-    static_folder = app.static_folder
-    images_folder = os.path.join(static_folder, 'images')
-    signatures_folder = os.path.join(images_folder, 'signatures')
+# def embed_images_as_base64(html_content):
+#     """Convert all image URLs to base64 data URIs"""
+#     static_folder = app.static_folder
+#     images_folder = os.path.join(static_folder, 'images')
+#     signatures_folder = os.path.join(images_folder, 'signatures')
     
-    print(f"🔍 Static folder: {static_folder}")
+#     print(f"🔍 Static folder: {static_folder}")
     
-    def replace_image(match):
-        img_tag = match.group(0)
-        src_match = re.search(r'src=["\']([^"\']+)["\']', img_tag)
-        if not src_match:
-            return img_tag
+#     def replace_image(match):
+#         img_tag = match.group(0)
+#         src_match = re.search(r'src=["\']([^"\']+)["\']', img_tag)
+#         if not src_match:
+#             return img_tag
         
-        src = src_match.group(1)
+#         src = src_match.group(1)
         
-        # Skip if already base64
-        if src.startswith('data:'):
-            return img_tag
+#         # Skip if already base64
+#         if src.startswith('data:'):
+#             return img_tag
         
-        abs_path = None
+#         abs_path = None
         
-        # Find image path
-        if src.startswith('/static/'):
-            relative_path = src.replace('/static/', '')
-            abs_path = os.path.join(static_folder, relative_path)
-        elif 'signatures' in src:
-            filename = src.split('signatures/')[-1]
-            abs_path = os.path.join(signatures_folder, filename)
-        elif 'images' in src:
-            filename = src.split('images/')[-1]
-            abs_path = os.path.join(images_folder, filename)
-        else:
-            return img_tag
+#         # Find image path
+#         if src.startswith('/static/'):
+#             relative_path = src.replace('/static/', '')
+#             abs_path = os.path.join(static_folder, relative_path)
+#         elif 'signatures' in src:
+#             filename = src.split('signatures/')[-1]
+#             abs_path = os.path.join(signatures_folder, filename)
+#         elif 'images' in src:
+#             filename = src.split('images/')[-1]
+#             abs_path = os.path.join(images_folder, filename)
+#         else:
+#             return img_tag
         
-        if abs_path and os.path.exists(abs_path):
-            try:
-                with open(abs_path, 'rb') as f:
-                    image_data = base64.b64encode(f.read()).decode('utf-8')
+#         if abs_path and os.path.exists(abs_path):
+#             try:
+#                 with open(abs_path, 'rb') as f:
+#                     image_data = base64.b64encode(f.read()).decode('utf-8')
                 
-                ext = abs_path.split('.')[-1].lower()
-                if ext in ['jpg', 'jpeg']:
-                    mime = 'image/jpeg'
-                elif ext == 'png':
-                    mime = 'image/png'
-                else:
-                    mime = f'image/{ext}'
+#                 ext = abs_path.split('.')[-1].lower()
+#                 if ext in ['jpg', 'jpeg']:
+#                     mime = 'image/jpeg'
+#                 elif ext == 'png':
+#                     mime = 'image/png'
+#                 else:
+#                     mime = f'image/{ext}'
                 
-                new_src = f'data:{mime};base64,{image_data}'
-                return img_tag.replace(src, new_src)
-            except:
-                return img_tag
+#                 new_src = f'data:{mime};base64,{image_data}'
+#                 return img_tag.replace(src, new_src)
+#             except:
+#                 return img_tag
         
-        return img_tag
+#         return img_tag
     
-    html_content = re.sub(r'<img[^>]+>', replace_image, html_content)
-    return html_content
+#     html_content = re.sub(r'<img[^>]+>', replace_image, html_content)
+#     return html_content
 
-def html_to_pdf(html_content, output_path):
-    """Convert HTML to PDF using WeasyPrint 52.5"""
-    try:
-        print(f"📁 Output path: {output_path}")
-        print(f"📄 HTML length: {len(html_content)}")
+# def html_to_pdf(html_content, output_path):
+#     """Convert HTML to PDF using WeasyPrint 52.5"""
+#     try:
+#         print(f"📁 Output path: {output_path}")
+#         print(f"📄 HTML length: {len(html_content)}")
         
-        # Embed images
-        html_content = embed_images_as_base64(html_content)
-        print(f"📸 Images embedded")
+#         # Embed images
+#         html_content = embed_images_as_base64(html_content)
+#         print(f"📸 Images embedded")
         
-        # Create temp file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
-            f.write(html_content)
-            temp_html = f.name
+#         # Create temp file
+#         with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+#             f.write(html_content)
+#             temp_html = f.name
         
-        print(f"📄 Temp HTML: {temp_html}")
+#         print(f"📄 Temp HTML: {temp_html}")
         
-        # Convert to PDF - WITHOUT font_config
-        HTML(filename=temp_html).write_pdf(output_path)
+#         # Convert to PDF - WITHOUT font_config
+#         HTML(filename=temp_html).write_pdf(output_path)
         
-        # Clean up
-        if os.path.exists(temp_html):
-            os.unlink(temp_html)
+#         # Clean up
+#         if os.path.exists(temp_html):
+#             os.unlink(temp_html)
         
-        print(f"✅ PDF generated: {output_path}")
-        return True
+#         print(f"✅ PDF generated: {output_path}")
+#         return True
         
-    except Exception as e:
-        print(f"❌ PDF error: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+#     except Exception as e:
+#         print(f"❌ PDF error: {e}")
+#         import traceback
+#         traceback.print_exc()
+#         return False
 
-#test route
-@app.route('/test-pdf-generation')
-def test_pdf_generation():
-    """Test PDF generation with debugging"""
-    try:
-        test_html = """
-        <html>
-        <head>
-            <style>
-                body {{ font-family: Arial; padding: 50px; }}
-                h1 {{ color: blue; }}
-            </style>
-        </head>
-        <body>
-            <h1>Test PDF</h1>
-            <p>This is a test PDF document generated on Render.</p>
-            <p>Timestamp: {}</p>
-        </body>
-        </html>
-        """.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+# #test route
+# @app.route('/test-pdf-generation')
+# def test_pdf_generation():
+#     """Test PDF generation with debugging"""
+#     try:
+#         test_html = """
+#         <html>
+#         <head>
+#             <style>
+#                 body {{ font-family: Arial; padding: 50px; }}
+#                 h1 {{ color: blue; }}
+#             </style>
+#         </head>
+#         <body>
+#             <h1>Test PDF</h1>
+#             <p>This is a test PDF document generated on Render.</p>
+#             <p>Timestamp: {}</p>
+#         </body>
+#         </html>
+#         """.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         
-        output_path = os.path.join(app.config['UPLOAD_FOLDER'], 'test_debug.pdf')
+#         output_path = os.path.join(app.config['UPLOAD_FOLDER'], 'test_debug.pdf')
         
-        print(f"📁 Output path: {output_path}")
+#         print(f"📁 Output path: {output_path}")
         
-        result = html_to_pdf(test_html, output_path)
+#         result = html_to_pdf(test_html, output_path)
         
-        if result and os.path.exists(output_path):
-            return send_file(output_path, as_attachment=True, download_name='test_debug.pdf')
-        else:
-            return f"PDF generation failed. Result: {result}", 500
+#         if result and os.path.exists(output_path):
+#             return send_file(output_path, as_attachment=True, download_name='test_debug.pdf')
+#         else:
+#             return f"PDF generation failed. Result: {result}", 500
             
-    except Exception as e:
-        import traceback
-        return f"Error: {str(e)}<br><pre>{traceback.format_exc()}</pre>", 500
+#     except Exception as e:
+#         import traceback
+#         return f"Error: {str(e)}<br><pre>{traceback.format_exc()}</pre>", 500
 
 #local function
-# def html_to_pdf(html_content, output_path):
-#     # Path to the standalone WeasyPrint executable (for local Windows)
-#     weasyprint_path = os.path.join(app.root_path, 'weasyprint', 'weasyprint.exe')
+def html_to_pdf(html_content, output_path):
+    # Path to the standalone WeasyPrint executable (for local Windows)
+    weasyprint_path = os.path.join(app.root_path, 'weasyprint', 'weasyprint.exe')
     
-#     with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
-#         f.write(html_content)
-#         temp_html_path = f.name
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+        f.write(html_content)
+        temp_html_path = f.name
 
-#     try:
-#         result = subprocess.run(
-#             [weasyprint_path, temp_html_path, output_path],
-#             capture_output=True,
-#             text=True,
-#             timeout=30
-#         )
-#         if result.returncode == 0:
-#             return True
-#         else:
-#             print("WeasyPrint error:", result.stderr)
-#             return False
-#     except Exception as e:
-#         print("WeasyPrint exception:", e)
-#         return False
-#     finally:
-#         if os.path.exists(temp_html_path):
-#             os.unlink(temp_html_path)
+    try:
+        result = subprocess.run(
+            [weasyprint_path, temp_html_path, output_path],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode == 0:
+            return True
+        else:
+            print("WeasyPrint error:", result.stderr)
+            return False
+    except Exception as e:
+        print("WeasyPrint exception:", e)
+        return False
+    finally:
+        if os.path.exists(temp_html_path):
+            os.unlink(temp_html_path)
 
 @app.template_filter('humanize')
 def humanize_filter(value):
@@ -1161,6 +1191,7 @@ def preview_document(doc_type):
     member_type = session.get('member_type', 'employee')
     
     if not form_data:
+        flash('No document data found. Please try again.', 'danger')
         return redirect(url_for('index'))
 
     # ========== RESIGNATION ACCEPTANCE HANDLER ==========
@@ -1249,11 +1280,16 @@ def preview_document(doc_type):
 
     # ========== INTERN DOCUMENTS HANDLER ==========
     if doc_type in ['intern_offer_letter', 'certificate_of_internship']:
+        print(f"\n{'='*60}")
+        print(f"🔍 PREVIEW INTERN DOCUMENT: {doc_type}")
+        print(f"{'='*60}")
+        
         # Check if we have preview data in session
         data = session.get('intern_preview_data')
         
         # If no preview data, get from database
         if not data:
+            print("⚠️ No preview data in session, fetching from database...")
             intern_id = form_data.get('intern_id')
             intern = None
             if intern_id:
@@ -1284,7 +1320,13 @@ def preview_document(doc_type):
                 end_date = intern.start_date + timedelta(days=intern.internship_duration * 30)
             
             company_domain = get_company_domain(company)
+            if not company_domain:
+                company_domain = company.name.lower().replace(' ', '').replace('pvt', '').replace('ltd', '').replace('.', '') + '.com'
             
+            hr_email = company.hr_email or f"hr@{company_domain}"
+            hr_name = company.hr_name or 'HR Department'
+            hr_designation = company.hr_designation or 'HR Manager'
+
             if intern.start_date:
                 if isinstance(intern.start_date, datetime):
                     start_date = intern.start_date.date()
@@ -1304,20 +1346,20 @@ def preview_document(doc_type):
                 'timestamp': datetime.now().strftime('%d %B %Y'),
                 'full_name': intern.full_name,
                 'first_name': first_name,
-                'email': intern.email,
-                'address': intern.address,
-                'qualification': intern.qualification,
-                'college_name': intern.college_name,
-                'course': intern.course,
-                'specialization': intern.specialization,
-                'internship_duration': intern.internship_duration,
+                'email': intern.email or '',
+                'address': intern.address or '',
+                'qualification': intern.qualification or '',
+                'college_name': intern.college_name or '',
+                'course': intern.course or '',
+                'specialization': intern.specialization or '',
+                'internship_duration': intern.internship_duration or 3,
                 'start_date': formatted_joining_date,
                 'end_date': end_date.strftime('%d %B %Y') if end_date else 'TBD',
-                'stipend': intern.stipend,
-                'mentor_name': intern.mentor_name or company.hr_name,
-                'mentor_designation': intern.mentor_designation or company.hr_designation,
-                'hr_name': company.hr_name or 'HR Department',
-                'hr_designation': company.hr_designation or 'HR Manager',
+                'stipend': intern.stipend or 0,
+                'mentor_name': intern.mentor_name or hr_name,
+                'mentor_designation': intern.mentor_designation or hr_designation,
+                'hr_name': hr_name,
+                'hr_designation': hr_designation,
                 'company_name': company.name,
                 'company_domain': company_domain,
                 'intern_id': intern.intern_id,
@@ -1326,9 +1368,22 @@ def preview_document(doc_type):
                 'acceptance_deadline': formatted_acceptance_deadline,
                 'joining_date': formatted_joining_date
             }
+            session['intern_preview_data'] = data
+            print(f"✅ Data fetched from database for: {intern.full_name}")
+        else:
+            print(f"✅ Using preview data from session")
         
         # Get company for watermark
-        company = Company.query.get(form_data.get('company')) if form_data.get('company') else None
+        company = None
+        company_id = form_data.get('company')
+        if company_id:
+            try:
+                company = Company.query.get(int(company_id))
+            except (ValueError, TypeError):
+                company = None
+        
+        print(f"📄 Rendering template: documents/{doc_type}.html")
+        print(f"{'='*60}\n")
         
         return render_template(
             f'documents/{doc_type}.html',
@@ -1614,7 +1669,7 @@ def generate():
         data = session.get('intern_preview_data')
         
         if not data:
-            # Calculate fresh data
+            # Calculate fresh data with fallbacks
             name_parts = intern.full_name.split() if intern.full_name else ['']
             first_name = name_parts[0] if name_parts else ''
             
@@ -1622,7 +1677,19 @@ def generate():
             if not end_date and intern.start_date:
                 end_date = intern.start_date + timedelta(days=intern.internship_duration * 30)
             
+            # Ensure company_domain has a value
             company_domain = get_company_domain(company)
+            if not company_domain:
+                company_domain = company.name.lower().replace(' ', '') + '.com'
+            
+            # Ensure hr_email has a value
+            hr_email = company.hr_email or f"hr@{company_domain}"
+            
+            # Ensure hr_name has a value
+            hr_name = company.hr_name or 'HR Department'
+            
+            # Ensure hr_designation has a value
+            hr_designation = company.hr_designation or 'HR Manager'
             
             if intern.start_date:
                 if isinstance(intern.start_date, datetime):
@@ -1643,20 +1710,20 @@ def generate():
                 'timestamp': datetime.now().strftime('%d %B %Y'),
                 'full_name': intern.full_name,
                 'first_name': first_name,
-                'email': intern.email,
-                'address': intern.address,
-                'qualification': intern.qualification,
-                'college_name': intern.college_name,
-                'course': intern.course,
-                'specialization': intern.specialization,
-                'internship_duration': intern.internship_duration,
+                'email': intern.email or '',
+                'address': intern.address or '',
+                'qualification': intern.qualification or '',
+                'college_name': intern.college_name or '',
+                'course': intern.course or '',
+                'specialization': intern.specialization or '',
+                'internship_duration': intern.internship_duration or 3,
                 'start_date': formatted_joining_date,
                 'end_date': end_date.strftime('%d %B %Y') if end_date else 'TBD',
-                'stipend': intern.stipend,
-                'mentor_name': intern.mentor_name or company.hr_name,
-                'mentor_designation': intern.mentor_designation or company.hr_designation,
-                'hr_name': company.hr_name or 'HR Department',
-                'hr_designation': company.hr_designation or 'HR Manager',
+                'stipend': intern.stipend or 0,
+                'mentor_name': intern.mentor_name or hr_name,
+                'mentor_designation': intern.mentor_designation or hr_designation,
+                'hr_name': hr_name,
+                'hr_designation': hr_designation,
                 'company_name': company.name,
                 'company_domain': company_domain,
                 'intern_id': intern.intern_id,
@@ -1667,85 +1734,96 @@ def generate():
             }
         
         # Generate HTML
-        html_content = render_template(f'documents/{doc_type}.html', data=data, company=company)
-        
-        # Create PDF filename
-        filename = f"{doc_type}_{intern.intern_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        
-        # Convert to PDF
-        if not html_to_pdf(html_content, file_path):
-            flash('Failed to generate PDF document', 'danger')
+        try:
+            html_content = render_template(f'documents/{doc_type}.html', data=data, company=company)
+            
+            # Create PDF filename
+            filename = f"{doc_type}_{intern.intern_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            
+            print(f"📄 Generating PDF for intern: {intern.full_name}")
+            print(f"📁 Output path: {file_path}")
+            
+            # Convert to PDF
+            if not html_to_pdf(html_content, file_path):
+                flash('Failed to generate PDF document. Check server logs for details.', 'danger')
+                return redirect(url_for('admin_dashboard', tab='document_generator'))
+            
+            # Save document record
+            document = InternDocument(
+                intern_id=intern.id,
+                document_type=doc_type,
+                filename=filename,
+                file_path=file_path,
+                generated_by=session.get('admin_username', 'admin'),
+                generated_at=datetime.now()
+            )
+            db.session.add(document)
+            db.session.commit()
+            
+            #Upload to Drive if requested
+            if upload_to_drive_flag:
+                try:
+                    # Create drive folder structure for interns
+                    service, error = get_drive_service()
+                    if not error:
+                        intern_folder_name = f"{intern.intern_id}_{intern.full_name.replace(' ', '_')}"
+                        folder_response = service.files().list(
+                            q=f"name='{intern_folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+                            spaces='drive', fields='files(id)'
+                        ).execute()
+                        folders = folder_response.get('files', [])
+                        if folders:
+                            parent_folder_id = folders[0]['id']
+                        else:
+                            file_metadata = {'name': intern_folder_name, 'mimeType': 'application/vnd.google-apps.folder'}
+                            folder = service.files().create(body=file_metadata, fields='id').execute()
+                            parent_folder_id = folder.get('id')
+                        
+                        doc_folder_map = {
+                            'intern_offer_letter': 'Offer Letters',
+                            'certificate_of_internship': 'Certificates'
+                        }
+                        folder_name = doc_folder_map.get(doc_type, 'Documents')
+                        
+                        folder_response = service.files().list(
+                            q=f"name='{folder_name}' and '{parent_folder_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
+                            spaces='drive', fields='files(id)'
+                        ).execute()
+                        subfolders = folder_response.get('files', [])
+                        if subfolders:
+                            target_folder_id = subfolders[0]['id']
+                        else:
+                            file_metadata = {'name': folder_name, 'mimeType': 'application/vnd.google-apps.folder', 'parents': [parent_folder_id]}
+                            subfolder = service.files().create(body=file_metadata, fields='id').execute()
+                            target_folder_id = subfolder.get('id')
+                        
+                        media = MediaFileUpload(file_path, mimetype='application/pdf', resumable=True)
+                        file = service.files().create(
+                            body={'name': filename, 'parents': [target_folder_id]},
+                            media_body=media,
+                            fields='id'
+                        ).execute()
+                        document.drive_file_id = file.get('id')
+                        db.session.commit()
+                except Exception as e:
+                    print(f"Drive upload failed: {e}")
+            
+            # Clear session data
+            session.pop('form_data', None)
+            session.pop('intern_preview_data', None)
+            session.pop('selected_months', None)
+            
+            flash(f'✅ {doc_type.replace("_", " ").title()} generated successfully for {intern.full_name}!', 'success')
             return redirect(url_for('admin_dashboard', tab='document_generator'))
-        
-        # Save document record
-        document = InternDocument(
-            intern_id=intern.id,
-            document_type=doc_type,
-            filename=filename,
-            file_path=file_path,
-            generated_by=session.get('admin_username', 'admin'),
-            generated_at=datetime.now()
-        )
-        db.session.add(document)
-        
-        # Upload to Drive if requested
-        if upload_to_drive_flag:
-            try:
-                # Create drive folder structure for interns
-                service, error = get_drive_service()
-                if not error:
-                    intern_folder_name = f"{intern.intern_id}_{intern.full_name.replace(' ', '_')}"
-                    folder_response = service.files().list(
-                        q=f"name='{intern_folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false",
-                        spaces='drive', fields='files(id)'
-                    ).execute()
-                    folders = folder_response.get('files', [])
-                    if folders:
-                        parent_folder_id = folders[0]['id']
-                    else:
-                        file_metadata = {'name': intern_folder_name, 'mimeType': 'application/vnd.google-apps.folder'}
-                        folder = service.files().create(body=file_metadata, fields='id').execute()
-                        parent_folder_id = folder.get('id')
-                    
-                    doc_folder_map = {
-                        'intern_offer_letter': 'Offer Letters',
-                        'certificate_of_internship': 'Certificates'
-                    }
-                    folder_name = doc_folder_map.get(doc_type, 'Documents')
-                    
-                    folder_response = service.files().list(
-                        q=f"name='{folder_name}' and '{parent_folder_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
-                        spaces='drive', fields='files(id)'
-                    ).execute()
-                    subfolders = folder_response.get('files', [])
-                    if subfolders:
-                        target_folder_id = subfolders[0]['id']
-                    else:
-                        file_metadata = {'name': folder_name, 'mimeType': 'application/vnd.google-apps.folder', 'parents': [parent_folder_id]}
-                        subfolder = service.files().create(body=file_metadata, fields='id').execute()
-                        target_folder_id = subfolder.get('id')
-                    
-                    media = MediaFileUpload(file_path, mimetype='application/pdf', resumable=True)
-                    file = service.files().create(
-                        body={'name': filename, 'parents': [target_folder_id]},
-                        media_body=media,
-                        fields='id'
-                    ).execute()
-                    document.drive_file_id = file.get('id')
-            except Exception as e:
-                print(f"Drive upload failed: {e}")
-        
-        db.session.commit()
-        
-        # Clear session data
-        session.pop('form_data', None)
-        session.pop('intern_preview_data', None)
-        session.pop('selected_months', None)
-        
-        flash(f'✅ {doc_type.replace("_", " ").title()} generated successfully for {intern.full_name}!', 'success')
-        return redirect(url_for('admin_dashboard', tab='document_generator'))
-
+            
+        except Exception as e:
+            print(f"❌ Error generating intern document: {e}")
+            import traceback
+            traceback.print_exc()
+            flash(f'Error generating document: {str(e)}', 'danger')
+            return redirect(url_for('admin_dashboard', tab='document_generator'))
+    
     # ------------------------- FIND EMPLOYEE -------------------------
     employee = None
     if 'employee_id' in form_data:
@@ -2111,7 +2189,7 @@ def admin_dashboard():
             'increment_amount': increment_amount
         })
 
-    # Get all interns
+    # Get all interns (needed for members dashboard)
     interns = Intern.query.order_by(Intern.created_at.desc()).all()
 
     total_employees = len(employees)
@@ -2119,61 +2197,70 @@ def admin_dashboard():
     active_employees = sum(1 for emp in employees if emp.status == 'active')
     active_interns = sum(1 for intern in interns if intern.status == 'active')
 
-    # ---------- Payment calculations using simplified model ----------
-    # All payments
-    all_payments = Payment.query.all()
-
-    paid_payments = [p for p in all_payments if p.paid_amt >= p.amount]
-    pending_payments_list = [p for p in all_payments if p.paid_amt < p.amount]
-
-    paid_count = len(paid_payments)
-    pending_count = len(pending_payments_list)
-    overdue_count = 0
-
-    paid_amount = sum(p.amount for p in paid_payments)
-    pending_amount = sum(p.amount - p.paid_amt for p in pending_payments_list)
-    overdue_amount = 0
-
-    # Get all payments for the table
-    payments_result = db.session.query(
+    # ========== GET ALL EMPLOYEE PAYMENTS (NO INTERN PAYMENTS) ==========
+    all_payments = []
+    
+    # Get employee payments only
+    emp_payments = db.session.query(
         Payment.id,
         Employee.full_name.label('employee_name'),
-        Employee.employee_id,
-        Document.document_type,
+        Employee.employee_id.label('employee_id'),
+        Payment.document_type,
         Payment.amount,
         Payment.paid_amt,
-        Payment.paid_date
-    ).select_from(Payment).join(Employee).outerjoin(
-        Document, Payment.document_id == Document.id
-    ).all()
-
-    payments = []
-    for p in payments_result:
+        Payment.status,
+        Payment.payment_date,
+        Payment.due_date,
+        Payment.created_at
+    ).join(Employee, Payment.employee_id == Employee.id).all()
+    
+    for p in emp_payments:
+        due_amount = p.amount - p.paid_amt
         if p.paid_amt >= p.amount:
             status = 'Paid'
-            status_class = 'paid'
+            status_class = 'success'
+        elif p.paid_amt > 0:
+            status = 'Partial'
+            status_class = 'warning'
         else:
             status = 'Pending'
-            status_class = 'pending'
-        payments.append({
+            status_class = 'secondary'
+        
+        all_payments.append({
             'id': p.id,
             'employee_name': p.employee_name,
             'employee_id': p.employee_id,
             'document_type': p.document_type or 'N/A',
             'amount': p.amount,
             'paid_amt': p.paid_amt,
-            'due_amount': p.amount - p.paid_amt,
+            'due_amount': due_amount,
             'status': status,
             'status_class': status_class,
-            'paid_date': p.paid_date.strftime('%d %b %Y') if p.paid_date else 'N/A',
+            'payment_date': p.payment_date.strftime('%d %b %Y') if p.payment_date else 'N/A',
+            'due_date': p.due_date.strftime('%d %b %Y') if p.due_date else 'N/A',
+            'created_at': p.created_at.strftime('%d %b %Y') if p.created_at else 'N/A',
         })
-
+    
+    # Sort all payments by created date (newest first)
+    all_payments.sort(key=lambda x: x['created_at'], reverse=True)
+    
+    # Calculate totals
+    total_amount = sum(p['amount'] for p in all_payments)
+    total_paid = sum(p['paid_amt'] for p in all_payments)
+    total_due = sum(p['due_amount'] for p in all_payments)
+    
+    # Count by status
+    paid_count = sum(1 for p in all_payments if p['status'] == 'Paid')
+    pending_count = sum(1 for p in all_payments if p['status'] == 'Pending')
+    partial_count = sum(1 for p in all_payments if p['status'] == 'Partial')
+    overdue_count = sum(1 for p in all_payments if p['status'] == 'Overdue')
+    
     # Get companies for add member form
     companies = Company.query.all()
 
     return render_template('admin_dashboard.html',
                          employees=employee_data,
-                         interns=interns,
+                         interns=interns,  # ← ADD THIS BACK
                          companies=companies,
                          active_tab=active_tab,
                          selected_emp_id=selected_emp_id,
@@ -2181,18 +2268,19 @@ def admin_dashboard():
                          selected_member_type=selected_member_type,
                          now=datetime.now(),
                          total_employees=total_employees,
-                         total_interns=total_interns,
+                         total_interns=total_interns,  # ← ADD THIS BACK
                          active_employees=active_employees,
-                         active_interns=active_interns,
+                         active_interns=active_interns,  # ← ADD THIS BACK
                          total_documents=total_documents,
                          pending_payments=pending_count,
                          paid_count=paid_count,
                          pending_count=pending_count,
+                         partial_count=partial_count,
                          overdue_count=overdue_count,
-                         paid_amount=paid_amount,
-                         pending_amount=pending_amount,
-                         overdue_amount=overdue_amount,
-                         payments=payments)
+                         paid_amount=total_paid,
+                         pending_amount=total_due,
+                         overdue_amount=0,
+                         payments=all_payments)
 
 @app.route('/admin/profile', methods=['GET', 'POST'])
 def admin_profile():
@@ -2222,7 +2310,7 @@ def delete_employee(emp_id):
         return redirect(url_for('admin_login'))
 
     employee = Employee.query.get_or_404(emp_id)
-    drive_folder_id = employee.drive_folder_id  # main employee Drive folder
+    drive_folder_id = employee.drive_folder_id
 
     try:
         # Delete all related documents (and their Drive files)
@@ -2242,7 +2330,11 @@ def delete_employee(emp_id):
                 except Exception as e:
                     print(f"Error deleting local file: {e}")
 
-        # After deleting all documents, delete the main employee folder (if exists and empty)
+        # Delete increment history records first (they will be cascaded but handle explicitly)
+        for history in employee.increment_history:
+            db.session.delete(history)
+
+        # After deleting all documents and history, delete the main employee folder (if exists and empty)
         if drive_folder_id:
             # Check if folder still has any files (documents might have been deleted above)
             if is_folder_empty(drive_folder_id):
@@ -2258,8 +2350,9 @@ def delete_employee(emp_id):
     except Exception as e:
         db.session.rollback()
         flash(f'Error deleting employee: {str(e)}', 'danger')
+        print(f"Error: {str(e)}")
 
-    return redirect(url_for('admin_dashboard', tab='employees'))
+    return redirect(url_for('admin_dashboard', tab='members'))
 
 @app.route('/admin/employee/<int:emp_id>/generate/<doc_type>', methods=['GET', 'POST'])
 def admin_generate_document(emp_id, doc_type):
@@ -2290,7 +2383,7 @@ def admin_generate_document(emp_id, doc_type):
                 try:
                     effective_date_obj = datetime.strptime(effective_date, '%Y-%m-%d').date()
                     # Calculate document date (30 days before effective date)
-                    document_date_obj = effective_date_obj - timedelta(days=30)
+                    document_date_obj = effective_date_obj - timedelta(days=7)
                     document_date = document_date_obj.strftime('%d %B %Y')
                     # Store both dates
                     effective_date_formatted = effective_date_obj.strftime('%d %B %Y')
@@ -2298,13 +2391,13 @@ def admin_generate_document(emp_id, doc_type):
                 except Exception as e:
                     print(f"Date parsing error: {e}")
                     effective_date_obj = datetime.now().date()
-                    document_date_obj = effective_date_obj - timedelta(days=30)
+                    document_date_obj = effective_date_obj - timedelta(days=7)
                     document_date = document_date_obj.strftime('%d %B %Y')
                     effective_date_formatted = effective_date_obj.strftime('%d %B %Y')
                     effective_date_str = effective_date_obj.strftime('%Y-%m-%d')
             else:
                 effective_date_obj = datetime.now().date()
-                document_date_obj = effective_date_obj - timedelta(days=30)
+                document_date_obj = effective_date_obj - timedelta(days=7)
                 document_date = document_date_obj.strftime('%d %B %Y')
                 effective_date_formatted = effective_date_obj.strftime('%d %B %Y')
                 effective_date_str = effective_date_obj.strftime('%Y-%m-%d')
@@ -2733,7 +2826,19 @@ def generate_intern_document(intern_id, doc_type):
         if not end_date and intern.start_date:
             end_date = intern.start_date + timedelta(days=intern.internship_duration * 30)
         
+        # Ensure company_domain has a value
         company_domain = get_company_domain(company)
+        if not company_domain:
+            company_domain = company.name.lower().replace(' ', '').replace('pvt', '').replace('ltd', '').replace('.', '') + '.com'
+        
+        # Ensure hr_email has a value
+        hr_email = company.hr_email or f"hr@{company_domain}"
+        
+        # Ensure hr_name has a value
+        hr_name = company.hr_name or 'HR Department'
+        
+        # Ensure hr_designation has a value
+        hr_designation = company.hr_designation or 'HR Manager'
         
         # ========== DATE CALCULATIONS ==========
         if intern.start_date:
@@ -2755,20 +2860,20 @@ def generate_intern_document(intern_id, doc_type):
             'timestamp': datetime.now().strftime('%d %B %Y'),
             'full_name': intern.full_name,
             'first_name': first_name,
-            'email': intern.email,
-            'address': intern.address,
-            'qualification': intern.qualification,
-            'college_name': intern.college_name,
-            'course': intern.course,
-            'specialization': intern.specialization,
-            'internship_duration': intern.internship_duration,
+            'email': intern.email or '',
+            'address': intern.address or '',
+            'qualification': intern.qualification or '',
+            'college_name': intern.college_name or '',
+            'course': intern.course or '',
+            'specialization': intern.specialization or '',
+            'internship_duration': intern.internship_duration or 3,
             'start_date': formatted_joining_date,
             'end_date': end_date.strftime('%d %B %Y') if end_date else 'TBD',
-            'stipend': intern.stipend,
-            'mentor_name': intern.mentor_name or company.hr_name,
-            'mentor_designation': intern.mentor_designation or company.hr_designation,
-            'hr_name': company.hr_name or 'HR Department',
-            'hr_designation': company.hr_designation or 'HR Manager',
+            'stipend': intern.stipend or 0,
+            'mentor_name': intern.mentor_name or hr_name,
+            'mentor_designation': intern.mentor_designation or hr_designation,
+            'hr_name': hr_name,
+            'hr_designation': hr_designation,
             'company_name': company.name,
             'company_domain': company_domain,
             'intern_id': intern.intern_id,
@@ -2789,11 +2894,15 @@ def generate_intern_document(intern_id, doc_type):
         # Store preview data in session
         session['intern_preview_data'] = data
         
-        # Redirect to preview_document
+        print(f"✅ Intern document preview data stored for: {intern.full_name}")
+        print(f"   Document type: {doc_type}")
+        print(f"   Redirecting to preview_document...")
+        
+        # Redirect to preview_document with doc_type
         return redirect(url_for('preview_document', doc_type=doc_type))
         
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"❌ Error in generate_intern_document: {str(e)}")
         import traceback
         traceback.print_exc()
         flash(f'Error: {str(e)}', 'danger')
@@ -2910,25 +3019,6 @@ def serve_profile_image(filename):
     
     profiles_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'profiles')
     return send_from_directory(profiles_dir, filename)
-
-@app.route('/admin/process-payment/<int:payment_id>', methods=['POST'])
-def process_payment(payment_id):
-    if not session.get('is_admin'):
-        return "Unauthorized", 403
-
-    payment = Payment.query.get_or_404(payment_id)
-    data = request.get_json()
-
-    try:
-        # In a real scenario, you might receive the paid amount from the form.
-        # For now, we'll mark the full amount as paid.
-        payment.paid_amt = payment.amount
-        payment.paid_date = datetime.now().date()
-        db.session.commit()
-        return {'success': True, 'message': 'Payment marked as paid'}
-    except Exception as e:
-        db.session.rollback()
-        return {'success': False, 'message': str(e)}, 500
 
 #increment route
 @app.route('/admin/give-increment/<int:emp_id>', methods=['POST'])
@@ -3760,6 +3850,7 @@ def select_company_for_doc(emp_id, doc_type):
         return redirect(url_for('admin_dashboard'))
 
     if request.method == 'POST':
+        # Get company_id from form
         company_id = request.form.get('company_id', type=int)
         if not company_id:
             flash('Please select a company.', 'danger')
@@ -3797,8 +3888,7 @@ def select_company_for_doc(emp_id, doc_type):
                 'timestamp': datetime.now().strftime('%d/%m/%Y %I:%M %p')
             }
 
-        elif doc_type in ['offer_letter', 'appointment_letter', 'experience_letter', 
-                         'relieving_letter', 'other_standard_doc']:
+        elif doc_type in ['offer_letter', 'experience_letter', 'increment_letter', 'relieving_letter']:
             # Generic salary‑based document logic
             ctc = float(employee.ctc)
             monthly_ctc = round(ctc / 12)
@@ -3852,6 +3942,8 @@ def select_company_for_doc(emp_id, doc_type):
         # Save to session and go to preview
         session['form_data'] = form_data
         session['member_type'] = 'employee'
+        
+        # Redirect to preview
         return redirect(url_for('preview'))
 
     # GET request – show company selection form
@@ -3947,7 +4039,7 @@ def download_document(doc_id):
     flash(f'File not found: {document.filename}. The file may have been deleted.', 'danger')
     return redirect(request.referrer or url_for('admin_dashboard'))
 
-@app.route('/admin/document/<int:doc_id>/delete', methods=['POST'])
+@app.route('/delete-document/<int:doc_id>', methods=['POST'])
 def delete_document(doc_id):
     if not session.get('is_admin'):
         return redirect(url_for('admin_login'))
@@ -3978,26 +4070,72 @@ def delete_document(doc_id):
             intern_id = document.intern_id
             redirect_url = url_for('view_intern', intern_id=intern_id)
         
-        # If document has a drive_file_id, try to delete from Google Drive
+        # ========== HANDLE INCREMENT LETTER DELETION ==========
+        # Check if this is an increment letter
+        if document.document_type == 'increment_letter' and doc_type == 'employee':
+            # Get the employee
+            employee = Employee.query.get(employee_id)
+            
+            if employee:
+                # Find the increment history record for this employee
+                # Get the most recent increment history (assuming the document corresponds to the latest)
+                increment_history = IncrementHistory.query.filter_by(
+                    employee_id=employee.id
+                ).order_by(IncrementHistory.generated_at.desc()).first()
+                
+                if increment_history:
+                    # Log the revert operation
+                    print(f"\n{'='*60}")
+                    print(f"🔄 REVERTING INCREMENT FOR: {employee.full_name}")
+                    print(f"{'='*60}")
+                    print(f"   Current CTC: ₹{employee.ctc:,.2f}")
+                    print(f"   Reverting to old CTC: ₹{increment_history.old_ctc:,.2f}")
+                    print(f"   Monthly increment being removed: ₹{increment_history.increment_amount:,.2f}")
+                    print(f"   Annual increment being removed: ₹{increment_history.increment_amount * 12:,.2f}")
+                    print(f"   Document: {doc_filename}")
+                    print(f"   Generated on: {document.generated_at.strftime('%d %B %Y %H:%M')}")
+                    
+                    # Update employee's base_ctc back to old value
+                    # Since CTC is calculated as base_ctc + (total_increment * 12)
+                    # Removing this increment means setting base_ctc to old_ctc
+                    employee.base_ctc = increment_history.old_ctc
+                    
+                    # Delete the increment history record
+                    db.session.delete(increment_history)
+                    print(f"   ✅ Increment history record deleted")
+                    print(f"   ✅ Employee CTC reverted to: ₹{employee.ctc:,.2f}")
+                    print(f"{'='*60}\n")
+                    
+                    # Add a note about the deletion in flash message
+                    flash(f'⚠️ Increment letter deleted. CTC has been reverted to ₹{increment_history.old_ctc:,.2f}', 'warning')
+                else:
+                    print(f"⚠️ No increment history found for employee {employee.full_name}")
+        
+        # ========== DELETE FROM GOOGLE DRIVE ==========
         if document.drive_file_id:
             try:
                 # Delete the file from Drive
                 delete_drive_file(document.drive_file_id)
+                print(f"✅ Deleted from Drive: {document.drive_file_id}")
                 
                 # Check if parent folder is empty and delete it
                 parent_id = get_parent_folder_id(document.drive_file_id)
                 if parent_id and is_folder_empty(parent_id):
                     delete_drive_folder(parent_id)
+                    print(f"✅ Deleted empty parent folder: {parent_id}")
                     
             except Exception as e:
                 print(f"Drive deletion error (continuing anyway): {e}")
         
-        # Delete the physical file if it exists
+        # ========== DELETE LOCAL FILE ==========
         if document.file_path and os.path.exists(document.file_path):
-            os.remove(document.file_path)
-            print(f"Deleted file: {document.file_path}")
+            try:
+                os.remove(document.file_path)
+                print(f"✅ Deleted local file: {document.file_path}")
+            except Exception as e:
+                print(f"Error deleting local file: {e}")
         
-        # Delete the database record
+        # ========== DELETE DATABASE RECORD ==========
         db.session.delete(document)
         db.session.commit()
         
@@ -4012,7 +4150,467 @@ def delete_document(doc_id):
         import traceback
         traceback.print_exc()
         return redirect(request.referrer or url_for('admin_dashboard'))
+
+# ==================== PAYMENT ROUTES ====================
+@app.route('/admin/payments')
+def view_payments():
+    """View all employee payments with filters"""
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
     
+    # Get filter parameters
+    status_filter = request.args.get('status', 'all')
+    employee_filter = request.args.get('employee_id', type=int)
+    month_filter = request.args.get('month', '')
+    year_filter = request.args.get('year', datetime.now().year)
+    
+    # Build query for employee payments only
+    query = db.session.query(
+        Payment.id,
+        Payment.amount,
+        Payment.paid_amt,
+        Payment.document_type,
+        Payment.status,
+        Payment.payment_date,
+        Payment.due_date,
+        Payment.created_at,
+        Employee.full_name.label('employee_name'),
+        Employee.employee_id.label('employee_code'),
+        Employee.email.label('employee_email')
+    ).join(Employee, Payment.employee_id == Employee.id)
+    
+    # Apply filters
+    if status_filter != 'all':
+        query = query.filter(Payment.status == status_filter)
+    
+    if employee_filter:
+        query = query.filter(Payment.employee_id == employee_filter)
+    
+    if month_filter:
+        query = query.filter(db.extract('month', Payment.payment_date) == int(month_filter))
+    
+    if year_filter:
+        query = query.filter(db.extract('year', Payment.payment_date) == int(year_filter))
+    
+    results = query.order_by(Payment.created_at.desc()).all()
+    
+    # Process results
+    payments = []
+    total_amount = 0
+    total_paid = 0
+    total_due = 0
+    
+    for row in results:
+        payment_id = row[0]
+        amount = row[1]
+        paid_amt = row[2]
+        document_type = row[3]
+        status = row[4]
+        payment_date = row[5]
+        due_date = row[6]
+        created_at = row[7]
+        employee_name = row[8]
+        employee_code = row[9]
+        employee_email = row[10]
+        
+        due_amount = amount - paid_amt
+        total_amount += amount
+        total_paid += paid_amt
+        total_due += due_amount
+        
+        # Determine status class for badge
+        if paid_amt >= amount:
+            status_class = 'success'
+        elif paid_amt > 0:
+            status_class = 'warning'
+        else:
+            status_class = 'secondary'
+        
+        payments.append({
+            'id': payment_id,
+            'employee_name': employee_name,
+            'employee_id': employee_code,
+            'employee_email': employee_email,
+            'document_type': document_type or 'N/A',
+            'amount': amount,
+            'paid_amt': paid_amt,
+            'due_amount': due_amount,
+            'status': status,
+            'status_class': status_class,
+            'payment_date': payment_date.strftime('%d %b %Y') if payment_date else 'N/A',
+            'due_date': due_date.strftime('%d %b %Y') if due_date else 'N/A',
+            'created_at': created_at.strftime('%d %b %Y') if created_at else 'N/A',
+        })
+    
+    # Count by status
+    paid_count = sum(1 for p in payments if p['status'] == 'Paid')
+    pending_count = sum(1 for p in payments if p['status'] == 'Pending')
+    partial_count = sum(1 for p in payments if p['status'] == 'Partial')
+    overdue_count = sum(1 for p in payments if p['status'] == 'Overdue')
+    
+    # Get all employees for dropdown
+    employees = Employee.query.all()
+    
+    return render_template('payments.html',
+                         payments=payments,
+                         employees=employees,
+                         total_amount=total_amount,
+                         total_paid=total_paid,
+                         total_due=total_due,
+                         paid_count=paid_count,
+                         pending_count=pending_count,
+                         partial_count=partial_count,
+                         overdue_count=overdue_count,
+                         status_filter=status_filter,
+                         employee_filter=employee_filter,
+                         month_filter=month_filter,
+                         year_filter=year_filter,
+                         now=datetime.now(),
+                         datetime=datetime)
+
+@app.route('/admin/payment/<int:payment_id>')
+def view_payment(payment_id):
+    """View single payment details"""
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+    
+    payment = Payment.query.get_or_404(payment_id)
+    employee = Employee.query.get(payment.employee_id)
+    
+    return render_template('payment_details.html',
+                         payment=payment,
+                         employee=employee,
+                         now=datetime.now())
+
+@app.route('/admin/payment/<int:payment_id>/add-payment', methods=['POST'])
+def add_payment(payment_id):
+    """Add payment to an existing payment record"""
+    if not session.get('is_admin'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        payment = Payment.query.get_or_404(payment_id)
+        
+        # Get payment amount from form
+        payment_amount = float(request.form.get('payment_amount', 0))
+        
+        if payment_amount <= 0:
+            flash('Payment amount must be greater than zero.', 'danger')
+            return redirect(request.referrer)
+        
+        # Update payment
+        payment.paid_amt += payment_amount
+        payment.due_amount = payment.amount - payment.paid_amt
+        payment.payment_date = datetime.now().date()
+        payment.updated_at = datetime.now()
+        
+        # Update status
+        if payment.paid_amt >= payment.amount:
+            payment.status = 'Paid'
+        elif payment.paid_amt > 0:
+            payment.status = 'Partial'
+        
+        db.session.commit()
+        
+        flash(f'✅ Payment of ₹{payment_amount:,.2f} added successfully!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error adding payment: {str(e)}', 'danger')
+        print(f"Error: {str(e)}")
+    
+    return redirect(request.referrer)
+
+@app.route('/admin/payment/<int:payment_id>/mark-paid', methods=['POST'])
+def mark_payment_paid(payment_id):
+    """Mark entire payment as paid"""
+    if not session.get('is_admin'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        payment = Payment.query.get_or_404(payment_id)
+        
+        payment.paid_amt = payment.amount
+        payment.due_amount = 0
+        payment.status = 'Paid'
+        payment.payment_date = datetime.now().date()
+        payment.updated_at = datetime.now()
+        
+        db.session.commit()
+        
+        flash(f'✅ Payment marked as paid successfully!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error marking payment: {str(e)}', 'danger')
+    
+    return redirect(request.referrer)
+
+@app.route('/admin/payment/<int:payment_id>/update-amount', methods=['POST'])
+def update_payment_amount(payment_id):
+    """Update total amount of payment"""
+    if not session.get('is_admin'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        payment = Payment.query.get_or_404(payment_id)
+        
+        new_amount = float(request.form.get('amount', 0))
+        
+        if new_amount <= 0:
+            flash('Amount must be greater than zero.', 'danger')
+            return redirect(request.referrer)
+        
+        old_amount = payment.amount
+        payment.amount = new_amount
+        payment.due_amount = new_amount - payment.paid_amt
+        payment.updated_at = datetime.now()
+        
+        # Update status
+        if payment.paid_amt >= new_amount:
+            payment.status = 'Paid'
+        elif payment.paid_amt > 0:
+            payment.status = 'Partial'
+        else:
+            payment.status = 'Pending'
+        
+        db.session.commit()
+        
+        flash(f'✅ Amount updated from ₹{old_amount:,.2f} to ₹{new_amount:,.2f}', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error updating amount: {str(e)}', 'danger')
+    
+    return redirect(request.referrer)
+
+@app.route('/admin/payment/<int:payment_id>/delete', methods=['POST'])
+def delete_payment(payment_id):
+    """Delete a payment record"""
+    if not session.get('is_admin'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        payment = Payment.query.get_or_404(payment_id)
+        db.session.delete(payment)
+        db.session.commit()
+        
+        flash('✅ Payment record deleted successfully!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting payment: {str(e)}', 'danger')
+    
+    return redirect(url_for('view_payments'))
+
+@app.route('/admin/create-payment', methods=['POST'])
+def create_payment():
+    """Create a new payment record for employee"""
+    if not session.get('is_admin'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        # Get form data
+        employee_id = request.form.get('employee_id', type=int)
+        amount = float(request.form.get('amount', 0))
+        document_type = request.form.get('document_type', '')
+        due_date = request.form.get('due_date')
+        status = request.form.get('status', 'Pending')
+        notes = request.form.get('notes', '')
+        
+        if not employee_id or amount <= 0:
+            flash('Please provide valid employee and amount.', 'danger')
+            return redirect(request.referrer)
+        
+        # Check if employee exists
+        employee = Employee.query.get(employee_id)
+        if not employee:
+            flash('Employee not found.', 'danger')
+            return redirect(request.referrer)
+        
+        # Create payment for employee
+        payment = Payment(
+            employee_id=employee_id,
+            amount=amount,
+            paid_amt=0,
+            due_amount=amount,
+            document_type=document_type,
+            status=status,
+            due_date=datetime.strptime(due_date, '%Y-%m-%d').date() if due_date else None,
+            notes=notes,
+            created_at=datetime.now()
+        )
+        
+        db.session.add(payment)
+        db.session.commit()
+        
+        flash(f'✅ Payment record created for ₹{amount:,.2f}', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error creating payment: {str(e)}', 'danger')
+        print(f"Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+    
+    return redirect(request.referrer)
+
+@app.route('/admin/process-payment/<int:payment_id>', methods=['POST'])
+def process_payment(payment_id):
+    """Process payment and mark as paid (AJAX endpoint for dashboard)"""
+    if not session.get('is_admin'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        payment = Payment.query.get_or_404(payment_id)
+        
+        # Mark as fully paid
+        payment.paid_amt = payment.amount
+        payment.due_amount = 0
+        payment.status = 'Paid'
+        payment.payment_date = datetime.now().date()  # Changed from paid_date to payment_date
+        payment.updated_at = datetime.now()
+        
+        db.session.commit()
+        
+        return jsonify({'success': True}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error processing payment: {e}")
+        return jsonify({'error': str(e)}), 500
+ 
+ #update employee information and bank details
+@app.route('/admin/employee/<int:emp_id>/update', methods=['POST'])
+def update_employee(emp_id):
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+    
+    employee = Employee.query.get_or_404(emp_id)
+    
+    try:
+        # Update personal information
+        employee.full_name = request.form.get('full_name')
+        employee.email = request.form.get('email')
+        employee.phone = request.form.get('phone')
+        employee.gender = request.form.get('gender')
+        employee.designation = request.form.get('designation')
+        employee.department = request.form.get('department')
+        employee.address = request.form.get('address')
+        employee.aadhar_no = request.form.get('aadhar_no')
+        employee.pan_no = request.form.get('pan_no')
+        
+        # Update dates
+        if request.form.get('joining_date'):
+            employee.joining_date = datetime.strptime(request.form.get('joining_date'), '%Y-%m-%d').date()
+        if request.form.get('resignation_date'):
+            employee.resignation_date = datetime.strptime(request.form.get('resignation_date'), '%Y-%m-%d').date()
+        
+        db.session.commit()
+        flash('Employee details updated successfully!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error updating employee: {str(e)}', 'danger')
+        print(f"Error: {str(e)}")
+    
+    return redirect(url_for('view_employee', emp_id=emp_id))
+
+@app.route('/admin/employee/<int:emp_id>/update-bank', methods=['POST'])
+def update_employee_bank(emp_id):
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+    
+    employee = Employee.query.get_or_404(emp_id)
+    
+    try:
+        # Update bank details
+        employee.account_holder = request.form.get('account_holder')
+        employee.account_number = request.form.get('account_number')
+        employee.bank_name = request.form.get('bank_name')
+        employee.branch = request.form.get('branch')
+        employee.ifsc_code = request.form.get('ifsc_code')
+        
+        db.session.commit()
+        flash('Bank details updated successfully!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error updating bank details: {str(e)}', 'danger')
+    
+    return redirect(url_for('view_employee', emp_id=emp_id))
+
+#update intern
+@app.route('/admin/intern/<int:intern_id>/update', methods=['POST'])
+def update_intern(intern_id):
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+    
+    intern = Intern.query.get_or_404(intern_id)
+    
+    try:
+        # Update personal information
+        intern.full_name = request.form.get('full_name')
+        intern.email = request.form.get('email')
+        intern.phone = request.form.get('phone')
+        intern.gender = request.form.get('gender')
+        intern.address = request.form.get('address')
+        
+        # Update internship details
+        intern.qualification = request.form.get('qualification')
+        intern.college_name = request.form.get('college_name')
+        intern.course = request.form.get('course')
+        intern.specialization = request.form.get('specialization')
+        intern.internship_duration = int(request.form.get('internship_duration')) if request.form.get('internship_duration') else 3
+        intern.stipend = float(request.form.get('stipend')) if request.form.get('stipend') else 0
+        intern.status = request.form.get('status')
+        
+        # Update mentor details
+        intern.mentor_name = request.form.get('mentor_name')
+        intern.mentor_designation = request.form.get('mentor_designation')
+        
+        # Update dates
+        if request.form.get('start_date'):
+            intern.start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%d').date()
+        if request.form.get('end_date'):
+            intern.end_date = datetime.strptime(request.form.get('end_date'), '%Y-%m-%d').date()
+        
+        # Update company
+        if request.form.get('company_id'):
+            intern.company_id = int(request.form.get('company_id'))
+        
+        db.session.commit()
+        flash('Intern details updated successfully!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error updating intern: {str(e)}', 'danger')
+        print(f"Error: {str(e)}")
+    
+    return redirect(url_for('view_intern', intern_id=intern_id))
+
+@app.route('/admin/intern/<int:intern_id>/update-bank', methods=['POST'])
+def update_intern_bank(intern_id):
+    if not session.get('is_admin'):
+        return redirect(url_for('admin_login'))
+    
+    intern = Intern.query.get_or_404(intern_id)
+    
+    try:
+        intern.account_holder = request.form.get('account_holder')
+        intern.account_number = request.form.get('account_number')
+        intern.bank_name = request.form.get('bank_name')
+        intern.ifsc_code = request.form.get('ifsc_code')
+        
+        db.session.commit()
+        flash('Bank details updated successfully!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error updating bank details: {str(e)}', 'danger')
+    
+    return redirect(url_for('view_intern', intern_id=intern_id))
+
 # ========== APP INITIALIZATION ==========
 if __name__ == '__main__':
     with app.app_context():

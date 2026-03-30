@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container-fluid py-4">
-    <!-- Header with Back Button -->
+    <!-- Header with Back Button and Edit Button -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>
             <a href="{{ url_for('admin_dashboard', tab='members') }}" class="btn btn-outline-secondary me-3">
@@ -10,29 +10,34 @@
             </a>
             Employee Details
         </h2>
-        <form action="{{ url_for('select_company_for_doc', emp_id=employee.id, doc_type='resignation_acceptance') }}" method="GET" style="display:inline;">
-            <button type="submit" class="btn btn-sm btn-info">
-                <i class="fas fa-file-pdf"></i> Resignation Acceptance
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-warning" onclick="toggleEditMode()">
+                <i class="fas fa-edit"></i> Edit Details
             </button>
-        </form>
-        <div class="dropdown">
-            <button class="btn btn-sm dropdown-toggle 
-                {% if employee.status == 'active' %}btn-success
-                {% elif employee.status == 'resigned' %}btn-warning
-                {% else %}btn-danger{% endif %}"
-                type="button"
-                data-bs-toggle="dropdown">
-                {{ employee.status|upper }}
-            </button>
-            <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="{{ url_for('update_employee_status', emp_id=employee.id, status='active') }}">Active</a></li>
-                <li>
-                    <a class="dropdown-item" href="{{ url_for('resignation_input_form', emp_id=employee.id) }}">
-                        Resigned
-                    </a>
-                </li>
-                <li><a class="dropdown-item text-danger" href="{{ url_for('update_employee_status', emp_id=employee.id, status='terminated') }}">Terminated</a></li>
-            </ul>
+            <form action="{{ url_for('select_company_for_doc', emp_id=employee.id, doc_type='resignation_acceptance') }}" method="GET" style="display:inline;">
+                <button type="submit" class="btn btn-sm btn-info">
+                    <i class="fas fa-file-pdf"></i> Resignation Acceptance
+                </button>
+            </form>
+            <div class="dropdown">
+                <button class="btn btn-sm dropdown-toggle 
+                    {% if employee.status == 'active' %}btn-success
+                    {% elif employee.status == 'resigned' %}btn-warning
+                    {% else %}btn-danger{% endif %}"
+                    type="button"
+                    data-bs-toggle="dropdown">
+                    {{ employee.status|upper }}
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="{{ url_for('update_employee_status', emp_id=employee.id, status='active') }}">Active</a></li>
+                    <li>
+                        <a class="dropdown-item" href="{{ url_for('resignation_input_form', emp_id=employee.id) }}">
+                            Resigned
+                        </a>
+                    </li>
+                    <li><a class="dropdown-item text-danger" href="{{ url_for('update_employee_status', emp_id=employee.id, status='terminated') }}">Terminated</a></li>
+                </ul>
+            </div>
         </div>
     </div>
 
@@ -52,16 +57,79 @@
                             {{ employee.full_name[:1] }}
                         </div>
                     {% endif %}
-                    <h4 class="mb-0">{{ employee.full_name }}</h4>
+                    <h4 class="mb-0" id="display_full_name">{{ employee.full_name }}</h4>
                     <p class="mb-0">{{ employee.employee_id }}</p>
                 </div>
                 <div class="card-body">
-                    <div class="mb-3"><label class="text-muted">Email</label><p class="fw-bold">{{ employee.email or 'N/A' }}</p></div>
-                    <div class="mb-3"><label class="text-muted">Phone</label><p class="fw-bold">{{ employee.phone or 'N/A' }}</p></div>
-                    <div class="mb-3"><label class="text-muted">Designation</label><p class="fw-bold">{{ employee.designation }}</p></div>
-                    <div class="mb-3"><label class="text-muted">Department</label><p class="fw-bold">{{ employee.department or 'N/A' }}</p></div>
-                    <div class="mb-3"><label class="text-muted">Joining Date</label><p class="fw-bold">{% if employee.joining_date %}{{ employee.joining_date.strftime('%d %B %Y') }}{% else %}N/A{% endif %}</p></div>
-                    <div class="mb-3"><label class="text-muted">Resignation Date</label><p class="fw-bold">{% if employee.resignation_date %}{{ employee.resignation_date.strftime('%d %B %Y') }}{% else %}N/A{% endif %}</p></div>
+                    <!-- View Mode -->
+                    <div id="viewMode">
+                        <div class="mb-3"><label class="text-muted">Email</label><p class="fw-bold" id="display_email">{{ employee.email or 'N/A' }}</p></div>
+                        <div class="mb-3"><label class="text-muted">Phone</label><p class="fw-bold" id="display_phone">{{ employee.phone or 'N/A' }}</p></div>
+                        <div class="mb-3"><label class="text-muted">Gender</label><p class="fw-bold" id="display_gender">{{ employee.gender or 'N/A' }}</p></div>
+                        <div class="mb-3"><label class="text-muted">Designation</label><p class="fw-bold" id="display_designation">{{ employee.designation }}</p></div>
+                        <div class="mb-3"><label class="text-muted">Department</label><p class="fw-bold" id="display_department">{{ employee.department or 'N/A' }}</p></div>
+                        <div class="mb-3"><label class="text-muted">Address</label><p class="fw-bold" id="display_address">{{ employee.address or 'N/A' }}</p></div>
+                        <div class="mb-3"><label class="text-muted">Aadhar Number</label><p class="fw-bold" id="display_aadhar">{{ employee.aadhar_no or 'N/A' }}</p></div>
+                        <div class="mb-3"><label class="text-muted">PAN Number</label><p class="fw-bold" id="display_pan">{{ employee.pan_no or 'N/A' }}</p></div>
+                        <div class="mb-3"><label class="text-muted">Joining Date</label><p class="fw-bold">{% if employee.joining_date %}{{ employee.joining_date.strftime('%d %B %Y') }}{% else %}N/A{% endif %}</p></div>
+                        <div class="mb-3"><label class="text-muted">Resignation Date</label><p class="fw-bold">{% if employee.resignation_date %}{{ employee.resignation_date.strftime('%d %B %Y') }}{% else %}N/A{% endif %}</p></div>
+                    </div>
+                    
+                    <!-- Edit Mode (Hidden by default) -->
+                    <form id="editMode" method="POST" action="{{ url_for('update_employee', emp_id=employee.id) }}" style="display: none;">
+                        <div class="mb-3">
+                            <label class="form-label">Full Name *</label>
+                            <input type="text" name="full_name" class="form-control" value="{{ employee.full_name }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" name="email" class="form-control" value="{{ employee.email or '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Phone</label>
+                            <input type="text" name="phone" class="form-control" value="{{ employee.phone or '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Gender</label>
+                            <select name="gender" class="form-select">
+                                <option value="Male" {% if employee.gender == 'Male' %}selected{% endif %}>Male</option>
+                                <option value="Female" {% if employee.gender == 'Female' %}selected{% endif %}>Female</option>
+                                <option value="Other" {% if employee.gender == 'Other' %}selected{% endif %}>Other</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Designation</label>
+                            <input type="text" name="designation" class="form-control" value="{{ employee.designation }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Department</label>
+                            <input type="text" name="department" class="form-control" value="{{ employee.department or '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Address</label>
+                            <textarea name="address" class="form-control" rows="2">{{ employee.address or '' }}</textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Aadhar Number</label>
+                            <input type="text" name="aadhar_no" class="form-control" value="{{ employee.aadhar_no or '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">PAN Number</label>
+                            <input type="text" name="pan_no" class="form-control" value="{{ employee.pan_no or '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Joining Date</label>
+                            <input type="date" name="joining_date" class="form-control" value="{{ employee.joining_date.strftime('%Y-%m-%d') if employee.joining_date else '' }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Resignation Date</label>
+                            <input type="date" name="resignation_date" class="form-control" value="{{ employee.resignation_date.strftime('%Y-%m-%d') if employee.resignation_date else '' }}">
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success">Save Changes</button>
+                            <button type="button" class="btn btn-secondary" onclick="toggleEditMode()">Cancel</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -97,19 +165,19 @@
                                 <div class="col-md-6">
                                     <h6 class="text-success mb-3">Earnings</h6>
                                     <table class="table table-sm">
-                                         <tr><td>Basic Salary (50%)</td><td class="text-end">₹{{ "{:,.2f}".format(basic) }}</td></tr>
-                                        <tr><td>HRA (50% of Basic)</td><td class="text-end">₹{{ "{:,.2f}".format(hra) }}</td></tr>
-                                        <tr><td>Conveyance (5%)</td><td class="text-end">₹{{ "{:,.2f}".format(conveyance) }}</td></tr>
-                                        <tr><td>Medical (1.4%)</td><td class="text-end">₹{{ "{:,.2f}".format(medical) }}</td></tr>
-                                        <tr><td>Telephone (2%)</td><td class="text-end">₹{{ "{:,.2f}".format(telephone) }}</td></tr>
-                                        <tr class="fw-bold"><td>Special Allowance</td><td class="text-end">₹{{ "{:,.2f}".format(special) }}</td></tr>
+                                          <tr><td>Basic Salary (50%)</td><td class="text-end">₹{{ "{:,.2f}".format(basic) }}</td></tr>
+                                          <tr><td>HRA (50% of Basic)</td><td class="text-end">₹{{ "{:,.2f}".format(hra) }}</td></tr>
+                                          <tr><td>Conveyance (5%)</td><td class="text-end">₹{{ "{:,.2f}".format(conveyance) }}</td></tr>
+                                          <tr><td>Medical (1.4%)</td><td class="text-end">₹{{ "{:,.2f}".format(medical) }}</td></tr>
+                                          <tr><td>Telephone (2%)</td><td class="text-end">₹{{ "{:,.2f}".format(telephone) }}</td></tr>
+                                          <tr class="fw-bold"><td>Special Allowance</td><td class="text-end">₹{{ "{:,.2f}".format(special) }}</td></tr>
                                     </table>
                                 </div>
                                 <div class="col-md-6">
                                     <h6 class="text-danger mb-3">Deductions</h6>
                                     <table class="table table-sm">
-                                        <tr><td>Professional Tax</td><td class="text-end text-danger">-₹{{ "{:,.2f}".format(professional_tax) }}</td></tr>
-                                        <tr class="fw-bold"><td>Net Monthly Salary</td><td class="text-end text-success">₹{{ "{:,.2f}".format(net_salary) }}</td></tr>
+                                          <tr><td>Professional Tax</td><td class="text-end text-danger">-₹{{ "{:,.2f}".format(professional_tax) }}</td></tr>
+                                          <tr class="fw-bold"><td>Net Monthly Salary</td><td class="text-end text-success">₹{{ "{:,.2f}".format(net_salary) }}</td></tr>
                                     </table>
                                 </div>
                             </div>
@@ -117,26 +185,64 @@
                     </div>
                 </div>
 
-                <!-- Bank Details -->
+                <!-- Bank Details (Editable) -->
                 <div class="col-12 mb-4">
                     <div class="card shadow">
-                        <div class="card-header bg-info text-white"><h5 class="mb-0"><i class="fas fa-university me-2"></i>Bank Details</h5></div>
+                        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-university me-2"></i>Bank Details</h5>
+                            <button class="btn btn-sm btn-light" onclick="toggleBankEditMode()">
+                                <i class="fas fa-edit"></i> Edit Bank Details
+                            </button>
+                        </div>
                         <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <table class="table table-borderless">
-                                        <tr><td>Account Holder:</td><td class="fw-bold">{{ employee.account_holder or 'N/A' }}</td></tr>
-                                        <tr><td>Account Number:</td><td class="fw-bold">{{ employee.account_number or 'N/A' }}</td></tr>
-                                        <tr><td>Bank Name:</td><td class="fw-bold">{{ employee.bank_name or 'N/A' }}</td></tr>
-                                    </table>
-                                </div>
-                                <div class="col-md-6">
-                                    <table class="table table-borderless">
-                                        <tr><td>Branch:</td><td class="fw-bold">{{ employee.branch or 'N/A' }}</td></tr>
-                                        <tr><td>IFSC Code:</td><td class="fw-bold">{{ employee.ifsc_code or 'N/A' }}</td></tr>
-                                    </table>
+                            <!-- View Mode -->
+                            <div id="bankViewMode">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <table class="table table-borderless">
+                                            <tr><td>Account Holder:</td><td class="fw-bold">{{ employee.account_holder or 'N/A' }}</td></tr>
+                                            <tr><td>Account Number:</td><td class="fw-bold">{{ employee.account_number or 'N/A' }}</td></tr>
+                                            <tr><td>Bank Name:</td><td class="fw-bold">{{ employee.bank_name or 'N/A' }}</td></tr>
+                                        </table>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <table class="table table-borderless">
+                                            <tr><td>Branch:</td><td class="fw-bold">{{ employee.branch or 'N/A' }}</td></tr>
+                                            <tr><td>IFSC Code:</td><td class="fw-bold">{{ employee.ifsc_code or 'N/A' }}</td></tr>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
+                            
+                            <!-- Edit Mode -->
+                            <form id="bankEditMode" method="POST" action="{{ url_for('update_employee_bank', emp_id=employee.id) }}" style="display: none;">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Account Holder Name</label>
+                                        <input type="text" name="account_holder" class="form-control" value="{{ employee.account_holder or '' }}">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Account Number</label>
+                                        <input type="text" name="account_number" class="form-control" value="{{ employee.account_number or '' }}">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Bank Name</label>
+                                        <input type="text" name="bank_name" class="form-control" value="{{ employee.bank_name or '' }}">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Branch</label>
+                                        <input type="text" name="branch" class="form-control" value="{{ employee.branch or '' }}">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">IFSC Code</label>
+                                        <input type="text" name="ifsc_code" class="form-control" value="{{ employee.ifsc_code or '' }}">
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-success">Save Bank Details</button>
+                                    <button type="button" class="btn btn-secondary" onclick="toggleBankEditMode()">Cancel</button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -167,7 +273,7 @@
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
-                                <tr>
+                                 <tr>
                                     <th>Document Type</th>
                                     <th>Filename</th>
                                     <th>Month/Year</th>
@@ -185,7 +291,6 @@
                                     <td>{{ doc.generated_at.strftime('%d %b %Y, %H:%M') }}</td>
                                     <td>{{ doc.generated_by }}</td>
                                     <td>
-                                        <!-- DOWNLOAD BUTTON - ADDED -->
                                         <a href="{{ url_for('download_document', doc_id=doc.id) }}" 
                                            class="btn btn-sm btn-success" 
                                            title="Download Document">
@@ -206,7 +311,6 @@
                                         </a>
                                         {% endif %}
                                         
-                                        <!-- Delete button with confirmation -->
                                         <form action="{{ url_for('delete_document', doc_id=doc.id) }}" method="POST" style="display:inline;"
                                             onsubmit="return confirm('Are you sure you want to delete this document? This will also remove it from Google Drive.');">
                                             <button type="submit" class="btn btn-sm btn-danger" title="Delete Document">
@@ -237,7 +341,7 @@
                     <div class="table-responsive">
                         <table class="table table-sm">
                             <thead>
-                                <tr>
+                                 <tr>
                                     <th>Date</th>
                                     <th>Old CTC (₹)</th>
                                     <th>Increment/Month (₹)</th>
@@ -275,4 +379,32 @@
     .btn-sm { padding: 5px 10px; font-size: 12px; }
     .btn-sm i { margin-right: 3px; }
 </style>
+
+<script>
+    function toggleEditMode() {
+        const viewMode = document.getElementById('viewMode');
+        const editMode = document.getElementById('editMode');
+        
+        if (viewMode.style.display === 'none') {
+            viewMode.style.display = 'block';
+            editMode.style.display = 'none';
+        } else {
+            viewMode.style.display = 'none';
+            editMode.style.display = 'block';
+        }
+    }
+    
+    function toggleBankEditMode() {
+        const bankViewMode = document.getElementById('bankViewMode');
+        const bankEditMode = document.getElementById('bankEditMode');
+        
+        if (bankViewMode.style.display === 'none') {
+            bankViewMode.style.display = 'block';
+            bankEditMode.style.display = 'none';
+        } else {
+            bankViewMode.style.display = 'none';
+            bankEditMode.style.display = 'block';
+        }
+    }
+</script>
 {% endblock %}
