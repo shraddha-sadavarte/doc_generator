@@ -569,7 +569,7 @@ def get_filter(dictionary, key, default=''):
     return default
 
 def embed_images_as_base64(html_content):
-    """Convert all image URLs to base64 data URIs - Optimized for speed"""
+    """Convert all image URLs to base64 data URIs - Optimized for Render"""
     static_folder = app.static_folder
     images_folder = os.path.join(static_folder, 'images')
     signatures_folder = os.path.join(images_folder, 'signatures')
@@ -595,9 +595,12 @@ def embed_images_as_base64(html_content):
         
         abs_path = None
         
-        # Find image path
+        # Find image path - handle various URL patterns
         if src.startswith('/static/'):
             relative_path = src.replace('/static/', '')
+            abs_path = os.path.join(static_folder, relative_path)
+        elif '/static/' in src:
+            relative_path = src.split('/static/')[-1]
             abs_path = os.path.join(static_folder, relative_path)
         elif 'signatures' in src:
             filename = src.split('signatures/')[-1]
@@ -610,9 +613,9 @@ def embed_images_as_base64(html_content):
         
         if abs_path and os.path.exists(abs_path):
             try:
-                # Only process images smaller than 200KB to avoid memory issues
+                # Only process images smaller than 500KB to avoid memory issues
                 file_size = os.path.getsize(abs_path)
-                if file_size > 200000:  # Skip large images (200KB)
+                if file_size > 500000:  # Skip large images (500KB)
                     print(f"⚠️ Skipping large image: {abs_path} ({file_size} bytes)")
                     return img_tag
                 
@@ -636,12 +639,12 @@ def embed_images_as_base64(html_content):
         
         return img_tag
     
-    # Process only img tags that are not already base64
-    html_content = re.sub(r'<img[^>]+src=["\'](?!(?:data:))[^"\']+["\'][^>]*>', replace_image, html_content, flags=re.IGNORECASE)
+    # Process img tags
+    html_content = re.sub(r'<img[^>]+src=["\']([^"\']+)["\'][^>]*>', replace_image, html_content, flags=re.IGNORECASE)
     return html_content
 
 def html_to_pdf(html_content, output_path):
-    """Convert HTML to PDF - Optimized for Render"""
+    """Convert HTML to PDF - Production ready for Render"""
     import tempfile
     import os
     
@@ -649,21 +652,24 @@ def html_to_pdf(html_content, output_path):
         print(f"📁 Output path: {output_path}")
         print(f"📄 HTML length: {len(html_content)}")
         
-        # Quick optimization - remove unnecessary whitespace
+        # Remove unnecessary whitespace to reduce size
         html_content = re.sub(r'\s+', ' ', html_content)
+        
+        # Remove comments to reduce size
+        html_content = re.sub(r'<!--.*?-->', '', html_content, flags=re.DOTALL)
         
         # Embed images as base64
         html_content = embed_images_as_base64(html_content)
         print(f"📸 Images embedded")
         
-        # Create temp file
+        # Create temp HTML file
         with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
             f.write(html_content)
             temp_html = f.name
         
         print(f"📄 Temp HTML: {temp_html}")
         
-        # Convert to PDF - REMOVED unsupported parameters
+        # Convert to PDF
         HTML(filename=temp_html).write_pdf(output_path)
         
         # Clean up
@@ -681,7 +687,77 @@ def html_to_pdf(html_content, output_path):
         import traceback
         traceback.print_exc()
         return False
+
+# Alternative: Use xhtml2pdf if WeasyPrint fails (more reliable on Render)
+def html_to_pdf_fallback(html_content, output_path):
+    """Fallback PDF generator using xhtml2pdf - More reliable on Render"""
+    try:
+        from xhtml2pdf import pisa
+        import io
+        
+        print("🔄 Using xhtml2pdf fallback...")
+        
+        # Simplify HTML for better compatibility
+        html_content = re.sub(r'<style[^>]*>.*?</style>', '', html_content, flags=re.DOTALL)
+        html_content = re.sub(r'<script[^>]*>.*?</script>', '', html_content, flags=re.DOTALL)
+        
+        # Add minimal CSS
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                .letter-header {{ display: flex; justify-content: space-between; margin-bottom: 30px; }}
+                .logo-section {{ display: flex; align-items: center; gap: 15px; }}
+                .company-contact {{ text-align: right; }}
+                table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+                th {{ background-color: #f2f2f2; }}
+                .text-end {{ text-align: right; }}
+                .badge {{ padding: 3px 8px; border-radius: 4px; }}
+                .bg-success {{ background-color: #28a745; color: white; }}
+                .bg-warning {{ background-color: #ffc107; }}
+                .bg-secondary {{ background-color: #6c757d; color: white; }}
+            </style>
+        </head>
+        <body>
+            {html_content}
+        </body>
+        </html>
+        """
+        
+        with open(output_path, 'wb') as pdf_file:
+            pisa_status = pisa.CreatePDF(
+                io.BytesIO(html_content.encode('UTF-8')),
+                dest=pdf_file,
+                encoding='UTF-8'
+            )
+        
+        if pisa_status.err:
+            print(f"xhtml2pdf error: {pisa_status.err}")
+            return False
+        
+        print(f"✅ PDF generated with xhtml2pdf: {output_path}")
+        return True
+        
+    except Exception as e:
+        print(f"xhtml2pdf error: {e}")
+        return False
+
+# Main PDF generation function with automatic fallback
+def generate_pdf(html_content, output_path):
+    """Generate PDF with automatic fallback to xhtml2pdf if needed"""
     
+    # First try WeasyPrint
+    if html_to_pdf(html_content, output_path):
+        return True
+    
+    # If WeasyPrint fails, try xhtml2pdf
+    print("⚠️ WeasyPrint failed, trying xhtml2pdf...")
+    return html_to_pdf_fallback(html_content, output_path)
+
 # #test route
 # @app.route('/test-pdf-generation')
 # def test_pdf_generation():
@@ -1628,7 +1704,7 @@ def generate():
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         
         # Convert to PDF
-        if not html_to_pdf(html_content, file_path):
+        if not generate_pdf(html_content, file_path):
             flash('Failed to generate PDF document', 'danger')
             return redirect(url_for('view_employee', emp_id=employee.id))
         
@@ -4187,7 +4263,14 @@ def view_payments():
     month_filter = request.args.get('month', '')
     year_filter = request.args.get('year', datetime.now().year)
     
-    # Build query for employee payments only
+    # Debug: Print total payments
+    total_payments = Payment.query.count()
+    print(f"\n{'='*60}")
+    print(f"🔍 PAYMENTS PAGE DEBUG")
+    print(f"   Total payments in database: {total_payments}")
+    print(f"{'='*60}\n")
+    
+    # Build query for employee payments
     query = db.session.query(
         Payment.id,
         Payment.amount,
@@ -4198,7 +4281,7 @@ def view_payments():
         Payment.due_date,
         Payment.created_at,
         Employee.full_name.label('employee_name'),
-        Employee.employee_id.label('employee_code'),
+        Employee.employee_id.label('employee_id'),
         Employee.email.label('employee_email')
     ).join(Employee, Payment.employee_id == Employee.id)
     
@@ -4209,6 +4292,7 @@ def view_payments():
     if employee_filter:
         query = query.filter(Payment.employee_id == employee_filter)
     
+    # FIX: Remove the NULL condition - only filter by month/year if they exist
     if month_filter:
         query = query.filter(db.extract('month', Payment.payment_date) == int(month_filter))
     
@@ -4216,6 +4300,8 @@ def view_payments():
         query = query.filter(db.extract('year', Payment.payment_date) == int(year_filter))
     
     results = query.order_by(Payment.created_at.desc()).all()
+    
+    print(f"   Query results count: {len(results)}")
     
     # Process results
     payments = []
@@ -4233,7 +4319,7 @@ def view_payments():
         due_date = row[6]
         created_at = row[7]
         employee_name = row[8]
-        employee_code = row[9]
+        employee_id = row[9]
         employee_email = row[10]
         
         due_amount = amount - paid_amt
@@ -4249,12 +4335,23 @@ def view_payments():
         else:
             status_class = 'secondary'
         
+        # Format document type for display
+        doc_display_map = {
+            'offer_letter': '📄 Offer Letter',
+            'experience_letter': '🎓 Experience Letter',
+            'increment_letter': '📈 Increment Letter',
+            'relieving_letter': '🚪 Relieving Letter',
+            'salary_slip': '💰 Salary Slip',
+            'resignation_acceptance': '📧 Resignation Acceptance'
+        }
+        
         payments.append({
             'id': payment_id,
             'employee_name': employee_name,
-            'employee_id': employee_code,
+            'employee_id': employee_id,
             'employee_email': employee_email,
-            'document_type': document_type or 'N/A',
+            'document_type': doc_display_map.get(document_type, document_type or 'N/A'),
+            'document_type_raw': document_type,
             'amount': amount,
             'paid_amt': paid_amt,
             'due_amount': due_amount,
@@ -4265,14 +4362,18 @@ def view_payments():
             'created_at': created_at.strftime('%d %b %Y') if created_at else 'N/A',
         })
     
-    # Count by status
+    # Get all employees for the create payment dropdown
+    employees = Employee.query.all()
+    
+    # Calculate counts for summary cards
     paid_count = sum(1 for p in payments if p['status'] == 'Paid')
     pending_count = sum(1 for p in payments if p['status'] == 'Pending')
     partial_count = sum(1 for p in payments if p['status'] == 'Partial')
     overdue_count = sum(1 for p in payments if p['status'] == 'Overdue')
     
-    # Get all employees for dropdown
-    employees = Employee.query.all()
+    print(f"   Payments processed: {len(payments)}")
+    for p in payments:
+        print(f"      - ID: {p['id']}, Employee: {p['employee_name']}, Amount: {p['amount']}, Status: {p['status']}")
     
     return render_template('payments.html',
                          payments=payments,
@@ -4461,13 +4562,14 @@ def create_payment():
             status=status,
             due_date=datetime.strptime(due_date, '%Y-%m-%d').date() if due_date else None,
             notes=notes,
-            created_at=datetime.now()
+            created_at=datetime.now(),
+            updated_at=datetime.now()
         )
         
         db.session.add(payment)
         db.session.commit()
         
-        flash(f'✅ Payment record created for ₹{amount:,.2f}', 'success')
+        flash(f'✅ Payment record created for {employee.full_name} - ₹{amount:,.2f}', 'success')
         
     except Exception as e:
         db.session.rollback()
@@ -4504,6 +4606,7 @@ def process_payment(payment_id):
         return jsonify({'error': str(e)}), 500
  
  #update employee information and bank details
+
 @app.route('/admin/employee/<int:emp_id>/update', methods=['POST'])
 def update_employee(emp_id):
     if not session.get('is_admin'):

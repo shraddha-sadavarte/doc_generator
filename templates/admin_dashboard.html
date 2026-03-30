@@ -635,7 +635,7 @@
                 </a>
             </li>
             <li class="{{ 'active' if active_tab == 'payments' else '' }}">
-                <a href="{{ url_for('view_payments') }}">
+                <a href="{{ url_for('admin_dashboard', tab='payments') }}">
                     <i class="fas fa-credit-card"></i>
                     <span>Payments</span>
                     <span class="badge-count">{{ pending_payments }}</span>
