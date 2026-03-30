@@ -568,13 +568,14 @@ def get_filter(dictionary, key, default=''):
         return dictionary.get(key, default)
     return default
 
+from xhtml2pdf import pisa
+
 def embed_images_as_base64(html_content):
-    """Convert all image URLs to base64 data URIs - Optimized for Render"""
+    """Convert all image URLs to base64 data URIs"""
     static_folder = app.static_folder
     images_folder = os.path.join(static_folder, 'images')
     signatures_folder = os.path.join(images_folder, 'signatures')
     
-    # Cache for already processed images to avoid repeated reading
     image_cache = {}
     
     def replace_image(match):
@@ -585,17 +586,14 @@ def embed_images_as_base64(html_content):
         
         src = src_match.group(1)
         
-        # Skip if already base64 or external URL
         if src.startswith('data:') or src.startswith('http://') or src.startswith('https://'):
             return img_tag
         
-        # Check cache first
         if src in image_cache:
             return img_tag.replace(src, image_cache[src])
         
         abs_path = None
         
-        # Find image path - handle various URL patterns
         if src.startswith('/static/'):
             relative_path = src.replace('/static/', '')
             abs_path = os.path.join(static_folder, relative_path)
@@ -613,10 +611,8 @@ def embed_images_as_base64(html_content):
         
         if abs_path and os.path.exists(abs_path):
             try:
-                # Only process images smaller than 500KB to avoid memory issues
                 file_size = os.path.getsize(abs_path)
-                if file_size > 500000:  # Skip large images (500KB)
-                    print(f"⚠️ Skipping large image: {abs_path} ({file_size} bytes)")
+                if file_size > 500000:
                     return img_tag
                 
                 with open(abs_path, 'rb') as f:
@@ -633,48 +629,70 @@ def embed_images_as_base64(html_content):
                 new_src = f'data:{mime};base64,{image_data}'
                 image_cache[src] = new_src
                 return img_tag.replace(src, new_src)
-            except Exception as e:
-                print(f"Error embedding image {abs_path}: {e}")
+            except:
                 return img_tag
         
         return img_tag
     
-    # Process img tags
     html_content = re.sub(r'<img[^>]+src=["\']([^"\']+)["\'][^>]*>', replace_image, html_content, flags=re.IGNORECASE)
     return html_content
 
 def html_to_pdf(html_content, output_path):
-    """Convert HTML to PDF - Production ready for Render"""
-    import tempfile
-    import os
-    
+    """Convert HTML to PDF using xhtml2pdf - Reliable on Render"""
     try:
         print(f"📁 Output path: {output_path}")
         print(f"📄 HTML length: {len(html_content)}")
         
-        # Remove unnecessary whitespace to reduce size
-        html_content = re.sub(r'\s+', ' ', html_content)
-        
-        # Remove comments to reduce size
-        html_content = re.sub(r'<!--.*?-->', '', html_content, flags=re.DOTALL)
+        # Remove JavaScript and complex CSS
+        html_content = re.sub(r'<script[^>]*>.*?</script>', '', html_content, flags=re.DOTALL)
         
         # Embed images as base64
         html_content = embed_images_as_base64(html_content)
         print(f"📸 Images embedded")
         
-        # Create temp HTML file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
-            f.write(html_content)
-            temp_html = f.name
+        # Add xhtml2pdf compatible header
+        html_content = f"""<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                .letter-header {{ margin-bottom: 20px; overflow: hidden; }}
+                .logo-section {{ float: left; }}
+                .company-contact {{ float: right; text-align: right; }}
+                table {{ width: 100%; border-collapse: collapse; margin: 15px 0; }}
+                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+                th {{ background-color: #f2f2f2; }}
+                .text-end {{ text-align: right; }}
+                .badge {{ padding: 3px 8px; border-radius: 4px; }}
+                .bg-success {{ background-color: #28a745; color: white; }}
+                .bg-warning {{ background-color: #ffc107; }}
+                .bg-secondary {{ background-color: #6c757d; color: white; }}
+                .text-success {{ color: #28a745; }}
+                .text-danger {{ color: #dc3545; }}
+                .text-center {{ text-align: center; }}
+                .mt-3 {{ margin-top: 15px; }}
+                .mb-3 {{ margin-bottom: 15px; }}
+                .btn-group {{ display: inline-block; }}
+                .btn {{ display: inline-block; padding: 5px 10px; margin: 2px; }}
+            </style>
+        </head>
+        <body>
+            {html_content}
+        </body>
+        </html>"""
         
-        print(f"📄 Temp HTML: {temp_html}")
+        # Create PDF
+        with open(output_path, 'wb') as pdf_file:
+            pisa_status = pisa.CreatePDF(
+                io.BytesIO(html_content.encode('UTF-8')),
+                dest=pdf_file,
+                encoding='UTF-8'
+            )
         
-        # Convert to PDF
-        HTML(filename=temp_html).write_pdf(output_path)
-        
-        # Clean up
-        if os.path.exists(temp_html):
-            os.unlink(temp_html)
+        if pisa_status.err:
+            print(f"❌ PDF error: {pisa_status.err}")
+            return False
         
         print(f"✅ PDF generated: {output_path}")
         if os.path.exists(output_path):
@@ -687,76 +705,6 @@ def html_to_pdf(html_content, output_path):
         import traceback
         traceback.print_exc()
         return False
-
-# Alternative: Use xhtml2pdf if WeasyPrint fails (more reliable on Render)
-def html_to_pdf_fallback(html_content, output_path):
-    """Fallback PDF generator using xhtml2pdf - More reliable on Render"""
-    try:
-        from xhtml2pdf import pisa
-        import io
-        
-        print("🔄 Using xhtml2pdf fallback...")
-        
-        # Simplify HTML for better compatibility
-        html_content = re.sub(r'<style[^>]*>.*?</style>', '', html_content, flags=re.DOTALL)
-        html_content = re.sub(r'<script[^>]*>.*?</script>', '', html_content, flags=re.DOTALL)
-        
-        # Add minimal CSS
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body {{ font-family: Arial, sans-serif; margin: 20px; }}
-                .letter-header {{ display: flex; justify-content: space-between; margin-bottom: 30px; }}
-                .logo-section {{ display: flex; align-items: center; gap: 15px; }}
-                .company-contact {{ text-align: right; }}
-                table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-                th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
-                th {{ background-color: #f2f2f2; }}
-                .text-end {{ text-align: right; }}
-                .badge {{ padding: 3px 8px; border-radius: 4px; }}
-                .bg-success {{ background-color: #28a745; color: white; }}
-                .bg-warning {{ background-color: #ffc107; }}
-                .bg-secondary {{ background-color: #6c757d; color: white; }}
-            </style>
-        </head>
-        <body>
-            {html_content}
-        </body>
-        </html>
-        """
-        
-        with open(output_path, 'wb') as pdf_file:
-            pisa_status = pisa.CreatePDF(
-                io.BytesIO(html_content.encode('UTF-8')),
-                dest=pdf_file,
-                encoding='UTF-8'
-            )
-        
-        if pisa_status.err:
-            print(f"xhtml2pdf error: {pisa_status.err}")
-            return False
-        
-        print(f"✅ PDF generated with xhtml2pdf: {output_path}")
-        return True
-        
-    except Exception as e:
-        print(f"xhtml2pdf error: {e}")
-        return False
-
-# Main PDF generation function with automatic fallback
-def generate_pdf(html_content, output_path):
-    """Generate PDF with automatic fallback to xhtml2pdf if needed"""
-    
-    # First try WeasyPrint
-    if html_to_pdf(html_content, output_path):
-        return True
-    
-    # If WeasyPrint fails, try xhtml2pdf
-    print("⚠️ WeasyPrint failed, trying xhtml2pdf...")
-    return html_to_pdf_fallback(html_content, output_path)
 
 # #test route
 # @app.route('/test-pdf-generation')
@@ -1704,7 +1652,7 @@ def generate():
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         
         # Convert to PDF
-        if not generate_pdf(html_content, file_path):
+        if not html_to_pdf(html_content, file_path):
             flash('Failed to generate PDF document', 'danger')
             return redirect(url_for('view_employee', emp_id=employee.id))
         
