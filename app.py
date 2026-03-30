@@ -568,14 +568,14 @@ def get_filter(dictionary, key, default=''):
         return dictionary.get(key, default)
     return default
 
-#production function for pdf generation
 def embed_images_as_base64(html_content):
-    """Convert all image URLs to base64 data URIs"""
+    """Convert all image URLs to base64 data URIs - Optimized for speed"""
     static_folder = app.static_folder
     images_folder = os.path.join(static_folder, 'images')
     signatures_folder = os.path.join(images_folder, 'signatures')
     
-    print(f"🔍 Static folder: {static_folder}")
+    # Cache for already processed images to avoid repeated reading
+    image_cache = {}
     
     def replace_image(match):
         img_tag = match.group(0)
@@ -585,9 +585,13 @@ def embed_images_as_base64(html_content):
         
         src = src_match.group(1)
         
-        # Skip if already base64
-        if src.startswith('data:'):
+        # Skip if already base64 or external URL
+        if src.startswith('data:') or src.startswith('http://') or src.startswith('https://'):
             return img_tag
+        
+        # Check cache first
+        if src in image_cache:
+            return img_tag.replace(src, image_cache[src])
         
         abs_path = None
         
@@ -606,6 +610,12 @@ def embed_images_as_base64(html_content):
         
         if abs_path and os.path.exists(abs_path):
             try:
+                # Only process images smaller than 200KB to avoid memory issues
+                file_size = os.path.getsize(abs_path)
+                if file_size > 200000:  # Skip large images (200KB)
+                    print(f"⚠️ Skipping large image: {abs_path} ({file_size} bytes)")
+                    return img_tag
+                
                 with open(abs_path, 'rb') as f:
                     image_data = base64.b64encode(f.read()).decode('utf-8')
                 
@@ -618,22 +628,31 @@ def embed_images_as_base64(html_content):
                     mime = f'image/{ext}'
                 
                 new_src = f'data:{mime};base64,{image_data}'
+                image_cache[src] = new_src
                 return img_tag.replace(src, new_src)
-            except:
+            except Exception as e:
+                print(f"Error embedding image {abs_path}: {e}")
                 return img_tag
         
         return img_tag
     
-    html_content = re.sub(r'<img[^>]+>', replace_image, html_content)
+    # Process only img tags that are not already base64
+    html_content = re.sub(r'<img[^>]+src=["\'](?!(?:data:))[^"\']+["\'][^>]*>', replace_image, html_content, flags=re.IGNORECASE)
     return html_content
 
 def html_to_pdf(html_content, output_path):
-    """Convert HTML to PDF using WeasyPrint 52.5"""
+    """Convert HTML to PDF - Optimized for Render"""
+    import tempfile
+    import os
+    
     try:
         print(f"📁 Output path: {output_path}")
         print(f"📄 HTML length: {len(html_content)}")
         
-        # Embed images
+        # Quick optimization - remove unnecessary whitespace
+        html_content = re.sub(r'\s+', ' ', html_content)
+        
+        # Embed images as base64
         html_content = embed_images_as_base64(html_content)
         print(f"📸 Images embedded")
         
@@ -644,14 +663,22 @@ def html_to_pdf(html_content, output_path):
         
         print(f"📄 Temp HTML: {temp_html}")
         
-        # Convert to PDF - WITHOUT font_config
-        HTML(filename=temp_html).write_pdf(output_path)
+        # Convert to PDF with memory optimization
+        HTML(filename=temp_html).write_pdf(
+            output_path,
+            zoom=0.85,  # Slightly reduce zoom for faster rendering
+            optimize_size=('fonts', 'images'),  # Optimize for size
+            font_config=None  # Disable font config for speed
+        )
         
         # Clean up
         if os.path.exists(temp_html):
             os.unlink(temp_html)
         
         print(f"✅ PDF generated: {output_path}")
+        if os.path.exists(output_path):
+            print(f"📁 PDF size: {os.path.getsize(output_path)} bytes")
+        
         return True
         
     except Exception as e:
@@ -660,41 +687,41 @@ def html_to_pdf(html_content, output_path):
         traceback.print_exc()
         return False
 
-#test route
-@app.route('/test-pdf-generation')
-def test_pdf_generation():
-    """Test PDF generation with debugging"""
-    try:
-        test_html = """
-        <html>
-        <head>
-            <style>
-                body {{ font-family: Arial; padding: 50px; }}
-                h1 {{ color: blue; }}
-            </style>
-        </head>
-        <body>
-            <h1>Test PDF</h1>
-            <p>This is a test PDF document generated on Render.</p>
-            <p>Timestamp: {}</p>
-        </body>
-        </html>
-        """.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+# #test route
+# @app.route('/test-pdf-generation')
+# def test_pdf_generation():
+#     """Test PDF generation with debugging"""
+#     try:
+#         test_html = """
+#         <html>
+#         <head>
+#             <style>
+#                 body {{ font-family: Arial; padding: 50px; }}
+#                 h1 {{ color: blue; }}
+#             </style>
+#         </head>
+#         <body>
+#             <h1>Test PDF</h1>
+#             <p>This is a test PDF document generated on Render.</p>
+#             <p>Timestamp: {}</p>
+#         </body>
+#         </html>
+#         """.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         
-        output_path = os.path.join(app.config['UPLOAD_FOLDER'], 'test_debug.pdf')
+#         output_path = os.path.join(app.config['UPLOAD_FOLDER'], 'test_debug.pdf')
         
-        print(f"📁 Output path: {output_path}")
+#         print(f"📁 Output path: {output_path}")
         
-        result = html_to_pdf(test_html, output_path)
+#         result = html_to_pdf(test_html, output_path)
         
-        if result and os.path.exists(output_path):
-            return send_file(output_path, as_attachment=True, download_name='test_debug.pdf')
-        else:
-            return f"PDF generation failed. Result: {result}", 500
+#         if result and os.path.exists(output_path):
+#             return send_file(output_path, as_attachment=True, download_name='test_debug.pdf')
+#         else:
+#             return f"PDF generation failed. Result: {result}", 500
             
-    except Exception as e:
-        import traceback
-        return f"Error: {str(e)}<br><pre>{traceback.format_exc()}</pre>", 500
+#     except Exception as e:
+#         import traceback
+#         return f"Error: {str(e)}<br><pre>{traceback.format_exc()}</pre>", 500
 
 # #local function
 # def html_to_pdf(html_content, output_path):
