@@ -23,10 +23,23 @@
         z-index: 1000;
     }
 
+    /* Custom scrollbar for sidebar */
+    .admin-sidebar::-webkit-scrollbar {
+        width: 5px;
+    }
+    .admin-sidebar::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.1);
+    }
+    .admin-sidebar::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.3);
+        border-radius: 5px;
+    }
+
     .sidebar-header {
         padding: 0 20px 20px;
         border-bottom: 1px solid rgba(255,255,255,0.2);
         margin-bottom: 20px;
+        position: relative;
     }
 
     .sidebar-header h3 {
@@ -39,6 +52,44 @@
         margin: 5px 0 0;
         opacity: 0.8;
         font-size: 14px;
+    }
+
+    /* Mobile sidebar toggle button inside header */
+    .sidebar-toggle {
+        display: none;
+        position: absolute;
+        right: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 8px 12px;
+        border-radius: 8px;
+        transition: all 0.3s;
+    }
+
+    .sidebar-toggle:hover {
+        background: rgba(255,255,255,0.3);
+    }
+
+    /* Overlay for mobile */
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 999;
+        backdrop-filter: blur(2px);
+    }
+
+    .sidebar-overlay.active {
+        display: block;
     }
 
     .sidebar-menu {
@@ -87,21 +138,10 @@
         font-size: 12px;
     }
 
-    /* Mobile sidebar toggle button */
-    .sidebar-toggle {
-        display: none;
-        position: fixed;
-        top: 15px;
-        left: 15px;
-        z-index: 1001;
-        background: #667eea;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        padding: 10px 15px;
-        font-size: 20px;
-        cursor: pointer;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    .logout-item {
+        margin-top: 30px;
+        border-top: 1px solid rgba(255,255,255,0.1);
+        padding-top: 10px;
     }
 
     /* Main Content */
@@ -162,6 +202,12 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
+        transition: transform 0.2s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
     }
 
     .stat-info h3 {
@@ -510,6 +556,7 @@
         gap: 10px;
         margin-bottom: 20px;
         border-bottom: 2px solid #e9ecef;
+        flex-wrap: wrap;
     }
     .member-tab {
         padding: 10px 20px;
@@ -529,70 +576,372 @@
         color: #667eea;
     }
 
-    /* ==================== RESPONSIVE STYLES ==================== */
-    @media (max-width: 992px) {
+    /* ==================== FULL RESPONSIVE STYLES ==================== */
+    
+    /* Large Desktop (1200px - 1400px) */
+    @media (min-width: 1200px) and (max-width: 1400px) {
+        .admin-sidebar {
+            width: 260px;
+        }
+        .admin-content {
+            margin-left: 260px;
+        }
+        .stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+    }
+
+    /* Desktop (992px - 1199px) */
+    @media (max-width: 1199px) {
+        .admin-sidebar {
+            width: 250px;
+        }
+        .admin-content {
+            margin-left: 250px;
+        }
+        .stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+    }
+
+    /* Tablet (768px - 991px) */
+    @media (max-width: 991px) {
         .admin-sidebar {
             width: 240px;
         }
         .admin-content {
             margin-left: 240px;
+            padding: 20px;
+        }
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        .member-list {
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        }
+        .document-type-grid {
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
         }
     }
 
-    @media (max-width: 768px) {
+    /* Mobile Landscape & Tablet Portrait (576px - 767px) */
+    @media (max-width: 767px) {
         .sidebar-toggle {
             display: block;
         }
+        
         .admin-sidebar {
             transform: translateX(-100%);
+            width: 280px;
         }
+        
         .admin-sidebar.open {
             transform: translateX(0);
         }
+        
         .admin-content {
             margin-left: 0;
-            padding: 20px;
+            padding: 15px;
         }
+        
         .content-header {
             flex-direction: column;
             align-items: stretch;
+            padding: 15px;
         }
+        
         .content-header h2 {
             font-size: 20px;
             text-align: center;
         }
+        
         .header-actions {
             justify-content: center;
         }
+        
         .stats-grid {
             grid-template-columns: 1fr;
+            gap: 12px;
         }
+        
         .form-row {
             grid-template-columns: 1fr;
+            gap: 15px;
         }
-        .member-list, .document-type-grid {
+        
+        .member-list, 
+        .document-type-grid {
             grid-template-columns: 1fr;
         }
+        
         .payment-table {
             overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
+        
         .payment-table table {
             min-width: 600px;
         }
+        
+        .form-container {
+            padding: 20px;
+        }
+        
+        .member-selector {
+            padding: 20px;
+        }
+        
+        .filter-bar {
+            padding: 15px;
+        }
+        
+        .stat-card {
+            padding: 15px;
+        }
+        
+        .stat-info .number {
+            font-size: 24px;
+        }
+        
+        .stat-icon {
+            width: 45px;
+            height: 45px;
+            font-size: 20px;
+        }
     }
 
-    @media (max-width: 480px) {
+    /* Mobile Portrait (below 576px) */
+    @media (max-width: 575px) {
+        .admin-content {
+            padding: 10px;
+        }
+        
+        .content-header {
+            padding: 12px;
+        }
+        
+        .content-header h2 {
+            font-size: 18px;
+        }
+        
         .action-btn {
             font-size: 11px;
             padding: 5px 8px;
         }
+        
         .btn, .btn-sm {
             padding: 8px 12px;
             font-size: 13px;
         }
+        
         .member-select-item {
             padding: 12px;
         }
+        
+        .member-select-item h5 {
+            font-size: 14px;
+        }
+        
+        .document-type-card {
+            padding: 15px;
+        }
+        
+        .document-type-card i {
+            font-size: 24px;
+        }
+        
+        .document-type-card h6 {
+            font-size: 12px;
+        }
+        
+        .form-title h3 {
+            font-size: 18px;
+        }
+        
+        .form-group label {
+            font-size: 13px;
+        }
+        
+        .form-control {
+            padding: 8px 10px;
+            font-size: 14px;
+        }
+        
+        .btn-submit {
+            width: 100%;
+            padding: 10px;
+        }
+        
+        .header-actions {
+            flex-direction: column;
+            width: 100%;
+        }
+        
+        .header-actions .btn {
+            width: 100%;
+            margin: 5px 0;
+        }
+        
+        .payment-table th,
+        .payment-table td {
+            padding: 8px;
+            font-size: 12px;
+        }
+        
+        .pay-btn {
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+        
+        .member-tabs {
+            gap: 5px;
+        }
+        
+        .member-tab {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+        
+        .badge-count {
+            font-size: 10px;
+            padding: 2px 6px;
+        }
+    }
+
+    /* Extra Small Devices (below 380px) */
+    @media (max-width: 380px) {
+        .admin-sidebar {
+            width: 100%;
+            max-width: 280px;
+        }
+        
+        .sidebar-header h3 {
+            font-size: 18px;
+        }
+        
+        .sidebar-header p {
+            font-size: 11px;
+        }
+        
+        .sidebar-menu li a {
+            padding: 10px 15px;
+            font-size: 13px;
+        }
+        
+        .sidebar-menu li a i {
+            font-size: 14px;
+            width: 20px;
+        }
+        
+        .content-header h2 {
+            font-size: 16px;
+        }
+        
+        .stat-info .number {
+            font-size: 20px;
+        }
+        
+        .stat-info h3 {
+            font-size: 12px;
+        }
+        
+        .stat-icon {
+            width: 35px;
+            height: 35px;
+            font-size: 16px;
+        }
+    }
+
+    /* Landscape Mode Optimization */
+    @media (max-width: 768px) and (orientation: landscape) {
+        .admin-sidebar {
+            overflow-y: auto;
+            max-height: 100vh;
+        }
+        
+        .sidebar-menu li a {
+            padding: 8px 15px;
+        }
+        
+        .logout-item {
+            margin-top: 15px;
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    /* Touch Device Optimizations */
+    @media (hover: none) and (pointer: coarse) {
+        .sidebar-menu li a,
+        .member-select-item,
+        .document-type-card,
+        .action-btn,
+        .btn,
+        .pay-btn,
+        .stat-card,
+        .member-card {
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .member-select-item:active,
+        .document-type-card:active,
+        .stat-card:active {
+            transform: scale(0.98);
+        }
+        
+        .action-btn:active {
+            transform: scale(0.96);
+        }
+    }
+
+    /* Smooth Transitions for All Elements */
+    * {
+        transition: all 0.2s ease-in-out;
+    }
+
+    /* Print Styles */
+    @media print {
+        .admin-sidebar,
+        .sidebar-toggle,
+        .header-actions,
+        .action-btn,
+        .pay-btn,
+        .btn-submit {
+            display: none;
+        }
+        
+        .admin-content {
+            margin-left: 0;
+            padding: 0;
+        }
+        
+        .content-header {
+            box-shadow: none;
+            border: 1px solid #ddd;
+        }
+        
+        .member-card {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+    }
+
+    /* Loading States */
+    .loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+    
+    /* Focus Accessibility */
+    .sidebar-menu li a:focus-visible,
+    .btn:focus-visible,
+    .form-control:focus-visible {
+        outline: 2px solid #fff;
+        outline-offset: 2px;
     }
 </style>
 
@@ -602,53 +951,64 @@
         <i class="fas fa-bars"></i>
     </button>
 
-    <!-- Sidebar -->
-    <div class="admin-sidebar">
-        <div class="sidebar-header">
-            <h3>Admin Panel</h3>
-            <p>{{ session.admin_username }}</p>
-        </div>
-        <ul class="sidebar-menu">
-            <li class="{{ 'active' if active_tab == 'dashboard' else '' }}">
-                <a href="{{ url_for('admin_dashboard', tab='dashboard') }}">
-                    <i class="fas fa-tachometer-alt"></i>
-                    <span>Dashboard Overview</span>
-                </a>
-            </li>
-            <li class="{{ 'active' if active_tab == 'add_member' else '' }}">
-                <a href="{{ url_for('admin_dashboard', tab='add_member') }}">
-                    <i class="fas fa-user-plus"></i>
-                    <span>Add Member</span>
-                </a>
-            </li>
-            <li class="{{ 'active' if active_tab == 'members' else '' }}">
-                <a href="{{ url_for('admin_dashboard', tab='members') }}">
-                    <i class="fas fa-users"></i>
-                    <span>Members Dashboard</span>
-                    <span class="badge-count">{{ employees|length + interns|length }}</span>
-                </a>
-            </li>
-            <li class="{{ 'active' if active_tab == 'document_generator' else '' }}">
-                <a href="{{ url_for('admin_dashboard', tab='document_generator') }}">
-                    <i class="fas fa-file-pdf"></i>
-                    <span>Document Generator</span>
-                </a>
-            </li>
-            <li class="{{ 'active' if active_tab == 'payments' else '' }}">
-                <a href="{{ url_for('admin_dashboard', tab='payments') }}">
-                    <i class="fas fa-credit-card"></i>
-                    <span>Payments</span>
-                    <span class="badge-count">{{ pending_payments }}</span>
-                </a>
-            </li>
-            <li style="margin-top: 30px;">
-                <a href="{{ url_for('admin_logout') }}">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Logout</span>
-                </a>
-            </li>
-        </ul>
+<!-- Sidebar -->
+<div class="admin-sidebar">
+    <div class="sidebar-header">
+        <h3>Admin Panel</h3>
+        <p>{{ session.admin_username }}</p>
+        <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle Sidebar">
+            <i class="fas fa-bars"></i>
+        </button>
     </div>
+    <ul class="sidebar-menu">
+        <li class="{{ 'active' if active_tab == 'dashboard' else '' }}">
+            <a href="{{ url_for('admin_dashboard', tab='dashboard') }}">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard Overview</span>
+            </a>
+        </li>
+        <li class="{{ 'active' if active_tab == 'add_member' else '' }}">
+            <a href="{{ url_for('admin_dashboard', tab='add_member') }}">
+                <i class="fas fa-user-plus"></i>
+                <span>Add Member</span>
+            </a>
+        </li>
+        <li class="{{ 'active' if active_tab == 'members' else '' }}">
+            <a href="{{ url_for('admin_dashboard', tab='members') }}">
+                <i class="fas fa-users"></i>
+                <span>Members Dashboard</span>
+                <span class="badge-count">{{ employees|length + interns|length }}</span>
+            </a>
+        </li>
+        <li class="{{ 'active' if active_tab == 'document_generator' else '' }}">
+            <a href="{{ url_for('admin_dashboard', tab='document_generator') }}">
+                <i class="fas fa-file-pdf"></i>
+                <span>Document Generator</span>
+            </a>
+        </li>
+        <li class="{{ 'active' if active_tab == 'payments' else '' }}">
+            <a href="{{ url_for('view_payments') }}">
+                <i class="fas fa-credit-card"></i>
+                <span>Payments</span>
+                <span class="badge-count">{{ pending_payments }}</span>
+            </a>
+        </li>
+        <li class="logout-item">
+            <a href="{{ url_for('admin_logout') }}">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
+        </li>
+    </ul>
+</div>
+
+<!-- Overlay -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<!-- Add this overlay div right after sidebar -->
+<div class="sidebar-overlay"></div>
+<!-- Mobile Overlay -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
 
     <!-- Main Content -->
     <div class="admin-content">
@@ -2104,6 +2464,66 @@
         if (companyFilter) companyFilter.addEventListener('change', filterMembers);
         if (memberTypeFilter) memberTypeFilter.addEventListener('change', filterMembers);
         if (statusFilter) statusFilter.addEventListener('change', filterMembers);
+    }); 
+
+// Sidebar Toggle Functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const sidebar = document.querySelector('.admin-sidebar');
+    const toggleBtn = document.getElementById('sidebarToggle');
+    const overlay = document.getElementById('sidebarOverlay');
+    
+    function toggleSidebar() {
+        if (!sidebar) return;
+        sidebar.classList.toggle('open');
+        if (overlay) {
+            overlay.classList.toggle('active');
+        }
+        if (sidebar.classList.contains('open') && window.innerWidth <= 767) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
+        }
+    }
+    
+    function closeSidebar() {
+        if (sidebar && sidebar.classList.contains('open')) {
+            sidebar.classList.remove('open');
+            if (overlay) overlay.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    }
+    
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleSidebar();
+        });
+    }
+    
+    if (overlay) {
+        overlay.addEventListener('click', closeSidebar);
+    }
+    
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 767) {
+            closeSidebar();
+        }
     });
+    
+    const links = document.querySelectorAll('.sidebar-menu a');
+    links.forEach(link => {
+        link.addEventListener('click', function() {
+            if (window.innerWidth <= 767) {
+                setTimeout(closeSidebar, 150);
+            }
+        });
+    });
+    
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && window.innerWidth <= 767) {
+            closeSidebar();
+        }
+    });
+});
 </script>
 {% endblock %}

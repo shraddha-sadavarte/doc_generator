@@ -568,6 +568,7 @@ def get_filter(dictionary, key, default=''):
         return dictionary.get(key, default)
     return default
 
+#production function
 def embed_images_as_base64(html_content):
     """Convert all image URLs to base64 data URIs"""
     static_folder = app.static_folder
@@ -628,43 +629,53 @@ def embed_images_as_base64(html_content):
     html_content = re.sub(r'<img[^>]+>', replace_image, html_content)
     return html_content
 
+import traceback
+
 def html_to_pdf(html_content, output_path):
-    """Convert HTML to PDF using WeasyPrint (Python library) - NO subprocess"""
+    """Convert HTML to PDF with detailed logging"""
+    print("="*60)
+    print("🔴 HTML_TO_PDF CALLED")
+    print(f"📁 Output path: {output_path}")
+    print(f"📄 HTML length: {len(html_content)}")
+    print("="*60)
+    
     try:
-        print(f"📁 Output path: {output_path}")
-        print(f"📄 HTML length: {len(html_content)}")
-        
-        # Embed images as base64
-        html_content = embed_images_as_base64(html_content)
-        print(f"📸 Images embedded")
+        from weasyprint import HTML
+        import tempfile
+        import os
         
         # Create temp HTML file
         with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
             f.write(html_content)
             temp_html = f.name
         
-        print(f"📄 Temp HTML: {temp_html}")
+        print(f"📄 Temp HTML created: {temp_html}")
         
-        # IMPORTANT: Direct conversion - NO subprocess, NO executable path
+        # Convert to PDF
         HTML(filename=temp_html).write_pdf(output_path)
         
         # Clean up
         if os.path.exists(temp_html):
             os.unlink(temp_html)
+            print(f"🧹 Temp file cleaned: {temp_html}")
         
-        print(f"✅ PDF generated: {output_path}")
+        print(f"✅ PDF GENERATED SUCCESSFULLY: {output_path}")
         if os.path.exists(output_path):
             print(f"📁 PDF size: {os.path.getsize(output_path)} bytes")
         
         return True
         
+    except ImportError as e:
+        print(f"❌ WeasyPrint not installed: {e}")
+        traceback.print_exc()
+        return False
+        
     except Exception as e:
-        print(f"❌ PDF error: {e}")
-        import traceback
+        print(f"❌ PDF generation error: {e}")
         traceback.print_exc()
         return False
 
-# #test route
+#test route
 @app.route('/test-pdf-generation')
 def test_pdf_generation():
     """Test PDF generation with debugging"""
@@ -4169,14 +4180,7 @@ def view_payments():
     month_filter = request.args.get('month', '')
     year_filter = request.args.get('year', datetime.now().year)
     
-    # Debug: Print total payments
-    total_payments = Payment.query.count()
-    print(f"\n{'='*60}")
-    print(f"🔍 PAYMENTS PAGE DEBUG")
-    print(f"   Total payments in database: {total_payments}")
-    print(f"{'='*60}\n")
-    
-    # Build query for employee payments
+    # Build query for employee payments - ADD phone number
     query = db.session.query(
         Payment.id,
         Payment.amount,
@@ -4188,7 +4192,8 @@ def view_payments():
         Payment.created_at,
         Employee.full_name.label('employee_name'),
         Employee.employee_id.label('employee_id'),
-        Employee.email.label('employee_email')
+        Employee.email.label('employee_email'),
+        Employee.phone.label('employee_phone')  # ← ADD PHONE NUMBER
     ).join(Employee, Payment.employee_id == Employee.id)
     
     # Apply filters
@@ -4198,16 +4203,24 @@ def view_payments():
     if employee_filter:
         query = query.filter(Payment.employee_id == employee_filter)
     
-    # FIX: Remove the NULL condition - only filter by month/year if they exist
+    # Include NULL payment_date in filters
     if month_filter:
-        query = query.filter(db.extract('month', Payment.payment_date) == int(month_filter))
+        query = query.filter(
+            db.or_(
+                Payment.payment_date.is_(None),
+                db.extract('month', Payment.payment_date) == int(month_filter)
+            )
+        )
     
     if year_filter:
-        query = query.filter(db.extract('year', Payment.payment_date) == int(year_filter))
+        query = query.filter(
+            db.or_(
+                Payment.payment_date.is_(None),
+                db.extract('year', Payment.payment_date) == int(year_filter)
+            )
+        )
     
     results = query.order_by(Payment.created_at.desc()).all()
-    
-    print(f"   Query results count: {len(results)}")
     
     # Process results
     payments = []
@@ -4227,6 +4240,7 @@ def view_payments():
         employee_name = row[8]
         employee_id = row[9]
         employee_email = row[10]
+        employee_phone = row[11]  # ← GET PHONE NUMBER
         
         due_amount = amount - paid_amt
         total_amount += amount
@@ -4241,29 +4255,18 @@ def view_payments():
         else:
             status_class = 'secondary'
         
-        # Format document type for display
-        doc_display_map = {
-            'offer_letter': '📄 Offer Letter',
-            'experience_letter': '🎓 Experience Letter',
-            'increment_letter': '📈 Increment Letter',
-            'relieving_letter': '🚪 Relieving Letter',
-            'salary_slip': '💰 Salary Slip',
-            'resignation_acceptance': '📧 Resignation Acceptance'
-        }
-        
         payments.append({
             'id': payment_id,
             'employee_name': employee_name,
             'employee_id': employee_id,
             'employee_email': employee_email,
-            'document_type': doc_display_map.get(document_type, document_type or 'N/A'),
-            'document_type_raw': document_type,
+            'employee_phone': employee_phone or 'N/A',  # ← ADD PHONE NUMBER
             'amount': amount,
             'paid_amt': paid_amt,
             'due_amount': due_amount,
             'status': status,
             'status_class': status_class,
-            'payment_date': payment_date.strftime('%d %b %Y') if payment_date else 'N/A',
+            'payment_date': payment_date.strftime('%d %b %Y') if payment_date else 'Not Paid Yet',
             'due_date': due_date.strftime('%d %b %Y') if due_date else 'N/A',
             'created_at': created_at.strftime('%d %b %Y') if created_at else 'N/A',
         })
@@ -4276,10 +4279,6 @@ def view_payments():
     pending_count = sum(1 for p in payments if p['status'] == 'Pending')
     partial_count = sum(1 for p in payments if p['status'] == 'Partial')
     overdue_count = sum(1 for p in payments if p['status'] == 'Overdue')
-    
-    print(f"   Payments processed: {len(payments)}")
-    for p in payments:
-        print(f"      - ID: {p['id']}, Employee: {p['employee_name']}, Amount: {p['amount']}, Status: {p['status']}")
     
     return render_template('payments.html',
                          payments=payments,
@@ -4295,8 +4294,7 @@ def view_payments():
                          employee_filter=employee_filter,
                          month_filter=month_filter,
                          year_filter=year_filter,
-                         now=datetime.now(),
-                         datetime=datetime)
+                         now=datetime.now())
 
 @app.route('/admin/payment/<int:payment_id>')
 def view_payment(payment_id):
@@ -4440,7 +4438,6 @@ def create_payment():
         return jsonify({'error': 'Unauthorized'}), 401
     
     try:
-        # Get form data
         employee_id = request.form.get('employee_id', type=int)
         amount = float(request.form.get('amount', 0))
         document_type = request.form.get('document_type', '')
@@ -4452,13 +4449,12 @@ def create_payment():
             flash('Please provide valid employee and amount.', 'danger')
             return redirect(request.referrer)
         
-        # Check if employee exists
         employee = Employee.query.get(employee_id)
         if not employee:
             flash('Employee not found.', 'danger')
             return redirect(request.referrer)
         
-        # Create payment for employee
+        # Create payment - payment_date can be NULL initially
         payment = Payment(
             employee_id=employee_id,
             amount=amount,
@@ -4470,6 +4466,7 @@ def create_payment():
             notes=notes,
             created_at=datetime.now(),
             updated_at=datetime.now()
+            # payment_date is NOT set here - will be NULL until first payment is made
         )
         
         db.session.add(payment)
@@ -4480,11 +4477,8 @@ def create_payment():
     except Exception as e:
         db.session.rollback()
         flash(f'Error creating payment: {str(e)}', 'danger')
-        print(f"Error: {str(e)}")
-        import traceback
-        traceback.print_exc()
     
-    return redirect(request.referrer)
+    return redirect(request.referrer or url_for('view_payments'))
 
 @app.route('/admin/process-payment/<int:payment_id>', methods=['POST'])
 def process_payment(payment_id):
