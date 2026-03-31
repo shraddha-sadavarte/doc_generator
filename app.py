@@ -570,12 +570,13 @@ def get_filter(dictionary, key, default=''):
 
 #production function
 def embed_images_as_base64(html_content):
-    """Convert all image URLs to base64 data URIs"""
+    """Convert only small images to base64, skip large ones"""
     static_folder = app.static_folder
     images_folder = os.path.join(static_folder, 'images')
     signatures_folder = os.path.join(images_folder, 'signatures')
     
     image_cache = {}
+    MAX_IMAGE_SIZE = 500 * 1024  # 500KB - skip images larger than this
     
     def replace_image(match):
         img_tag = match.group(0)
@@ -585,6 +586,7 @@ def embed_images_as_base64(html_content):
         
         src = src_match.group(1)
         
+        # Skip external URLs and data URIs
         if src.startswith('data:') or src.startswith('http://') or src.startswith('https://'):
             return img_tag
         
@@ -606,6 +608,12 @@ def embed_images_as_base64(html_content):
             return img_tag
         
         if abs_path and os.path.exists(abs_path):
+            # Check file size - skip if too large
+            file_size = os.path.getsize(abs_path)
+            if file_size > MAX_IMAGE_SIZE:
+                print(f"⚠️ Skipping large image ({file_size/1024:.1f}KB): {src}")
+                return img_tag
+            
             try:
                 with open(abs_path, 'rb') as f:
                     image_data = base64.b64encode(f.read()).decode('utf-8')
@@ -620,8 +628,10 @@ def embed_images_as_base64(html_content):
                 
                 new_src = f'data:{mime};base64,{image_data}'
                 image_cache[src] = new_src
+                print(f"✅ Embedded image: {src} ({file_size/1024:.1f}KB)")
                 return img_tag.replace(src, new_src)
-            except:
+            except Exception as e:
+                print(f"⚠️ Failed to embed {src}: {e}")
                 return img_tag
         
         return img_tag
@@ -630,9 +640,8 @@ def embed_images_as_base64(html_content):
     return html_content
 
 import traceback
-
 def html_to_pdf(html_content, output_path):
-    """Convert HTML to PDF with detailed logging"""
+    """Convert HTML to PDF with optimizations for speed"""
     print("="*60)
     print("🔴 HTML_TO_PDF CALLED")
     print(f"📁 Output path: {output_path}")
@@ -640,9 +649,8 @@ def html_to_pdf(html_content, output_path):
     print("="*60)
     
     try:
-        from weasyprint import HTML
-        import tempfile
-        import os
+        from weasyprint import HTML, CSS
+        from weasyprint.text.fonts import FontConfiguration
         
         # Create temp HTML file
         with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
@@ -651,8 +659,16 @@ def html_to_pdf(html_content, output_path):
         
         print(f"📄 Temp HTML created: {temp_html}")
         
-        # Convert to PDF
-        HTML(filename=temp_html).write_pdf(output_path)
+        # OPTIMIZED: Use font configuration and faster settings
+        font_config = FontConfiguration()
+        
+        # Convert to PDF with optimization flags
+        HTML(filename=temp_html).write_pdf(
+            output_path,
+            font_config=font_config,
+            optimize_size=('fonts', 'images'),  # Optimize size
+            presentational_hints=True  # Better CSS support
+        )
         
         # Clean up
         if os.path.exists(temp_html):
@@ -674,7 +690,7 @@ def html_to_pdf(html_content, output_path):
         print(f"❌ PDF generation error: {e}")
         traceback.print_exc()
         return False
-
+    
 #test route
 @app.route('/test-pdf-generation')
 def test_pdf_generation():
