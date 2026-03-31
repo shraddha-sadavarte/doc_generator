@@ -641,7 +641,7 @@ def embed_images_as_base64(html_content):
 
 import traceback
 def html_to_pdf(html_content, output_path):
-    """Convert HTML to PDF with optimizations for speed"""
+    """Convert HTML to PDF with detailed logging"""
     print("="*60)
     print("🔴 HTML_TO_PDF CALLED")
     print(f"📁 Output path: {output_path}")
@@ -649,8 +649,9 @@ def html_to_pdf(html_content, output_path):
     print("="*60)
     
     try:
-        from weasyprint import HTML, CSS
-        from weasyprint.text.fonts import FontConfiguration
+        from weasyprint import HTML
+        import tempfile
+        import os
         
         # Create temp HTML file
         with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
@@ -659,16 +660,8 @@ def html_to_pdf(html_content, output_path):
         
         print(f"📄 Temp HTML created: {temp_html}")
         
-        # OPTIMIZED: Use font configuration and faster settings
-        font_config = FontConfiguration()
-        
-        # Convert to PDF with optimization flags
-        HTML(filename=temp_html).write_pdf(
-            output_path,
-            font_config=font_config,
-            optimize_size=('fonts', 'images'),  # Optimize size
-            presentational_hints=True  # Better CSS support
-        )
+        # SIMPLE CONVERSION - NO EXTRA PARAMETERS
+        HTML(filename=temp_html).write_pdf(output_path)
         
         # Clean up
         if os.path.exists(temp_html):
@@ -690,7 +683,7 @@ def html_to_pdf(html_content, output_path):
         print(f"❌ PDF generation error: {e}")
         traceback.print_exc()
         return False
-    
+
 #test route
 @app.route('/test-pdf-generation')
 def test_pdf_generation():
