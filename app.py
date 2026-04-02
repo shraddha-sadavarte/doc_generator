@@ -3,6 +3,8 @@ import os
 import json
 import traceback
 import re
+import time
+from sqlalchemy.exc import OperationalError
 
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -43,18 +45,52 @@ from googleapiclient.http import MediaIoBaseDownload
 app = Flask(__name__)
 app.secret_key = "super-secret-key"
 
-if DATABASE_URL:
-    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-else:
-    # Local development – use MySQL
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://LiteCode:LiteCode%400804@localhost/lc_lms'
+# ========== DATABASE CONFIGURATION WITH RETRY LOGIC ==========
+def get_database_uri():
+    """Get database URI with proper configuration"""
+    if DATABASE_URL:
+        # Replace public host with internal Railway host for better stability
+        if 'turntable.proxy.rlwy.net' in DATABASE_URL:
+            DATABASE_URL = DATABASE_URL.replace('turntable.proxy.rlwy.net', 'mysql.railway.internal')
+            print("✅ Using Railway internal database connection")
+        return DATABASE_URL
+    else:
+        # Local development – use MySQL
+        return 'mysql+pymysql://LiteCode:LiteCode%400804@localhost/lc_lms'
 
+# Configure database with connection pooling
+app.config['SQLALCHEMY_DATABASE_URI'] = get_database_uri()
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Add connection pool settings
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_pre_ping': True,    # Checks connection before using
-    'pool_recycle': 280       # Reconnects every 280 seconds
+    'pool_size': 3,
+    'pool_recycle': 180,        # Recycle every 3 minutes
+    'pool_pre_ping': True,      # Verify connection before using
+    'pool_use_lifo': True,
+    'max_overflow': 5,
+    'connect_args': {
+        'connect_timeout': 10,
+        'read_timeout': 30,
+        'write_timeout': 30
+    }
 }
 
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+print(f"✅ Database configured: {app.config['SQLALCHEMY_DATABASE_URI'][:50]}...")
+
+# if DATABASE_URL:
+#     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+# else:
+#     # Local development – use MySQL
+#     app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://LiteCode:LiteCode%400804@localhost/lc_lms'
+
+# app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+#     'pool_pre_ping': True,    # Checks connection before using
+#     'pool_recycle': 280       # Reconnects every 280 seconds
+# }
+
+# app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, "generated_docs")
 # Google Drive Configuration
 app.config['GOOGLE_DRIVE_TOKEN_FOLDER'] = os.path.join(app.root_path, "tokens")
@@ -88,6 +124,31 @@ os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], "profiles"), exist_ok=True
 
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+
+# ========== DATABASE RETRY HELPER ==========
+def execute_with_retry(func, retries=3, delay=2):
+    """Execute database function with retry logic"""
+    for attempt in range(retries):
+        try:
+            return func()
+        except OperationalError as e:
+            if 'Lost connection' in str(e) and attempt < retries - 1:
+                print(f"Database connection lost, retrying... ({attempt + 1}/{retries})")
+                time.sleep(delay * (attempt + 1))
+                db.session.rollback()
+            else:
+                raise e
+    return None
+
+# ========== HEALTH CHECK ROUTE ==========
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Render"""
+    try:
+        db.session.execute(text('SELECT 1'))
+        return jsonify({'status': 'healthy', 'database': 'connected'}), 200
+    except Exception as e:
+        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -2162,6 +2223,28 @@ def admin_documents():
 
     return render_template("admin_documents.html", data=data)
 
+# #admin login
+# @app.route('/admin/login', methods=['GET', 'POST'])
+# def admin_login():
+#     if session.get('is_admin'):
+#         return redirect(url_for('admin_dashboard'))
+    
+#     if request.method == 'POST':
+#         username = request.form.get('username')
+#         password = request.form.get('password')
+
+#         admin = Admin.query.filter_by(username=username).first()
+
+#         if admin and admin.check_password(password):
+#             session['admin_id'] = admin.id
+#             session['admin_username'] = admin.username
+#             session['is_admin'] = True
+#             flash('Login successful!', 'success')
+#             return redirect(url_for('admin_dashboard'))
+#         else:
+#             flash('Invalid username or password', 'danger')
+
+#     return render_template('admin_login.html')
 #admin login
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -2171,18 +2254,31 @@ def admin_login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-
-        admin = Admin.query.filter_by(username=username).first()
-
-        if admin and admin.check_password(password):
-            session['admin_id'] = admin.id
-            session['admin_username'] = admin.username
-            session['is_admin'] = True
-            flash('Login successful!', 'success')
-            return redirect(url_for('admin_dashboard'))
-        else:
-            flash('Invalid username or password', 'danger')
-
+        
+        # Function to execute database query with retry
+        def get_admin():
+            return Admin.query.filter_by(username=username).first()
+        
+        try:
+            # Execute with retry (3 attempts, 2 seconds delay)
+            admin = execute_with_retry(get_admin, retries=3, delay=2)
+            
+            if admin and admin.check_password(password):
+                session['admin_id'] = admin.id
+                session['admin_username'] = admin.username
+                session['is_admin'] = True
+                flash('Login successful!', 'success')
+                return redirect(url_for('admin_dashboard'))
+            else:
+                flash('Invalid username or password', 'danger')
+                
+        except OperationalError as e:
+            print(f"Database connection error during login: {e}")
+            flash('Database connection issue. Please try again in a moment.', 'danger')
+        except Exception as e:
+            print(f"Login error: {e}")
+            flash('An error occurred. Please try again.', 'danger')
+    
     return render_template('admin_login.html')
 
 # Admin Logout
