@@ -1270,7 +1270,7 @@
         
         <div class="col-md-6 mb-3 employee-only">
             <label class="form-label">Company *</label>
-            <select name="company_id" id="emp_company" class="form-select" required>
+            <select name="emp_company_id" id="emp_company" class="form-select" required>
                 <option value="">Select Company</option>
                 {% for company in companies %}
                 <option value="{{ company.id }}">{{ company.name }}</option>
@@ -1322,68 +1322,6 @@
             <label class="form-label">Resignation Date</label>
             <input type="date" name="resignation_date" id="emp_resignation_date" class="form-control">
             <div class="invalid-feedback">Resignation date must be after joining date</div>
-        </div>
-        
-        <!-- Intern Information (Intern Only) -->
-        <div class="col-12 intern-only mt-3" style="display: none;">
-            <h5 class="text-success">Internship Information</h5>
-            <hr>
-        </div>
-        
-        <div class="col-md-6 mb-3 intern-only" style="display: none;">
-            <label class="form-label">Qualification</label>
-            <input type="text" name="qualification" class="form-control" placeholder="e.g., B.Tech, MCA">
-        </div>
-        
-        <div class="col-md-6 mb-3 intern-only" style="display: none;">
-            <label class="form-label">College/University Name</label>
-            <input type="text" name="college_name" class="form-control">
-        </div>
-        
-        <div class="col-md-6 mb-3 intern-only" style="display: none;">
-            <label class="form-label">Course</label>
-            <input type="text" name="course" class="form-control" placeholder="e.g., Computer Science">
-        </div>
-        
-        <div class="col-md-6 mb-3 intern-only" style="display: none;">
-            <label class="form-label">Specialization</label>
-            <input type="text" name="specialization" class="form-control" placeholder="e.g., Web Development">
-        </div>
-        
-        <div class="col-md-4 mb-3 intern-only" style="display: none;">
-            <label class="form-label">Internship Duration (months)</label>
-            <input type="number" name="internship_duration" class="form-control" value="3" min="1" max="24">
-            <div class="invalid-feedback">Duration must be between 1 and 24 months</div>
-        </div>
-        
-        <div class="col-md-4 mb-3 intern-only" style="display: none;">
-            <label class="form-label">Stipend (per month)</label>
-            <input type="number" name="stipend" class="form-control" step="0.01" min="0">
-        </div>
-        
-        <div class="col-md-4 mb-3 intern-only" style="display: none;">
-            <label class="form-label">Start Date</label>
-            <input type="date" name="start_date" id="intern_start_date" class="form-control">
-        </div>
-        
-        <div class="col-md-6 mb-3 intern-only" style="display: none;">
-            <label class="form-label">Mentor Name</label>
-            <input type="text" name="mentor_name" class="form-control">
-        </div>
-        
-        <div class="col-md-6 mb-3 intern-only" style="display: none;">
-            <label class="form-label">Mentor Designation</label>
-            <input type="text" name="mentor_designation" class="form-control">
-        </div>
-        
-        <div class="col-md-12 mb-3 intern-only" style="display: none;">
-            <label class="form-label">Company</label>
-            <select name="company_id" class="form-select" required>
-                <option value="">Select Company</option>
-                {% for company in companies %}
-                <option value="{{ company.id }}">{{ company.name }}</option>
-                {% endfor %}
-            </select>
         </div>
         
         <!-- Bank Details -->
@@ -1547,7 +1485,7 @@
         
         <div class="col-md-12 mb-3">
             <label class="form-label">Company</label>
-            <select name="company_id" class="form-select" required>
+            <select name="intern_company_id" class="form-select" required>
                 <option value="">Select Company</option>
                 {% for company in companies %}
                 <option value="{{ company.id }}">{{ company.name }}</option>
@@ -1849,7 +1787,7 @@
                     }
                     
                     // Company validation for intern
-                    const company = document.querySelector('#internForm select[name="company_id"]');
+                    const company = document.querySelector('#internForm select[name="intern_company_id"]');
                     if (company && !company.value) {
                         company.classList.add('is-invalid');
                         isValid = false;

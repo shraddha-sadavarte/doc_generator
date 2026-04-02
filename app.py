@@ -720,7 +720,7 @@ def test_pdf_generation():
         import traceback
         return f"Error: {str(e)}<br><pre>{traceback.format_exc()}</pre>", 500
 
-# #local function
+##local function
 # def html_to_pdf(html_content, output_path):
 #     # Path to the standalone WeasyPrint executable (for local Windows)
 #     weasyprint_path = os.path.join(app.root_path, 'weasyprint', 'weasyprint.exe')
@@ -2754,6 +2754,9 @@ def add_intern():
             duration = int(request.form.get('internship_duration', 3))
             end_date = start_date + timedelta(days=duration * 30)
         
+        # Get company ID from form (using intern_company_id)
+        company_id = request.form.get('intern_company_id', type=int)
+        
         # Create new intern
         intern = Intern(
             intern_id=intern_id,
@@ -2776,7 +2779,7 @@ def add_intern():
             profile_image=profile_image,
             mentor_name=request.form.get('mentor_name'),
             mentor_designation=request.form.get('mentor_designation'),
-            company_id=request.form.get('company_id', type=int),
+            company_id=company_id,  # Use intern_company_id value
             # ========== ADD BANK DETAILS ==========
             account_holder=request.form.get('account_holder'),
             account_number=request.form.get('account_number'),
@@ -2968,71 +2971,82 @@ def get_employee_folder_name(employee):
     """Generate folder name for employee documents"""
     return f"{employee.employee_id}_{employee.full_name.replace(' ', '_')}"
 
-# Add employee route
 @app.route('/admin/employee/add', methods=['GET', 'POST'])
 def add_employee():
     if not session.get('is_admin'):
         return redirect(url_for('admin_login'))
     
     if request.method == 'POST':
-        # Generate employee ID
-        last_employee = Employee.query.order_by(Employee.id.desc()).first()
-        new_id = f"EMP{(last_employee.id + 1) if last_employee else 1:04d}"
-        
-        # Handle profile image upload
-        profile_image = None
-        if 'profile_image' in request.files:
-            file = request.files['profile_image']
-            if file and file.filename:
-                #create profiles directory if it doesn't exist
-                profiles_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'profiles')
-                os.makedirs(profiles_dir, exist_ok=True)
-                #secure the filename and save
-                filename = secure_filename(f"{new_id}_{file.filename}")
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], 'profiles', filename))
-                profile_image = filename
-        
-        # Parse dates
-        joining_date = None
-        if request.form.get('joining_date'):
-            joining_date = datetime.strptime(request.form['joining_date'], '%Y-%m-%d').date()
-        
-        resignation_date = None
-        if request.form.get('resignation_date'):
-            resignation_date = datetime.strptime(request.form['resignation_date'], '%Y-%m-%d').date()
-        
-        employee = Employee(
-            employee_id="",  # Will be set after flush
-            full_name=request.form['full_name'],
-            email=request.form.get('email'),
-            phone=request.form.get('phone'),
-            gender=request.form.get('gender'),
-            address=request.form.get('address'),
-            aadhar_no=request.form.get('aadhar_no'),
-            pan_no=request.form.get('pan_no'),
-            designation=request.form['designation'],
-            department=request.form.get('department'),
-            base_ctc=float(request.form.get('ctc') or 0),
-            # increment_per_month removed
-            joining_date=joining_date,
-            resignation_date=resignation_date,
-            status=request.form.get('status', 'active'),
-            profile_image=profile_image,
-            account_holder=request.form.get('account_holder'),
-            account_number=request.form.get('account_number'),
-            bank_name=request.form.get('bank_name'),
-            branch=request.form.get('branch'),
-            ifsc_code=request.form.get('ifsc_code')
-        )
-        
-        db.session.add(employee)
-        db.session.flush()  # Flush to get employee.id for employee_id generation
-        #set employee id
-        employee.employee_id = f"LC{1003+employee.id}"
-        db.session.commit()
-        
-        flash('Employee added successfully!', 'success')
-        return redirect(url_for('admin_dashboard'))
+        try:
+            # Generate employee ID
+            last_employee = Employee.query.order_by(Employee.id.desc()).first()
+            new_id = f"EMP{(last_employee.id + 1) if last_employee else 1:04d}"
+            
+            # Handle profile image upload
+            profile_image = None
+            if 'profile_image' in request.files:
+                file = request.files['profile_image']
+                if file and file.filename:
+                    # create profiles directory if it doesn't exist
+                    profiles_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'profiles')
+                    os.makedirs(profiles_dir, exist_ok=True)
+                    # secure the filename and save
+                    filename = secure_filename(f"{new_id}_{file.filename}")
+                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], 'profiles', filename))
+                    profile_image = filename
+            
+            # Parse dates
+            joining_date = None
+            if request.form.get('joining_date'):
+                joining_date = datetime.strptime(request.form['joining_date'], '%Y-%m-%d').date()
+            
+            resignation_date = None
+            if request.form.get('resignation_date'):
+                resignation_date = datetime.strptime(request.form['resignation_date'], '%Y-%m-%d').date()
+            
+            # Get company ID from form (using emp_company_id)
+            company_id = request.form.get('emp_company_id', type=int)
+            
+            employee = Employee(
+                employee_id="",  # Will be set after flush
+                full_name=request.form['full_name'],
+                email=request.form.get('email'),
+                phone=request.form.get('phone'),
+                gender=request.form.get('gender'),
+                address=request.form.get('address'),
+                aadhar_no=request.form.get('aadhar_no'),
+                pan_no=request.form.get('pan_no'),
+                designation=request.form['designation'],
+                department=request.form.get('department'),
+                base_ctc=float(request.form.get('ctc') or 0),
+                joining_date=joining_date,
+                resignation_date=resignation_date,
+                status=request.form.get('status', 'active'),
+                profile_image=profile_image,
+                company_id=company_id,  # Use emp_company_id value
+                account_holder=request.form.get('account_holder'),
+                account_number=request.form.get('account_number'),
+                bank_name=request.form.get('bank_name'),
+                branch=request.form.get('branch'),
+                ifsc_code=request.form.get('ifsc_code')
+            )
+            
+            db.session.add(employee)
+            db.session.flush()  # Flush to get employee.id for employee_id generation
+            # set employee id
+            employee.employee_id = f"LC{1003+employee.id}"
+            db.session.commit()
+            
+            flash('Employee added successfully!', 'success')
+            return redirect(url_for('admin_dashboard', tab='members'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error adding employee: {str(e)}', 'danger')
+            print(f"Error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return redirect(url_for('admin_dashboard', tab='add_member'))
     
     return render_template('add_employee.html')
 
