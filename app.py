@@ -49,6 +49,11 @@ else:
     # Local development – use MySQL
     app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://LiteCode:LiteCode%400804@localhost/lc_lms'
 
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,    # Checks connection before using
+    'pool_recycle': 280       # Reconnects every 280 seconds
+}
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, "generated_docs")
 # Google Drive Configuration
