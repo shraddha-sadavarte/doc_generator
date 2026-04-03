@@ -5,10 +5,6 @@ import traceback
 import re
 import time
 from sqlalchemy.exc import OperationalError
-
-load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
-
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 from flask import Flask, flash, jsonify, render_template, request, redirect, url_for, session, send_file, send_from_directory
@@ -45,9 +41,13 @@ from googleapiclient.http import MediaIoBaseDownload
 app = Flask(__name__)
 app.secret_key = "super-secret-key"
 
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
+
 # ========== DATABASE CONFIGURATION WITH RETRY LOGIC ==========
 def get_database_uri():
     """Get database URI with proper configuration"""
+    global DATABASE_URL 
     if DATABASE_URL:
         # Replace public host with internal Railway host for better stability
         if 'turntable.proxy.rlwy.net' in DATABASE_URL:
