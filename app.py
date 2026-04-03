@@ -3,6 +3,7 @@ import os
 import json
 import traceback
 import re
+from urllib.parse import quote_plus
 import time
 from sqlalchemy.exc import OperationalError
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
@@ -42,24 +43,26 @@ app = Flask(__name__)
 app.secret_key = "super-secret-key"
 
 load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
 
-# ========== DATABASE CONFIGURATION WITH RETRY LOGIC ==========
-def get_database_uri():
-    """Get database URI with proper configuration"""
-    global DATABASE_URL 
-    if DATABASE_URL:
-        # Replace public host with internal Railway host for better stability
-        if 'turntable.proxy.rlwy.net' in DATABASE_URL:
-            DATABASE_URL = DATABASE_URL.replace('turntable.proxy.rlwy.net', 'mysql.railway.internal')
-            print("✅ Using Railway internal database connection")
-        return DATABASE_URL
-    else:
-        # Local development – use MySQL
-        return 'mysql+pymysql://LiteCode:LiteCode%400804@localhost/lc_lms'
+# Database configuration for Hostinger VPS
+DB_HOST = os.getenv('DB_HOST', 'localhost')
+DB_USER = os.getenv('DB_USER')
+DB_PASSWORD = os.getenv('DB_PASSWORD')
+DB_NAME = os.getenv('DB_NAME', 'lcs_doc_generator')
 
-# Configure database with connection pooling
-app.config['SQLALCHEMY_DATABASE_URI'] = get_database_uri()
+# If credentials are provided via environment variables, use them.
+# Otherwise fall back to local development (optional).
+if DB_USER and DB_PASSWORD:
+    # URL-encode the password to handle special characters
+    encoded_password = quote_plus(DB_PASSWORD)
+    DATABASE_URI = f'mysql+pymysql://{DB_USER}:{encoded_password}@{DB_HOST}/{DB_NAME}'
+    print(f"✅ Connecting to Hostinger database: {DB_NAME} on {DB_HOST}")
+else:
+    # Fallback for local development (adjust as needed)
+    DATABASE_URI = 'mysql+pymysql://LiteCode:LiteCode%400804@localhost/lc_lms'
+    print("⚠️ Using local database fallback")
+
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Add connection pool settings
@@ -77,19 +80,6 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 }
 
 print(f"✅ Database configured: {app.config['SQLALCHEMY_DATABASE_URI'][:50]}...")
-
-# if DATABASE_URL:
-#     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-# else:
-#     # Local development – use MySQL
-#     app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://LiteCode:LiteCode%400804@localhost/lc_lms'
-
-# app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-#     'pool_pre_ping': True,    # Checks connection before using
-#     'pool_recycle': 280       # Reconnects every 280 seconds
-# }
-
-# app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, "generated_docs")
 # Google Drive Configuration
