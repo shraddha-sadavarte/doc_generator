@@ -1,3 +1,5 @@
+import base64
+
 from dotenv import load_dotenv
 import os
 import json
@@ -3125,7 +3127,7 @@ def add_employee():
             db.session.add(employee)
             db.session.flush()  # Flush to get employee.id for employee_id generation
             # set employee id
-            employee.employee_id = f"LC{1003+employee.id}"
+            employee.employee_id = f"LC{1000+employee.id}"
             db.session.commit()
             
             flash('Employee added successfully!', 'success')
