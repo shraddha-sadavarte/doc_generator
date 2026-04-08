@@ -2088,8 +2088,12 @@
                     if (docType === 'salary_slip') {
                         window.location.href = "{{ url_for('admin_generate_document', emp_id=0, doc_type='salary_slip') }}".replace('0', memberId);
                     } 
+                    else if (docType === 'increment_letter' || docType === 'experience_letter' || docType === 'relieving_letter') {
+                        // These need special handling (increment form, resignation date form)
+                        window.location.href = "{{ url_for('admin_generate_document', emp_id=0, doc_type='') }}".replace('0', memberId) + docType;
+                    }
                     else {
-                        // For all other documents, go to company selection
+                        // Other documents (offer_letter, etc.) – only need company selection
                         window.location.href = "{{ url_for('select_company_for_doc', emp_id=0, doc_type='') }}".replace('0', memberId) + docType;
                     }
                 } else {
@@ -2097,7 +2101,8 @@
                     window.location.href = "{{ url_for('generate_intern_document', intern_id=0, doc_type='') }}".replace('0', memberId) + docType;
                 }
             }
-        </script>
+       
+       </script>
         {% endif %}
         
         <!-- Create Payment Modal - Only for Employees -->

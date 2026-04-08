@@ -627,120 +627,120 @@ def get_filter(dictionary, key, default=''):
     return default
 
 #production function
-def embed_images_as_base64(html_content):
-    """Convert only small images to base64, skip large ones"""
-    static_folder = app.static_folder
-    images_folder = os.path.join(static_folder, 'images')
-    signatures_folder = os.path.join(images_folder, 'signatures')
+# def embed_images_as_base64(html_content):
+#     """Convert only small images to base64, skip large ones"""
+#     static_folder = app.static_folder
+#     images_folder = os.path.join(static_folder, 'images')
+#     signatures_folder = os.path.join(images_folder, 'signatures')
     
-    image_cache = {}
-    MAX_IMAGE_SIZE = 500 * 1024  # 500KB - skip images larger than this
+#     image_cache = {}
+#     MAX_IMAGE_SIZE = 500 * 1024  # 500KB - skip images larger than this
     
-    def replace_image(match):
-        img_tag = match.group(0)
-        src_match = re.search(r'src=["\']([^"\']+)["\']', img_tag)
-        if not src_match:
-            return img_tag
+#     def replace_image(match):
+#         img_tag = match.group(0)
+#         src_match = re.search(r'src=["\']([^"\']+)["\']', img_tag)
+#         if not src_match:
+#             return img_tag
         
-        src = src_match.group(1)
+#         src = src_match.group(1)
         
-        # Skip external URLs and data URIs
-        if src.startswith('data:') or src.startswith('http://') or src.startswith('https://'):
-            return img_tag
+#         # Skip external URLs and data URIs
+#         if src.startswith('data:') or src.startswith('http://') or src.startswith('https://'):
+#             return img_tag
         
-        if src in image_cache:
-            return img_tag.replace(src, image_cache[src])
+#         if src in image_cache:
+#             return img_tag.replace(src, image_cache[src])
         
-        abs_path = None
+#         abs_path = None
         
-        if src.startswith('/static/'):
-            relative_path = src.replace('/static/', '')
-            abs_path = os.path.join(static_folder, relative_path)
-        elif 'signatures' in src:
-            filename = src.split('signatures/')[-1]
-            abs_path = os.path.join(signatures_folder, filename)
-        elif 'images' in src:
-            filename = src.split('images/')[-1]
-            abs_path = os.path.join(images_folder, filename)
-        else:
-            return img_tag
+#         if src.startswith('/static/'):
+#             relative_path = src.replace('/static/', '')
+#             abs_path = os.path.join(static_folder, relative_path)
+#         elif 'signatures' in src:
+#             filename = src.split('signatures/')[-1]
+#             abs_path = os.path.join(signatures_folder, filename)
+#         elif 'images' in src:
+#             filename = src.split('images/')[-1]
+#             abs_path = os.path.join(images_folder, filename)
+#         else:
+#             return img_tag
         
-        if abs_path and os.path.exists(abs_path):
-            # Check file size - skip if too large
-            file_size = os.path.getsize(abs_path)
-            if file_size > MAX_IMAGE_SIZE:
-                print(f"⚠️ Skipping large image ({file_size/1024:.1f}KB): {src}")
-                return img_tag
+#         if abs_path and os.path.exists(abs_path):
+#             # Check file size - skip if too large
+#             file_size = os.path.getsize(abs_path)
+#             if file_size > MAX_IMAGE_SIZE:
+#                 print(f"⚠️ Skipping large image ({file_size/1024:.1f}KB): {src}")
+#                 return img_tag
             
-            try:
-                with open(abs_path, 'rb') as f:
-                    image_data = base64.b64encode(f.read()).decode('utf-8')
+#             try:
+#                 with open(abs_path, 'rb') as f:
+#                     image_data = base64.b64encode(f.read()).decode('utf-8')
                 
-                ext = abs_path.split('.')[-1].lower()
-                if ext in ['jpg', 'jpeg']:
-                    mime = 'image/jpeg'
-                elif ext == 'png':
-                    mime = 'image/png'
-                else:
-                    mime = f'image/{ext}'
+#                 ext = abs_path.split('.')[-1].lower()
+#                 if ext in ['jpg', 'jpeg']:
+#                     mime = 'image/jpeg'
+#                 elif ext == 'png':
+#                     mime = 'image/png'
+#                 else:
+#                     mime = f'image/{ext}'
                 
-                new_src = f'data:{mime};base64,{image_data}'
-                image_cache[src] = new_src
-                print(f"✅ Embedded image: {src} ({file_size/1024:.1f}KB)")
-                return img_tag.replace(src, new_src)
-            except Exception as e:
-                print(f"⚠️ Failed to embed {src}: {e}")
-                return img_tag
+#                 new_src = f'data:{mime};base64,{image_data}'
+#                 image_cache[src] = new_src
+#                 print(f"✅ Embedded image: {src} ({file_size/1024:.1f}KB)")
+#                 return img_tag.replace(src, new_src)
+#             except Exception as e:
+#                 print(f"⚠️ Failed to embed {src}: {e}")
+#                 return img_tag
         
-        return img_tag
+#         return img_tag
     
-    html_content = re.sub(r'<img[^>]+>', replace_image, html_content)
-    return html_content
+#     html_content = re.sub(r'<img[^>]+>', replace_image, html_content)
+#     return html_content
 
-import traceback
-def html_to_pdf(html_content, output_path):
-    """Convert HTML to PDF with detailed logging"""
-    print("="*60)
-    print("🔴 HTML_TO_PDF CALLED")
-    print(f"📁 Output path: {output_path}")
-    print(f"📄 HTML length: {len(html_content)}")
-    print("="*60)
+# import traceback
+# def html_to_pdf(html_content, output_path):
+#     """Convert HTML to PDF with detailed logging"""
+#     print("="*60)
+#     print("🔴 HTML_TO_PDF CALLED")
+#     print(f"📁 Output path: {output_path}")
+#     print(f"📄 HTML length: {len(html_content)}")
+#     print("="*60)
     
-    try:
-        from weasyprint import HTML
-        import tempfile
-        import os
+#     try:
+#         from weasyprint import HTML
+#         import tempfile
+#         import os
         
-        # Create temp HTML file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
-            f.write(html_content)
-            temp_html = f.name
+#         # Create temp HTML file
+#         with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+#             f.write(html_content)
+#             temp_html = f.name
         
-        print(f"📄 Temp HTML created: {temp_html}")
+#         print(f"📄 Temp HTML created: {temp_html}")
         
-        # SIMPLE CONVERSION - NO EXTRA PARAMETERS
-        HTML(filename=temp_html).write_pdf(output_path)
+#         # SIMPLE CONVERSION - NO EXTRA PARAMETERS
+#         HTML(filename=temp_html).write_pdf(output_path)
         
-        # Clean up
-        if os.path.exists(temp_html):
-            os.unlink(temp_html)
-            print(f"🧹 Temp file cleaned: {temp_html}")
+#         # Clean up
+#         if os.path.exists(temp_html):
+#             os.unlink(temp_html)
+#             print(f"🧹 Temp file cleaned: {temp_html}")
         
-        print(f"✅ PDF GENERATED SUCCESSFULLY: {output_path}")
-        if os.path.exists(output_path):
-            print(f"📁 PDF size: {os.path.getsize(output_path)} bytes")
+#         print(f"✅ PDF GENERATED SUCCESSFULLY: {output_path}")
+#         if os.path.exists(output_path):
+#             print(f"📁 PDF size: {os.path.getsize(output_path)} bytes")
         
-        return True
+#         return True
         
-    except ImportError as e:
-        print(f"❌ WeasyPrint not installed: {e}")
-        traceback.print_exc()
-        return False
+#     except ImportError as e:
+#         print(f"❌ WeasyPrint not installed: {e}")
+#         traceback.print_exc()
+#         return False
         
-    except Exception as e:
-        print(f"❌ PDF generation error: {e}")
-        traceback.print_exc()
-        return False
+#     except Exception as e:
+#         print(f"❌ PDF generation error: {e}")
+#         traceback.print_exc()
+#         return False
 
 #test route
 @app.route('/test-pdf-generation')
@@ -779,32 +779,32 @@ def test_pdf_generation():
         return f"Error: {str(e)}<br><pre>{traceback.format_exc()}</pre>", 500
 
 ##local function
-# def html_to_pdf(html_content, output_path):
-#     # Path to the standalone WeasyPrint executable (for local Windows)
-#     weasyprint_path = os.path.join(app.root_path, 'weasyprint', 'weasyprint.exe')
+def html_to_pdf(html_content, output_path):
+    # Path to the standalone WeasyPrint executable (for local Windows)
+    weasyprint_path = os.path.join(app.root_path, 'weasyprint', 'weasyprint.exe')
     
-#     with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
-#         f.write(html_content)
-#         temp_html_path = f.name
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+        f.write(html_content)
+        temp_html_path = f.name
 
-#     try:
-#         result = subprocess.run(
-#             [weasyprint_path, temp_html_path, output_path],
-#             capture_output=True,
-#             text=True,
-#             timeout=30
-#         )
-#         if result.returncode == 0:
-#             return True
-#         else:
-#             print("WeasyPrint error:", result.stderr)
-#             return False
-#     except Exception as e:
-#         print("WeasyPrint exception:", e)
-#         return False
-#     finally:
-#         if os.path.exists(temp_html_path):
-#             os.unlink(temp_html_path)
+    try:
+        result = subprocess.run(
+            [weasyprint_path, temp_html_path, output_path],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode == 0:
+            return True
+        else:
+            print("WeasyPrint error:", result.stderr)
+            return False
+    except Exception as e:
+        print("WeasyPrint exception:", e)
+        return False
+    finally:
+        if os.path.exists(temp_html_path):
+            os.unlink(temp_html_path)
 
 @app.template_filter('humanize')
 def humanize_filter(value):
@@ -2479,14 +2479,22 @@ def admin_generate_document(emp_id, doc_type):
 
     employee = Employee.query.get_or_404(emp_id)
 
-    # Special handling for increment letter
+    # ------------------------------------------------------------------
+    # 1. INCREMENT LETTER
+    # ------------------------------------------------------------------
     if doc_type == 'increment_letter':
-        if request.method == 'POST':
-            # Get company_id from form – now it's an integer ID
+        if request.method == 'GET':
+            # Show the increment form
+            companies = Company.query.all()
+            return render_template('increment_form.html',
+                                   employee=employee,
+                                   companies=companies,
+                                   now=datetime.now)
+        else:  # POST
             company_id = request.form.get('company', type=int)
             if not company_id:
                 flash('Please select a company.', 'danger')
-                return render_template('increment_form.html', employee=employee, companies=Company.query.all(), now=datetime.now)
+                return redirect(url_for('admin_generate_document', emp_id=emp_id, doc_type=doc_type))
 
             company = Company.query.get(company_id)
             if not company:
@@ -2495,70 +2503,54 @@ def admin_generate_document(emp_id, doc_type):
 
             increment_amount = float(request.form.get('increment_amount', 0))
             effective_date = request.form.get('effective_date')
-            
-            # ========== CALCULATE DOCUMENT DATE (30 days before effective date) ==========
-            if effective_date:
-                try:
-                    effective_date_obj = datetime.strptime(effective_date, '%Y-%m-%d').date()
-                    # Calculate document date (30 days before effective date)
-                    document_date_obj = effective_date_obj - timedelta(days=7)
-                    document_date = document_date_obj.strftime('%d %B %Y')
-                    # Store both dates
-                    effective_date_formatted = effective_date_obj.strftime('%d %B %Y')
-                    effective_date_str = effective_date
-                except Exception as e:
-                    print(f"Date parsing error: {e}")
-                    effective_date_obj = datetime.now().date()
-                    document_date_obj = effective_date_obj - timedelta(days=7)
-                    document_date = document_date_obj.strftime('%d %B %Y')
-                    effective_date_formatted = effective_date_obj.strftime('%d %B %Y')
-                    effective_date_str = effective_date_obj.strftime('%Y-%m-%d')
-            else:
+
+            if increment_amount <= 0:
+                flash('Increment amount must be greater than zero.', 'danger')
+                return redirect(url_for('admin_generate_document', emp_id=emp_id, doc_type=doc_type))
+
+            # Parse effective date
+            try:
+                effective_date_obj = datetime.strptime(effective_date, '%Y-%m-%d').date()
+                document_date_obj = effective_date_obj - timedelta(days=7)
+                document_date = document_date_obj.strftime('%d %B %Y')
+                effective_date_formatted = effective_date_obj.strftime('%d %B %Y')
+            except Exception:
                 effective_date_obj = datetime.now().date()
                 document_date_obj = effective_date_obj - timedelta(days=7)
                 document_date = document_date_obj.strftime('%d %B %Y')
                 effective_date_formatted = effective_date_obj.strftime('%d %B %Y')
-                effective_date_str = effective_date_obj.strftime('%Y-%m-%d')
 
-            if increment_amount <= 0:
-                flash('Increment amount must be greater than zero.', 'danger')
-                return render_template('increment_form.html', employee=employee, companies=Company.query.all(), now=datetime.now)
-
+            # Store increment data in session
             session['pending_increment'] = {
                 'amount': increment_amount,
-                'effective_date': effective_date_str,
-                'effective_date_obj': effective_date_obj,
+                'effective_date': effective_date,
                 'effective_date_formatted': effective_date_formatted,
                 'document_date': document_date,
-                'document_date_obj': document_date_obj,
-                'employee_id': employee.id,
                 'old_ctc': employee.ctc
             }
 
-            # Salary breakdown calculations
-            ctc = float(employee.ctc)
-            monthly_ctc = round(ctc / 12)
-            monthly_ctc_after_increment = monthly_ctc + increment_amount
-
-            basic = round(monthly_ctc_after_increment * 0.5)
+            # Build form_data for the increment letter
+            monthly_ctc = round(employee.ctc / 12)
+            monthly_ctc_after = monthly_ctc + increment_amount
+            basic = round(monthly_ctc_after * 0.5)
             hra = round(basic * 0.5)
-            conveyance = round(monthly_ctc_after_increment * 0.05)
-            medical = round(monthly_ctc_after_increment * 0.014)
-            telephone = round(monthly_ctc_after_increment * 0.02)
-            special_allowance = monthly_ctc_after_increment - (basic + hra + conveyance + medical + telephone)
+            conveyance = round(monthly_ctc_after * 0.05)
+            medical = round(monthly_ctc_after * 0.014)
+            telephone = round(monthly_ctc_after * 0.02)
+            special_allowance = monthly_ctc_after - (basic + hra + conveyance + medical + telephone)
             professional_tax = 200
             gross_salary = basic + hra + conveyance + medical + telephone + special_allowance
             net_salary = gross_salary - professional_tax
 
             salary_breakdown = {
-                'basic': basic, 
-                'hra': hra, 
+                'basic': basic,
+                'hra': hra,
                 'conveyance': conveyance,
-                'medical': medical, 
+                'medical': medical,
                 'telephone': telephone,
-                'special_allowance': special_allowance, 
+                'special_allowance': special_allowance,
                 'professional_tax': professional_tax,
-                'gross_salary': gross_salary, 
+                'gross_salary': gross_salary,
                 'net_salary': net_salary,
                 'increment_per_month': increment_amount
             }
@@ -2572,14 +2564,12 @@ def admin_generate_document(emp_id, doc_type):
                 'aadhar_no': employee.aadhar_no,
                 'pan_no': employee.pan_no,
                 'designation': employee.designation,
-                'base_ctc': employee.base_ctc,
                 'ctc': employee.ctc,
                 'increment_per_month': increment_amount,
                 'salary_breakdown': salary_breakdown,
-                'increment_effective_date': effective_date_str,
+                'increment_effective_date': effective_date,
                 'increment_effective_date_formatted': effective_date_formatted,
                 'document_date': document_date,
-                'document_date_obj': document_date_obj,
                 'joining_date': employee.joining_date.strftime('%Y-%m-%d') if employee.joining_date else None,
                 'resignation_date': employee.resignation_date.strftime('%Y-%m-%d') if employee.resignation_date else None,
                 'bank_details': {
@@ -2593,10 +2583,9 @@ def admin_generate_document(emp_id, doc_type):
             session['form_data'] = form_data
             return redirect(url_for('preview'))
 
-        # GET request – show increment form with all companies
-        return render_template('increment_form.html', employee=employee, companies=Company.query.all(), now=datetime.now)
-
-    # ===== Resignation Acceptance =====
+    # ------------------------------------------------------------------
+    # 2. RESIGNATION ACCEPTANCE
+    # ------------------------------------------------------------------
     elif doc_type == 'resignation_acceptance':
         company_id = request.args.get('company', type=int)
         if not company_id:
@@ -2634,138 +2623,145 @@ def admin_generate_document(emp_id, doc_type):
         session['form_data'] = form_data
         return redirect(url_for('preview'))
 
-    # ===== Salary Slip =====
-    if doc_type == 'salary_slip' and request.method == 'POST':
-        company_id = request.form.get('company', type=int)
-        if not company_id:
-            flash('Please select a company.', 'danger')
-            return render_template('select_months.html', employee=employee, companies=Company.query.all())
+    # ------------------------------------------------------------------
+    # 3. EXPERIENCE / RELIEVING LETTER (Check resignation date)
+    # ------------------------------------------------------------------
+    elif doc_type in ['experience_letter', 'relieving_letter']:
+        # If resignation date is missing, show a form to capture it
+        if not employee.resignation_date:
+            if request.method == 'GET':
+                # Show the resignation date form
+                return render_template('resignation_input_form.html',
+                                       employee=employee,
+                                       doc_type=doc_type)
+            else:  # POST
+                resignation_date_str = request.form.get('resignation_date')
+                relieving_date_str = request.form.get('relieving_date')
+                if not resignation_date_str:
+                    flash('Resignation date is required.', 'danger')
+                    return redirect(url_for('admin_generate_document', emp_id=emp_id, doc_type=doc_type))
 
-        company = Company.query.get(company_id)
-        if not company:
-            flash('Company not found.', 'danger')
-            return redirect(url_for('view_employee', emp_id=employee.id))
+                resignation_date = datetime.strptime(resignation_date_str, '%Y-%m-%d').date()
+                employee.resignation_date = resignation_date
 
-        selected_months = request.form.getlist('months')
-        year = int(request.form.get('year', datetime.now().year))
+                if relieving_date_str:
+                    employee.relieving_date = datetime.strptime(relieving_date_str, '%Y-%m-%d').date()
+                else:
+                    # Default relieving date = resignation date + 30 days
+                    employee.relieving_date = resignation_date + timedelta(days=30)
 
-        # Collect per‑month values and store actual days in month
-        per_month_values = {}
-        month_days_values = {}
+                employee.resignation_datetime = datetime.now()
+                employee.status = 'resigned'
+                db.session.commit()
+                flash('Resignation details saved. You can now generate the document.', 'success')
+                # After saving, redirect to the same route (GET) to now show company selection
+                return redirect(url_for('admin_generate_document', emp_id=emp_id, doc_type=doc_type))
 
-        for month in selected_months:
-            month_key = month.lower()
-            
-            # Get the values from form
-            if f'worked_days_{month_key}' in request.form:
-                worked_days = int(request.form.get(f'worked_days_{month_key}'))
-                lop = int(request.form.get(f'lop_{month_key}'))
-                paid_days = int(request.form.get(f'paid_days_{month_key}'))
-            else:
-                worked_days = int(request.form.get('worked_days', 30))
-                lop = int(request.form.get('lop', 0))
-                paid_days = int(request.form.get('paid_days', 30))
-            
-            # Calculate actual days in this month
-            actual_days_in_month = get_days_in_month(month, year)
-            
-            per_month_values[month] = {
-                'worked': worked_days,
-                'lop': lop,
-                'paid': paid_days
-            }
-            
-            # Store actual days in month for this month
-            month_days_values[month] = actual_days_in_month
+        # If resignation date exists, proceed to company selection
+        return redirect(url_for('select_company_for_doc', emp_id=emp_id, doc_type=doc_type))
 
-        session['per_month_values'] = per_month_values
-        session['month_days_values'] = month_days_values
-
-        if not selected_months:
-            flash('Please select at least one month.', 'danger')
-            return render_template('select_months.html', employee=employee, companies=Company.query.all())
-
-        session['selected_months'] = selected_months
-        session['selected_year'] = year
-
-        # Use the first month's values for preview
-        first_month = selected_months[0]
-        first_month_values = per_month_values[first_month]
-        first_month_days = month_days_values[first_month]
-        
-        # Calculate salary components with CORRECT month_days
-        components = calculate_salary_components(
-            ctc=float(employee.ctc),
-            increment_per_month=0,
-            paid_days=first_month_values['paid'],
-            month_days=first_month_days
-        )
-        
-        # Generate amount in words
-        words = num2words(int(components['net_salary']), lang='en_IN').title() + ' Rupees'
-
-        form_data = {
-            'employee_id': employee.employee_id,
-            'company': company.id,
-            'document_type': doc_type,
-            'full_name': employee.full_name,
-            'address': employee.address,
-            'aadhar_no': employee.aadhar_no,
-            'pan_no': employee.pan_no,
-            'designation': employee.designation,
-            'gender': employee.gender,
-            'department': employee.department,
-            'base_ctc': employee.base_ctc,
-            'ctc': employee.ctc,
-            'increment_per_month': 0,
-            
-            # Earnings
-            'basic': components['basic'],
-            'hra': components['hra'],
-            'conveyance': components['conveyance'],
-            'medical': components['medical'],
-            'telephone': components['telephone'],
-            'special_allowance': components['special_allowance'],
-            'gross_earnings': components['gross_earnings'],
-            
-            # Deductions
-            'professional_tax': components['professional_tax'],
-            'pf_amount': components['pf_amount'],
-            'income_tax': components['income_tax'],
-            'gross_deductions': components['gross_deductions'],
-            
-            # Net
-            'net_salary': components['net_salary'],
-            'words': words,
-            
-            # Day details
-            'worked_days': first_month_values['worked'],
-            'lop': first_month_values['lop'],
-            'paid_days': first_month_values['paid'],
-            'month_days': first_month_days,
-            
-            # Dates
-            'joining_date': employee.joining_date.strftime('%Y-%m-%d') if employee.joining_date else None,
-            'resignation_date': employee.resignation_date.strftime('%Y-%m-%d') if employee.resignation_date else None,
-            
-            # Bank details
-            'bank_details': {
-                'account_holder': employee.account_holder,
-                'account_number': employee.account_number,
-                'bank_name': employee.bank_name,
-                'branch': employee.branch,
-                'ifsc_code': employee.ifsc_code
-            }
-        }
-        session['form_data'] = form_data
-        return redirect(url_for('preview'))
-
-    # GET request – show options for salary slip
+    # ------------------------------------------------------------------
+    # 4. SALARY SLIP
+    # ------------------------------------------------------------------
     if doc_type == 'salary_slip':
+        if request.method == 'POST':
+            company_id = request.form.get('company', type=int)
+            if not company_id:
+                flash('Please select a company.', 'danger')
+                return render_template('select_months.html', employee=employee, companies=Company.query.all())
+
+            company = Company.query.get(company_id)
+            if not company:
+                flash('Company not found.', 'danger')
+                return redirect(url_for('view_employee', emp_id=employee.id))
+
+            selected_months = request.form.getlist('months')
+            year = int(request.form.get('year', datetime.now().year))
+
+            per_month_values = {}
+            month_days_values = {}
+
+            for month in selected_months:
+                month_key = month.lower()
+                worked_days = int(request.form.get(f'worked_days_{month_key}', 30))
+                lop = int(request.form.get(f'lop_{month_key}', 0))
+                paid_days = int(request.form.get(f'paid_days_{month_key}', 30))
+                actual_days = get_days_in_month(month, year)
+
+                per_month_values[month] = {'worked': worked_days, 'lop': lop, 'paid': paid_days}
+                month_days_values[month] = actual_days
+
+            if not selected_months:
+                flash('Please select at least one month.', 'danger')
+                return render_template('select_months.html', employee=employee, companies=Company.query.all())
+
+            session['selected_months'] = selected_months
+            session['selected_year'] = year
+            session['per_month_values'] = per_month_values
+            session['month_days_values'] = month_days_values
+
+            # Build preview data using first month
+            first_month = selected_months[0]
+            pm = per_month_values[first_month]
+            month_days = month_days_values[first_month]
+
+            components = calculate_salary_components(
+                ctc=float(employee.ctc),
+                increment_per_month=0,
+                paid_days=pm['paid'],
+                month_days=month_days
+            )
+
+            words = num2words(int(components['net_salary']), lang='en_IN').title() + ' Rupees'
+
+            form_data = {
+                'employee_id': employee.employee_id,
+                'company': company.id,
+                'document_type': doc_type,
+                'full_name': employee.full_name,
+                'address': employee.address,
+                'aadhar_no': employee.aadhar_no,
+                'pan_no': employee.pan_no,
+                'designation': employee.designation,
+                'gender': employee.gender,
+                'department': employee.department,
+                'ctc': employee.ctc,
+                'basic': components['basic'],
+                'hra': components['hra'],
+                'conveyance': components['conveyance'],
+                'medical': components['medical'],
+                'telephone': components['telephone'],
+                'special_allowance': components['special_allowance'],
+                'gross_earnings': components['gross_earnings'],
+                'professional_tax': components['professional_tax'],
+                'pf_amount': components['pf_amount'],
+                'income_tax': components['income_tax'],
+                'gross_deductions': components['gross_deductions'],
+                'net_salary': components['net_salary'],
+                'words': words,
+                'worked_days': pm['worked'],
+                'lop': pm['lop'],
+                'paid_days': pm['paid'],
+                'month_days': month_days,
+                'joining_date': employee.joining_date.strftime('%Y-%m-%d') if employee.joining_date else None,
+                'resignation_date': employee.resignation_date.strftime('%Y-%m-%d') if employee.resignation_date else None,
+                'bank_details': {
+                    'account_holder': employee.account_holder,
+                    'account_number': employee.account_number,
+                    'bank_name': employee.bank_name,
+                    'branch': employee.branch,
+                    'ifsc_code': employee.ifsc_code
+                }
+            }
+            session['form_data'] = form_data
+            return redirect(url_for('preview'))
+
+        # GET request – show month selection form
         return render_template('select_months.html', employee=employee, companies=Company.query.all())
 
-    # ===== All other document types (offer letter, experience letter, etc.) =====
-    # Redirect to company selection page so the admin can choose a company
+    # ------------------------------------------------------------------
+    # 5. ALL OTHER DOCUMENT TYPES (offer_letter, etc.)
+    # ------------------------------------------------------------------
     return redirect(url_for('select_company_for_doc', emp_id=emp_id, doc_type=doc_type))
 
 # ========== INTERN DOCUMENT GENERATION ROUTES ==========
