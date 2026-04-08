@@ -627,120 +627,119 @@ def get_filter(dictionary, key, default=''):
     return default
 
 #production function
-# def embed_images_as_base64(html_content):
-#     """Convert only small images to base64, skip large ones"""
-#     static_folder = app.static_folder
-#     images_folder = os.path.join(static_folder, 'images')
-#     signatures_folder = os.path.join(images_folder, 'signatures')
+def embed_images_as_base64(html_content):
+    """Convert only small images to base64, skip large ones"""
+    static_folder = app.static_folder
+    images_folder = os.path.join(static_folder, 'images')
+    signatures_folder = os.path.join(images_folder, 'signatures')
     
-#     image_cache = {}
-#     MAX_IMAGE_SIZE = 500 * 1024  # 500KB - skip images larger than this
+    image_cache = {}
+    MAX_IMAGE_SIZE = 500 * 1024  # 500KB - skip images larger than this
     
-#     def replace_image(match):
-#         img_tag = match.group(0)
-#         src_match = re.search(r'src=["\']([^"\']+)["\']', img_tag)
-#         if not src_match:
-#             return img_tag
+    def replace_image(match):
+        img_tag = match.group(0)
+        src_match = re.search(r'src=["\']([^"\']+)["\']', img_tag)
+        if not src_match:
+            return img_tag
         
-#         src = src_match.group(1)
+        src = src_match.group(1)
         
-#         # Skip external URLs and data URIs
-#         if src.startswith('data:') or src.startswith('http://') or src.startswith('https://'):
-#             return img_tag
+        # Skip external URLs and data URIs
+        if src.startswith('data:') or src.startswith('http://') or src.startswith('https://'):
+            return img_tag
         
-#         if src in image_cache:
-#             return img_tag.replace(src, image_cache[src])
+        if src in image_cache:
+            return img_tag.replace(src, image_cache[src])
         
-#         abs_path = None
+        abs_path = None
         
-#         if src.startswith('/static/'):
-#             relative_path = src.replace('/static/', '')
-#             abs_path = os.path.join(static_folder, relative_path)
-#         elif 'signatures' in src:
-#             filename = src.split('signatures/')[-1]
-#             abs_path = os.path.join(signatures_folder, filename)
-#         elif 'images' in src:
-#             filename = src.split('images/')[-1]
-#             abs_path = os.path.join(images_folder, filename)
-#         else:
-#             return img_tag
+        if src.startswith('/static/'):
+            relative_path = src.replace('/static/', '')
+            abs_path = os.path.join(static_folder, relative_path)
+        elif 'signatures' in src:
+            filename = src.split('signatures/')[-1]
+            abs_path = os.path.join(signatures_folder, filename)
+        elif 'images' in src:
+            filename = src.split('images/')[-1]
+            abs_path = os.path.join(images_folder, filename)
+        else:
+            return img_tag
         
-#         if abs_path and os.path.exists(abs_path):
-#             # Check file size - skip if too large
-#             file_size = os.path.getsize(abs_path)
-#             if file_size > MAX_IMAGE_SIZE:
-#                 print(f"⚠️ Skipping large image ({file_size/1024:.1f}KB): {src}")
-#                 return img_tag
+        if abs_path and os.path.exists(abs_path):
+            # Check file size - skip if too large
+            file_size = os.path.getsize(abs_path)
+            if file_size > MAX_IMAGE_SIZE:
+                print(f"⚠️ Skipping large image ({file_size/1024:.1f}KB): {src}")
+                return img_tag
             
-#             try:
-#                 with open(abs_path, 'rb') as f:
-#                     image_data = base64.b64encode(f.read()).decode('utf-8')
+            try:
+                with open(abs_path, 'rb') as f:
+                    image_data = base64.b64encode(f.read()).decode('utf-8')
                 
-#                 ext = abs_path.split('.')[-1].lower()
-#                 if ext in ['jpg', 'jpeg']:
-#                     mime = 'image/jpeg'
-#                 elif ext == 'png':
-#                     mime = 'image/png'
-#                 else:
-#                     mime = f'image/{ext}'
+                ext = abs_path.split('.')[-1].lower()
+                if ext in ['jpg', 'jpeg']:
+                    mime = 'image/jpeg'
+                elif ext == 'png':
+                    mime = 'image/png'
+                else:
+                    mime = f'image/{ext}'
                 
-#                 new_src = f'data:{mime};base64,{image_data}'
-#                 image_cache[src] = new_src
-#                 print(f"✅ Embedded image: {src} ({file_size/1024:.1f}KB)")
-#                 return img_tag.replace(src, new_src)
-#             except Exception as e:
-#                 print(f"⚠️ Failed to embed {src}: {e}")
-#                 return img_tag
+                new_src = f'data:{mime};base64,{image_data}'
+                image_cache[src] = new_src
+                print(f"✅ Embedded image: {src} ({file_size/1024:.1f}KB)")
+                return img_tag.replace(src, new_src)
+            except Exception as e:
+                print(f"⚠️ Failed to embed {src}: {e}")
+                return img_tag
         
-#         return img_tag
+        return img_tag
     
-#     html_content = re.sub(r'<img[^>]+>', replace_image, html_content)
-#     return html_content
+    html_content = re.sub(r'<img[^>]+>', replace_image, html_content)
+    return html_content
 
-# import traceback
-# def html_to_pdf(html_content, output_path):
-#     """Convert HTML to PDF with detailed logging"""
-#     print("="*60)
-#     print("🔴 HTML_TO_PDF CALLED")
-#     print(f"📁 Output path: {output_path}")
-#     print(f"📄 HTML length: {len(html_content)}")
-#     print("="*60)
+def html_to_pdf(html_content, output_path):
+    """Convert HTML to PDF with detailed logging"""
+    print("="*60)
+    print("🔴 HTML_TO_PDF CALLED")
+    print(f"📁 Output path: {output_path}")
+    print(f"📄 HTML length: {len(html_content)}")
+    print("="*60)
     
-#     try:
-#         from weasyprint import HTML
-#         import tempfile
-#         import os
+    try:
+        from weasyprint import HTML
+        import tempfile
+        import os
         
-#         # Create temp HTML file
-#         with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
-#             f.write(html_content)
-#             temp_html = f.name
+        # Create temp HTML file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+            f.write(html_content)
+            temp_html = f.name
         
-#         print(f"📄 Temp HTML created: {temp_html}")
+        print(f"📄 Temp HTML created: {temp_html}")
         
-#         # SIMPLE CONVERSION - NO EXTRA PARAMETERS
-#         HTML(filename=temp_html).write_pdf(output_path)
+        # SIMPLE CONVERSION - NO EXTRA PARAMETERS
+        HTML(filename=temp_html).write_pdf(output_path)
         
-#         # Clean up
-#         if os.path.exists(temp_html):
-#             os.unlink(temp_html)
-#             print(f"🧹 Temp file cleaned: {temp_html}")
+        # Clean up
+        if os.path.exists(temp_html):
+            os.unlink(temp_html)
+            print(f"🧹 Temp file cleaned: {temp_html}")
         
-#         print(f"✅ PDF GENERATED SUCCESSFULLY: {output_path}")
-#         if os.path.exists(output_path):
-#             print(f"📁 PDF size: {os.path.getsize(output_path)} bytes")
+        print(f"✅ PDF GENERATED SUCCESSFULLY: {output_path}")
+        if os.path.exists(output_path):
+            print(f"📁 PDF size: {os.path.getsize(output_path)} bytes")
         
-#         return True
+        return True
         
-#     except ImportError as e:
-#         print(f"❌ WeasyPrint not installed: {e}")
-#         traceback.print_exc()
-#         return False
+    except ImportError as e:
+        print(f"❌ WeasyPrint not installed: {e}")
+        traceback.print_exc()
+        return False
         
-#     except Exception as e:
-#         print(f"❌ PDF generation error: {e}")
-#         traceback.print_exc()
-#         return False
+    except Exception as e:
+        print(f"❌ PDF generation error: {e}")
+        traceback.print_exc()
+        return False
 
 #test route
 @app.route('/test-pdf-generation')
@@ -779,32 +778,32 @@ def test_pdf_generation():
         return f"Error: {str(e)}<br><pre>{traceback.format_exc()}</pre>", 500
 
 ##local function
-def html_to_pdf(html_content, output_path):
-    # Path to the standalone WeasyPrint executable (for local Windows)
-    weasyprint_path = os.path.join(app.root_path, 'weasyprint', 'weasyprint.exe')
+# def html_to_pdf(html_content, output_path):
+#     # Path to the standalone WeasyPrint executable (for local Windows)
+#     weasyprint_path = os.path.join(app.root_path, 'weasyprint', 'weasyprint.exe')
     
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
-        f.write(html_content)
-        temp_html_path = f.name
+#     with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+#         f.write(html_content)
+#         temp_html_path = f.name
 
-    try:
-        result = subprocess.run(
-            [weasyprint_path, temp_html_path, output_path],
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-        if result.returncode == 0:
-            return True
-        else:
-            print("WeasyPrint error:", result.stderr)
-            return False
-    except Exception as e:
-        print("WeasyPrint exception:", e)
-        return False
-    finally:
-        if os.path.exists(temp_html_path):
-            os.unlink(temp_html_path)
+#     try:
+#         result = subprocess.run(
+#             [weasyprint_path, temp_html_path, output_path],
+#             capture_output=True,
+#             text=True,
+#             timeout=30
+#         )
+#         if result.returncode == 0:
+#             return True
+#         else:
+#             print("WeasyPrint error:", result.stderr)
+#             return False
+#     except Exception as e:
+#         print("WeasyPrint exception:", e)
+#         return False
+#     finally:
+#         if os.path.exists(temp_html_path):
+#             os.unlink(temp_html_path)
 
 @app.template_filter('humanize')
 def humanize_filter(value):
