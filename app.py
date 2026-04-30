@@ -2623,42 +2623,24 @@ def admin_generate_document(emp_id, doc_type):
         return redirect(url_for('preview'))
 
     # ------------------------------------------------------------------
-    # 3. EXPERIENCE / RELIEVING LETTER (Check resignation date)
+    # 3. EXPERIENCE / RELIEVING LETTER (UPDATED)
     # ------------------------------------------------------------------
     elif doc_type in ['experience_letter', 'relieving_letter']:
-        # If resignation date is missing, show a form to capture it
-        if not employee.resignation_date:
-            if request.method == 'GET':
-                # Show the resignation date form
-                return render_template('resignation_input_form.html',
-                                       employee=employee,
-                                       doc_type=doc_type)
-            else:  # POST
-                resignation_date_str = request.form.get('resignation_date')
-                relieving_date_str = request.form.get('relieving_date')
-                if not resignation_date_str:
-                    flash('Resignation date is required.', 'danger')
-                    return redirect(url_for('admin_generate_document', emp_id=emp_id, doc_type=doc_type))
-
-                resignation_date = datetime.strptime(resignation_date_str, '%Y-%m-%d').date()
-                employee.resignation_date = resignation_date
-
-                if relieving_date_str:
-                    employee.relieving_date = datetime.strptime(relieving_date_str, '%Y-%m-%d').date()
-                else:
-                    # Default relieving date = resignation date + 30 days
-                    employee.relieving_date = resignation_date + timedelta(days=30)
-
-                employee.resignation_datetime = datetime.now()
-                employee.status = 'resigned'
-                db.session.commit()
-                flash('Resignation details saved. You can now generate the document.', 'success')
-                # After saving, redirect to the same route (GET) to now show company selection
-                return redirect(url_for('admin_generate_document', emp_id=emp_id, doc_type=doc_type))
-
-        # If resignation date exists, proceed to company selection
+        # If resignation date already exists, go to company selection
+        if employee.resignation_date:
+            return redirect(url_for('select_company_for_doc', emp_id=emp_id, doc_type=doc_type))
+        
+        # Otherwise, show the form to capture resignation details
+        # (This will be a GET request from the browser)
+        if request.method == 'GET':
+            companies = Company.query.all()
+            return render_template('resignation_input_form.html',
+                                employee=employee,
+                                companies=companies,
+                                doc_type=doc_type)
+        
+        # If POST (should not reach here because form submits to save_resignation_details)
         return redirect(url_for('select_company_for_doc', emp_id=emp_id, doc_type=doc_type))
-
     # ------------------------------------------------------------------
     # 4. SALARY SLIP
     # ------------------------------------------------------------------
@@ -3434,6 +3416,8 @@ def save_resignation_details(emp_id):
         return redirect(url_for('view_employee', emp_id=emp_id))
 
     resignation_date_str = request.form.get('resignation_date')
+    relieving_date_str = request.form.get('relieving_date')  # Get from form
+
     if not resignation_date_str:
         flash('Resignation date is required.', 'danger')
         return redirect(url_for('view_employee', emp_id=emp_id))
@@ -3445,15 +3429,24 @@ def save_resignation_details(emp_id):
         resignation_date = datetime.strptime(resignation_date_str, '%Y-%m-%d').date()
         employee.resignation_date = resignation_date
 
+        # Calculate acceptance date (3 days after resignation)
         acceptance_date = resignation_date + timedelta(days=3)
         employee.resignation_acceptance_date = acceptance_date
 
-        relieving_date = acceptance_date + timedelta(days=15)
+        # USE RELIEVING DATE FROM FORM if provided, otherwise calculate
+        if relieving_date_str and relieving_date_str.strip():
+            relieving_date = datetime.strptime(relieving_date_str, '%Y-%m-%d').date()
+            print(f"✅ Using relieving date from form: {relieving_date}")
+        else:
+            # Calculate relieving date (15 days after acceptance date) as fallback
+            relieving_date = acceptance_date + timedelta(days=15)
+            print(f"⚠️ No relieving date provided, calculated: {relieving_date}")
+        
         employee.relieving_date = relieving_date
 
         employee.status = 'resigned'
 
-        # Resignation email sent 3 days before
+        # Resignation email sent 3 days before resignation date
         email_sent_date = resignation_date - timedelta(days=3)
         resignation_datetime = datetime.combine(email_sent_date, datetime.min.time())
         resignation_datetime = resignation_datetime.replace(hour=10, minute=0)
@@ -3463,7 +3456,7 @@ def save_resignation_details(emp_id):
         employee.company_id = company.id
 
         # =========================
-        # EMAIL GENERATION (FIXED)
+        # EMAIL GENERATION
         # =========================
         company_domain = get_company_domain(company)
 
@@ -3512,12 +3505,14 @@ Thanks and Regards,
         # =========================
         # DEBUG (optional but useful)
         # =========================
-        print("\n====== DEBUG EMAIL GENERATION ======")
-        print("Full Name:", employee.full_name)
-        print("Company Domain:", company_domain)
-        print("Generated Company Email:", company_email)
-        print("Personal Email:", personal_email)
-        print("Final Signature Email:", email_for_signature)
+        print("\n====== DEBUG RESIGNATION SAVE ======")
+        print(f"Full Name: {employee.full_name}")
+        print(f"Resignation Date: {resignation_date}")
+        print(f"Acceptance Date: {acceptance_date}")
+        print(f"Relieving Date (from form): {relieving_date_str or 'Not provided'}")
+        print(f"Relieving Date (saved): {relieving_date}")
+        print(f"Company Domain: {company_domain}")
+        print(f"Generated Company Email: {company_email}")
         print("===================================\n")
 
         db.session.commit()
@@ -3527,6 +3522,13 @@ Thanks and Regards,
             session.pop('form_data')
 
         flash('Resignation details saved successfully.', 'success')
+        
+        # Get the doc_type from the request args (if coming from experience/relieving letter generation)
+        doc_type = request.args.get('doc_type', '')
+        if doc_type:
+            return redirect(url_for('admin_generate_document', emp_id=emp_id, doc_type=doc_type))
+        else:
+            return redirect(url_for('view_employee', emp_id=emp_id))
 
     except Exception as e:
         db.session.rollback()

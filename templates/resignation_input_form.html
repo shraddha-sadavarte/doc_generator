@@ -9,8 +9,8 @@
                 </div>
                 <div class="card-body">
                     <p>This employee does not have a resignation date on record. Please enter the details to proceed.</p>
-                    <!-- FIX: Submit to save_resignation_details route -->
-                    <form method="POST" action="{{ url_for('save_resignation_details', emp_id=employee.id) }}">
+                    <!-- Submit to EXISTING save_resignation_details route with doc_type in URL -->
+                    <form method="POST" action="{{ url_for('save_resignation_details', emp_id=employee.id) }}?doc_type={{ doc_type }}">
                         <div class="mb-3">
                             <label class="form-label">Resignation Date *</label>
                             <input type="date" name="resignation_date" class="form-control" required>
