@@ -9,15 +9,25 @@
                 </div>
                 <div class="card-body">
                     <p>This employee does not have a resignation date on record. Please enter the details to proceed.</p>
-                    <form method="POST">
+                    <!-- FIX: Submit to save_resignation_details route -->
+                    <form method="POST" action="{{ url_for('save_resignation_details', emp_id=employee.id) }}">
                         <div class="mb-3">
                             <label class="form-label">Resignation Date *</label>
                             <input type="date" name="resignation_date" class="form-control" required>
                         </div>
                         <div class="mb-3">
+                            <label class="form-label">Company *</label>
+                            <select name="company_id" class="form-select" required>
+                                <option value="">-- Select Company --</option>
+                                {% for company in companies %}
+                                <option value="{{ company.id }}">{{ company.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
                             <label class="form-label">Relieving Date (optional)</label>
                             <input type="date" name="relieving_date" class="form-control">
-                            <small class="text-muted">If not provided, will be 30 days after resignation.</small>
+                            <small class="text-muted">If not provided, will be calculated automatically.</small>
                         </div>
                         <button type="submit" class="btn btn-primary">Save & Continue</button>
                         <a href="{{ url_for('admin_dashboard', tab='document_generator', member_id=employee.id, member_type='employee') }}" class="btn btn-secondary">Cancel</a>

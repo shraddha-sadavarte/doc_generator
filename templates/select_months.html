@@ -34,7 +34,7 @@
                             <label class="form-label fw-bold">Year</label>
                             <select class="form-select" name="year" id="year-select" required>
                                 {% set current_year = now.year %}
-                                {% for year in range(current_year - 1, current_year + 2) %}
+                                {% for year in range(2021, current_year + 3) %}
                                 <option value="{{ year }}" {% if year == current_year %}selected{% endif %}>{{ year }}</option>
                                 {% endfor %}
                             </select>

@@ -777,7 +777,7 @@ def test_pdf_generation():
         import traceback
         return f"Error: {str(e)}<br><pre>{traceback.format_exc()}</pre>", 500
 
-##local function
+#local function
 # def html_to_pdf(html_content, output_path):
 #     # Path to the standalone WeasyPrint executable (for local Windows)
 #     weasyprint_path = os.path.join(app.root_path, 'weasyprint', 'weasyprint.exe')
@@ -4811,5 +4811,7 @@ if __name__ == '__main__':
             import traceback
             traceback.print_exc()
     
-    # Run the app
-    app.run(debug=True)
+    # Run the app on production
+    app.run(host='0.0.0.0', port=5000, debug=False)
+
+    
