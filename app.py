@@ -475,6 +475,64 @@ def convert_dates(form_data):
                 form_data[field] = None
     return form_data
 
+def apply_letter_dates(form_data):
+    """Fill relieving_date, top_date, certificate_issue_date and
+    formatted_resignation_date on form_data (in place).
+
+    Used by BOTH preview() and generate() so the downloaded PDF always
+    shows the same dates as the preview."""
+    # --- Relieving date: form value > employee record > resignation + 30 days ---
+    relieving_date_raw = form_data.get('relieving_date')
+
+    if relieving_date_raw and isinstance(relieving_date_raw, str):
+        try:
+            form_data['relieving_date'] = datetime.strptime(relieving_date_raw, '%Y-%m-%d').date()
+        except ValueError:
+            try:
+                form_data['relieving_date'] = datetime.strptime(relieving_date_raw, '%d/%m/%Y').date()
+            except ValueError:
+                try:
+                    form_data['relieving_date'] = datetime.strptime(relieving_date_raw, '%d %B %Y').date()
+                except ValueError:
+                    form_data['relieving_date'] = None
+    elif relieving_date_raw and isinstance(relieving_date_raw, datetime):
+        form_data['relieving_date'] = relieving_date_raw.date()
+    elif relieving_date_raw and isinstance(relieving_date_raw, date):
+        form_data['relieving_date'] = relieving_date_raw
+
+    emp = Employee.query.filter_by(employee_id=form_data.get('employee_id')).first()
+
+    if not form_data.get('relieving_date'):
+        if emp and emp.relieving_date:
+            form_data['relieving_date'] = emp.relieving_date
+        elif form_data.get('resignation_date'):
+            res_date = form_data['resignation_date']
+            if isinstance(res_date, str):
+                res_date = datetime.strptime(res_date, '%Y-%m-%d').date()
+            elif isinstance(res_date, datetime):
+                res_date = res_date.date()
+            form_data['relieving_date'] = res_date + timedelta(days=30)
+
+    base_relieving = form_data.get('relieving_date')
+
+    # --- Relieving letter top date: day after relieving ---
+    if base_relieving and isinstance(base_relieving, (date, datetime)):
+        form_data['top_date'] = base_relieving + timedelta(days=1)
+    else:
+        form_data['top_date'] = datetime.now().date()
+
+    # --- Experience certificate date: relieving + 15 days, moved off weekends ---
+    base_date = base_relieving if isinstance(base_relieving, (date, datetime)) else datetime.now().date()
+    target_date = base_date + timedelta(days=15)
+    if target_date.weekday() == 5:
+        target_date += timedelta(days=2)
+    elif target_date.weekday() == 6:
+        target_date += timedelta(days=1)
+    form_data['certificate_issue_date'] = target_date
+
+    form_data['formatted_resignation_date'] = format_date(emp.resignation_date) if emp else None
+    return form_data
+
 def get_watermark_logo(company_id):
     """Get watermark logo filename for a company"""
     company = Company.query.get(company_id)
@@ -723,8 +781,9 @@ def html_to_pdf(html_content, output_path):
         
         print(f"📄 Temp HTML created: {temp_html}")
         
-        # SIMPLE CONVERSION - NO EXTRA PARAMETERS
-        HTML(filename=temp_html).write_pdf(output_path)
+        # The temp file is UTF-8 but templates have no <meta charset>, so tell
+        # WeasyPrint explicitly — otherwise "–" and "₹" render as "â€“" / "â‚¹"
+        HTML(filename=temp_html, encoding='utf-8').write_pdf(output_path)
         
         # Clean up
         if os.path.exists(temp_html):
@@ -1183,74 +1242,8 @@ def preview():
     form_data['monthly_ctc_after_increment'] = round((ctc / 12) + increment_per_month)
     form_data['formatted_joining_date'] = format_date(form_data.get('joining_date'))
 
-    # --- RELIEVING DATE AND CERTIFICATE DATE LOGIC ---
-    relieving_date_raw = form_data.get('relieving_date')
-    
-    if relieving_date_raw and isinstance(relieving_date_raw, str):
-        try:
-            form_data['relieving_date'] = datetime.strptime(relieving_date_raw, '%Y-%m-%d').date()
-        except ValueError:
-            try:
-                form_data['relieving_date'] = datetime.strptime(relieving_date_raw, '%d/%m/%Y').date()
-            except ValueError:
-                form_data['relieving_date'] = None
-    elif relieving_date_raw and isinstance(relieving_date_raw, datetime):
-        form_data['relieving_date'] = relieving_date_raw.date()
-    elif relieving_date_raw and isinstance(relieving_date_raw, date):
-        form_data['relieving_date'] = relieving_date_raw
-
-    if not form_data.get('relieving_date'):
-        emp = Employee.query.filter_by(employee_id=form_data.get('employee_id')).first()
-        if emp and emp.relieving_date:
-            form_data['relieving_date'] = emp.relieving_date
-        elif form_data.get('resignation_date'):
-            res_date = form_data['resignation_date']
-            if isinstance(res_date, str):
-                res_date = datetime.strptime(res_date, '%Y-%m-%d').date()
-            elif isinstance(res_date, datetime):
-                res_date = res_date.date()
-            form_data['relieving_date'] = res_date + timedelta(days=30)
-
-    base_relieving = form_data.get('relieving_date')
-    
-    if base_relieving and isinstance(base_relieving, (date, datetime)):
-        form_data['top_date'] = base_relieving + timedelta(days=1)
-    elif base_relieving and isinstance(base_relieving, str):
-        try:
-            base_relieving_date = datetime.strptime(base_relieving, '%Y-%m-%d').date()
-            form_data['top_date'] = base_relieving_date + timedelta(days=1)
-        except ValueError:
-            form_data['top_date'] = datetime.now().date()
-    else:
-        form_data['top_date'] = datetime.now().date()
-
-    base_date_for_cert = form_data.get('relieving_date')
-    
-    if base_date_for_cert and isinstance(base_date_for_cert, (date, datetime)):
-        base_date = base_date_for_cert
-    elif base_date_for_cert and isinstance(base_date_for_cert, str):
-        try:
-            base_date = datetime.strptime(base_date_for_cert, '%Y-%m-%d').date()
-        except ValueError:
-            base_date = datetime.now().date()
-    else:
-        base_date = datetime.now().date()
-    
-    target_date = base_date + timedelta(days=15)
-    if target_date.weekday() == 5:
-        target_date += timedelta(days=2)
-    elif target_date.weekday() == 6:
-        target_date += timedelta(days=1)
-    
-    form_data['certificate_issue_date'] = target_date
-
-    emp = Employee.query.filter_by(employee_id=form_data.get('employee_id')).first()
-    if emp:
-        form_data['formatted_resignation_date'] = format_date(emp.resignation_date)
-        if not form_data.get('relieving_date'):
-            form_data['relieving_date'] = emp.relieving_date
-    else:
-        form_data['formatted_resignation_date'] = None
+    # Relieving / top / certificate dates — shared with generate() so PDFs match
+    apply_letter_dates(form_data)
 
     month_label = []
     if form_data.get('document_type') in ['salary_slip', 'offer_and_salary'] and selected_months:
@@ -1687,17 +1680,23 @@ def generate():
         }
         
         # Generate HTML
-        html_content = render_template('resignation_acceptance.html', data=data)
-        
+        html_content = render_template(
+            'resignation_acceptance.html',
+            data=data,
+            company=company,
+            watermark_logo=company.logo,
+            now=datetime.now()
+        )
+
         # Create PDF filename
         filename = f"Resignation_Acceptance_{employee.employee_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        
+
         # Convert to PDF
         if not html_to_pdf(html_content, file_path):
             flash('Failed to generate PDF document', 'danger')
             return redirect(url_for('view_employee', emp_id=employee.id))
-        
+
         # Save document record
         document = Document(
             employee_id=employee.id,
@@ -1710,7 +1709,7 @@ def generate():
             generated_at=datetime.now()
         )
         db.session.add(document)
-        
+
         # Upload to Drive if requested
         if upload_to_drive_flag:
             try:
@@ -1719,13 +1718,13 @@ def generate():
                     document.drive_file_id = drive_file_id
             except Exception as e:
                 print(f"Drive upload failed: {e}")
-        
+
         db.session.commit()
-        
+
         # Clear session data
         session.pop('form_data', None)
         session.pop('selected_months', None)
-        
+
         flash(f'✅ Resignation acceptance letter generated successfully for {employee.full_name}!', 'success')
         return redirect(url_for('admin_dashboard'))
     
@@ -1824,8 +1823,14 @@ def generate():
         
         # Generate HTML
         try:
-            html_content = render_template(f'documents/{doc_type}.html', data=data, company=company)
-            
+            html_content = render_template(
+                f'documents/{doc_type}.html',
+                data=data,
+                company=company,
+                watermark_logo=company.logo,
+                now=datetime.now()
+            )
+
             # Create PDF filename
             filename = f"{doc_type}_{intern.intern_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -2023,7 +2028,8 @@ def generate():
                 now=datetime.now()
             )
 
-            filename = f"Salary_Slip_{month}_{datetime.now().strftime('%Y%m%d')}.pdf"
+            # Include employee id + time so slips of different employees never overwrite each other
+            filename = f"Salary_Slip_{employee.employee_id}_{month}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
 
             #always save local file first
             local_file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -2111,7 +2117,31 @@ def generate():
         'gross_deductions': components['gross_deductions'],
         'net_salary': components['net_salary'],
         'words': num2words(int(components['net_salary']), lang='en_IN').title() + ' Rupees',
+        # Templates (e.g. increment_letter) read salary figures from here, same as preview
+        'salary_breakdown': {
+            'basic': components['basic'],
+            'hra': components['hra'],
+            'conveyance': components['conveyance'],
+            'medical': components['medical'],
+            'telephone': components['telephone'],
+            'special_allowance': components['special_allowance'],
+            'professional_tax': components['professional_tax'],
+            'pf_amount': components['pf_amount'],
+            'income_tax': components['income_tax'],
+            'gross_salary': components['gross_earnings'],
+            'gross_deductions': components['gross_deductions'],
+            'net_salary': components['net_salary'],
+            'increment_per_month': increment_per_month
+        },
+        'monthly_ctc_after_increment': round((ctc / 12) + increment_per_month),
+        'increment_effective_date': form_data.get('increment_effective_date'),
         'joining_date': form_data.get('joining_date'),
+        # Offer letter date: 8 working days before joining (same as preview)
+        'date_before': (
+            get_previous_workday(form_data['joining_date'], 8)
+            if form_data.get('joining_date') and hasattr(form_data['joining_date'], 'weekday')
+            else None
+        ),
         'resignation_date': form_data.get('resignation_date'),
         'bank_details': form_data.get('bank_details', {}),
         'worked_days': 30,
@@ -2122,10 +2152,10 @@ def generate():
         'increment_effective_date_formatted': form_data.get('increment_effective_date_formatted')
     }
 
-    emp = Employee.query.filter_by(employee_id=form_data.get('employee_id')).first()
-    if emp:
-        clean_form_data['formatted_resignation_date'] = format_date(emp.resignation_date)
-        clean_form_data['relieving_date'] = format_date(emp.relieving_date)
+    clean_form_data['formatted_joining_date'] = format_date(form_data.get('joining_date'))
+    # Same relieving / top / certificate dates as preview()
+    clean_form_data['relieving_date'] = form_data.get('relieving_date')
+    apply_letter_dates(clean_form_data)
 
     html = render_template(
         f"documents/{doc_type}.html",
